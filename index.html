@@ -645,6 +645,15 @@ document.getElementById('overlay').addEventListener('click', e => {
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closeForm(); });
 
 render();
+
+// เปิดฟอร์ม "เพิ่มการ์ด" อัตโนมัติ ถ้า URL ลงท้ายด้วย #add หรือ ?add
+function maybeOpenAdd() {
+  const h = location.hash.toLowerCase();
+  const p = new URLSearchParams(location.search);
+  if (h === '#add' || p.has('add')) openForm();
+}
+maybeOpenAdd();
+window.addEventListener('hashchange', maybeOpenAdd);
 </script>
 </body>
 </html>
