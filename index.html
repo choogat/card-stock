@@ -89,6 +89,10 @@
   .lightbox img { max-width: 90vw; max-height: 90vh; border-radius: 12px; }
   td.muted { color: var(--muted); }
   .num { font-variant-numeric: tabular-nums; }
+  .profit-pos { color: var(--green); font-weight: 600; }
+  .profit-neg { color: var(--danger); font-weight: 600; }
+  .dates { font-size: .74rem; color: var(--muted); margin-top: 3px; }
+  .dates .d { white-space: nowrap; }
 
   .badge { display: inline-block; padding: 4px 11px; border-radius: 999px; font-size: .78rem; font-weight: 600; }
   .badge.show { background: rgba(79,140,255,.18); color: #7fa9ff; }
@@ -161,13 +165,32 @@
 
   <div class="toolbar">
     <button class="btn btn-primary" onclick="openForm()">+ เพิ่มการ์ด</button>
-    <input class="search" id="search" placeholder="ค้นหา ชื่อ / รุ่น / PSA..." oninput="render()">
+    <input class="search" id="search" placeholder="ค้นหา เรื่อง / ชื่อ / รุ่น / PSA..." oninput="render()">
+    <select class="filter" id="topicFilter" onchange="render()">
+      <option value="">ทุกเรื่อง</option>
+    </select>
     <select class="filter" id="statusFilter" onchange="render()">
       <option value="">ทุกสถานะ</option>
       <option value="show">โชว์</option>
       <option value="wait">รอขาย</option>
       <option value="sold">ขายแล้ว</option>
     </select>
+    <select class="filter" id="sortBy" onchange="render()">
+      <option value="newest">ใหม่สุดก่อน</option>
+      <option value="oldest">เก่าสุดก่อน</option>
+      <option value="name">ชื่อ A→Z</option>
+      <option value="median_desc">ราคากลาง มาก→น้อย</option>
+      <option value="median_asc">ราคากลาง น้อย→มาก</option>
+      <option value="profit_desc">กำไร มาก→น้อย</option>
+      <option value="buyDate_desc">วันที่ซื้อ ล่าสุด</option>
+    </select>
+  </div>
+
+  <div class="toolbar">
+    <button class="btn btn-ghost" onclick="exportJSON()">⬇️ สำรองข้อมูล (JSON)</button>
+    <button class="btn btn-ghost" onclick="exportCSV()">📊 ออกเป็น Excel/CSV</button>
+    <input type="file" id="importFile" accept="application/json,.json" style="display:none" onchange="importJSON(event)">
+    <button class="btn btn-ghost" onclick="document.getElementById('importFile').click()">⬆️ นำเข้าข้อมูล (JSON)</button>
   </div>
 
   <div id="tableArea"></div>
@@ -224,6 +247,16 @@
           <option value="wait">รอขาย</option>
           <option value="sold">ขายแล้ว</option>
         </select>
+      </div>
+    </div>
+    <div class="grid2">
+      <div class="field">
+        <label>วันที่ซื้อ</label>
+        <input id="f_buyDate" type="date">
+      </div>
+      <div class="field">
+        <label>วันที่ขาย</label>
+        <input id="f_sellDate" type="date">
       </div>
     </div>
     <div class="field">
@@ -289,28 +322,63 @@ function updateStats() {
   const nWait = cards.filter(c => c.status === 'wait').length;
   const nSold = cards.filter(c => c.status === 'sold').length;
 
+  // กำไรที่ทำได้จริง = เฉพาะใบที่ขายแล้ว (ราคาขาย − ราคารับซื้อ)
+  const realized = cards.filter(c => c.status === 'sold')
+    .reduce((s, c) => s + ((Number(c.sell) || 0) - (Number(c.buy) || 0)), 0);
+
   document.getElementById('statCount').textContent = count.toLocaleString('th-TH');
   document.getElementById('statBreak').textContent = `โชว์ ${nShow} · รอขาย ${nWait} · ขายแล้ว ${nSold}`;
   document.getElementById('statMedian').textContent = money(totalMedian);
   document.getElementById('statBuy').textContent = money(totalBuy);
-  document.getElementById('statProfit').textContent = 'กำไรคาดการณ์ ' + money(totalSell - totalBuy);
+  const profitEl = document.getElementById('statProfit');
+  profitEl.textContent = 'กำไรที่ขายได้จริง ' + money(realized);
+  profitEl.className = 'sub ' + (realized > 0 ? 'profit-pos' : realized < 0 ? 'profit-neg' : '');
+}
+
+// กำไรต่อใบ (ราคาขาย − ราคารับซื้อ)
+function cardProfit(c) { return (Number(c.sell) || 0) - (Number(c.buy) || 0); }
+function fmtDate(d) { return d ? d.split('-').reverse().join('/') : ''; }
+
+// เติมตัวเลือก "เรื่อง" ในตัวกรองจากข้อมูลที่มี
+function refreshTopicFilter() {
+  const sel = document.getElementById('topicFilter');
+  const cur = sel.value;
+  const topics = [...new Set(cards.map(c => c.topic).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'th'));
+  sel.innerHTML = '<option value="">ทุกเรื่อง</option>' +
+    topics.map(t => `<option value="${esc(t)}">${esc(t)}</option>`).join('');
+  if (topics.includes(cur)) sel.value = cur;
 }
 
 // ---- Render table ----
 function render() {
   updateStats();
+  refreshTopicFilter();
   const q = document.getElementById('search').value.trim().toLowerCase();
   const sf = document.getElementById('statusFilter').value;
+  const tf = document.getElementById('topicFilter').value;
+  const sortBy = document.getElementById('sortBy').value;
   const area = document.getElementById('tableArea');
 
-  let list = cards.slice().reverse();
+  let list = cards.map((c, i) => ({ ...c, _i: i }));
   if (sf) list = list.filter(c => c.status === sf);
+  if (tf) list = list.filter(c => (c.topic || '') === tf);
   if (q) list = list.filter(c =>
     (c.topic || '').toLowerCase().includes(q) ||
     (c.name || '').toLowerCase().includes(q) ||
     (c.set || '').toLowerCase().includes(q) ||
     (c.psa || '').toLowerCase().includes(q)
   );
+
+  const sorters = {
+    newest: (a, b) => b._i - a._i,
+    oldest: (a, b) => a._i - b._i,
+    name: (a, b) => (a.name || '').localeCompare(b.name || '', 'th'),
+    median_desc: (a, b) => (Number(b.median) || 0) - (Number(a.median) || 0),
+    median_asc: (a, b) => (Number(a.median) || 0) - (Number(b.median) || 0),
+    profit_desc: (a, b) => cardProfit(b) - cardProfit(a),
+    buyDate_desc: (a, b) => (b.buyDate || '').localeCompare(a.buyDate || ''),
+  };
+  list.sort(sorters[sortBy] || sorters.newest);
 
   if (list.length === 0) {
     area.innerHTML = `<div class="empty"><div class="big">📭</div>
@@ -323,14 +391,20 @@ function render() {
     const img = c.image
       ? `<img class="thumb" src="${c.image}" onclick="openLightbox('${c.id}')" alt="">`
       : `<div class="thumb-empty">🃏</div>`;
+    const p = cardProfit(c);
+    const profitCell = `<span class="${p > 0 ? 'profit-pos' : p < 0 ? 'profit-neg' : 'muted'}">${p > 0 ? '+' : ''}${money(p)}</span>`;
+    const dates = (c.buyDate || c.sellDate)
+      ? `<div class="dates">${c.buyDate ? `<span class="d">ซื้อ ${fmtDate(c.buyDate)}</span>` : ''}${c.buyDate && c.sellDate ? ' · ' : ''}${c.sellDate ? `<span class="d">ขาย ${fmtDate(c.sellDate)}</span>` : ''}</div>`
+      : '';
     return `<tr>
       <td>${img}</td>
-      <td class="name">${c.topic ? `<div class="topic">${esc(c.topic)}</div>` : ''}${esc(c.name)}${c.detail ? `<div class="detail">${esc(c.detail)}</div>` : ''}</td>
+      <td class="name">${c.topic ? `<div class="topic">${esc(c.topic)}</div>` : ''}${esc(c.name)}${c.detail ? `<div class="detail">${esc(c.detail)}</div>` : ''}${dates}</td>
       <td class="muted hide-sm">${esc(c.set || '-')}</td>
       <td class="muted">${esc(c.psa || '-')}</td>
       <td class="num">${money(c.median)}</td>
       <td class="num hide-sm">${money(c.buy)}</td>
       <td class="num hide-sm">${money(c.sell)}</td>
+      <td class="num">${profitCell}</td>
       <td><span class="badge ${st.cls}">${st.label}</span></td>
       <td>
         <div class="row-actions">
@@ -350,6 +424,7 @@ function render() {
       <th>ราคากลาง</th>
       <th class="hide-sm">รับซื้อ</th>
       <th class="hide-sm">ขาย</th>
+      <th>กำไร</th>
       <th>สถานะ</th>
       <th></th>
     </tr></thead>
@@ -373,6 +448,8 @@ function openForm() {
   document.getElementById('f_buy').value = '';
   document.getElementById('f_sell').value = '';
   document.getElementById('f_status').value = 'show';
+  document.getElementById('f_buyDate').value = '';
+  document.getElementById('f_sellDate').value = '';
   document.getElementById('f_detail').value = '';
   setImage('');
   document.getElementById('overlay').classList.add('open');
@@ -392,6 +469,8 @@ function editCard(id) {
   document.getElementById('f_buy').value = c.buy ?? '';
   document.getElementById('f_sell').value = c.sell ?? '';
   document.getElementById('f_status').value = c.status || 'show';
+  document.getElementById('f_buyDate').value = c.buyDate || '';
+  document.getElementById('f_sellDate').value = c.sellDate || '';
   document.getElementById('f_detail').value = c.detail || '';
   setImage(c.image || '');
   document.getElementById('overlay').classList.add('open');
@@ -460,6 +539,8 @@ function saveCard() {
     buy: parseFloat(document.getElementById('f_buy').value) || 0,
     sell: parseFloat(document.getElementById('f_sell').value) || 0,
     status: document.getElementById('f_status').value,
+    buyDate: document.getElementById('f_buyDate').value || '',
+    sellDate: document.getElementById('f_sellDate').value || '',
     detail: document.getElementById('f_detail').value.trim(),
   };
   const id = document.getElementById('f_id').value;
@@ -482,6 +563,79 @@ function delCard(id) {
     save();
     render();
   }
+}
+
+// ---- Backup / Import ----
+function download(filename, content, type) {
+  const blob = new Blob([content], { type });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function dateStamp() {
+  const d = new Date();
+  const p = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}`;
+}
+
+function exportJSON() {
+  if (!cards.length) { alert('ยังไม่มีข้อมูลให้สำรอง'); return; }
+  download(`สต็อกการ์ด-${dateStamp()}.json`, JSON.stringify(cards, null, 2), 'application/json');
+}
+
+function exportCSV() {
+  if (!cards.length) { alert('ยังไม่มีข้อมูลให้ส่งออก'); return; }
+  const cols = [
+    ['เรื่อง', 'topic'], ['ชื่อการ์ด', 'name'], ['รุ่น', 'set'], ['หมายเลข PSA', 'psa'],
+    ['ราคากลาง', 'median'], ['ราคารับซื้อ', 'buy'], ['ราคาขาย', 'sell'],
+    ['กำไร', c => cardProfit(c)], ['สถานะ', c => (STATUS[c.status] || {}).label || c.status],
+    ['วันที่ซื้อ', 'buyDate'], ['วันที่ขาย', 'sellDate'], ['รายละเอียด', 'detail'],
+  ];
+  const cell = v => {
+    const s = String(v ?? '');
+    return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+  };
+  const header = cols.map(c => cell(c[0])).join(',');
+  const rows = cards.map(c => cols.map(col => {
+    const v = typeof col[1] === 'function' ? col[1](c) : c[col[1]];
+    return cell(v);
+  }).join(','));
+  // BOM เพื่อให้ Excel อ่านภาษาไทยถูกต้อง
+  download(`สต็อกการ์ด-${dateStamp()}.csv`, '﻿' + [header, ...rows].join('\r\n'), 'text/csv;charset=utf-8');
+}
+
+function importJSON(e) {
+  const file = e.target.files && e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    try {
+      const data = JSON.parse(ev.target.result);
+      if (!Array.isArray(data)) throw new Error('รูปแบบไฟล์ไม่ถูกต้อง');
+      const mode = cards.length
+        ? confirm(`ไฟล์มี ${data.length} การ์ด\n\nกด "OK" = รวมเข้ากับข้อมูลเดิม\nกด "Cancel" = แทนที่ข้อมูลเดิมทั้งหมด`)
+        : true;
+      const incoming = data.map(c => ({ ...c, id: c.id || uid() }));
+      if (mode) {
+        const ids = new Set(cards.map(c => c.id));
+        incoming.forEach(c => { if (ids.has(c.id)) c.id = uid(); });
+        cards = cards.concat(incoming);
+      } else {
+        cards = incoming;
+      }
+      save();
+      render();
+      alert(`นำเข้าสำเร็จ ${incoming.length} การ์ด`);
+    } catch (err) {
+      alert('นำเข้าไม่สำเร็จ: ' + err.message);
+    }
+    document.getElementById('importFile').value = '';
+  };
+  reader.readAsText(file);
 }
 
 // close modal on overlay click / Esc
