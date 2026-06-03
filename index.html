@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>สต็อกการ์ด PSA</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #0f1220;
+    --card: #1a1f35;
+    --card2: #232a46;
+    --accent: #4f8cff;
+    --accent2: #6c5ce7;
+    --green: #2ecc71;
+    --yellow: #f1c40f;
+    --gray: #8a93b2;
+    --text: #e8ecf6;
+    --muted: #9aa3c0;
+    --danger: #ff5b6e;
+    --border: #2c3354;
+  }
+  body {
+    font-family: "Segoe UI", "Sarabun", Tahoma, sans-serif;
+    background: linear-gradient(160deg, #0f1220 0%, #141832 100%);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 24px 16px 80px;
+  }
+  .wrap { max-width: 1000px; margin: 0 auto; }
+  header {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 24px; flex-wrap: wrap; gap: 12px;
+  }
+  h1 { font-size: 1.6rem; font-weight: 700; letter-spacing: .3px; }
+  h1 .pill { font-size: .7rem; background: var(--accent2); padding: 3px 9px; border-radius: 999px; vertical-align: middle; margin-left: 6px; }
+
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 28px; }
+  .stat {
+    background: var(--card); border: 1px solid var(--border); border-radius: 16px;
+    padding: 20px 22px; position: relative; overflow: hidden;
+  }
+  .stat::after { content:""; position:absolute; right:-30px; top:-30px; width:90px; height:90px; border-radius:50%; background: var(--accent); opacity:.08; }
+  .stat .label { color: var(--muted); font-size: .85rem; margin-bottom: 8px; }
+  .stat .value { font-size: 1.9rem; font-weight: 700; }
+  .stat .sub { color: var(--muted); font-size: .78rem; margin-top: 4px; }
+
+  .toolbar { display: flex; gap: 12px; margin-bottom: 18px; flex-wrap: wrap; align-items: center; }
+  .btn {
+    border: none; cursor: pointer; border-radius: 12px; padding: 12px 20px;
+    font-size: .95rem; font-weight: 600; color: #fff; transition: transform .08s, filter .15s;
+  }
+  .btn:active { transform: scale(.97); }
+  .btn-primary { background: linear-gradient(135deg, var(--accent), var(--accent2)); }
+  .btn-primary:hover { filter: brightness(1.1); }
+  .btn-ghost { background: var(--card2); color: var(--text); border: 1px solid var(--border); }
+  .btn-danger { background: var(--danger); }
+  .search {
+    flex: 1; min-width: 180px; background: var(--card); border: 1px solid var(--border);
+    color: var(--text); padding: 12px 16px; border-radius: 12px; font-size: .95rem;
+  }
+  .search:focus { outline: none; border-color: var(--accent); }
+  select.filter {
+    background: var(--card); border: 1px solid var(--border); color: var(--text);
+    padding: 12px 14px; border-radius: 12px; font-size: .9rem;
+  }
+
+  table { width: 100%; border-collapse: separate; border-spacing: 0 8px; }
+  th { text-align: left; color: var(--muted); font-size: .78rem; font-weight: 600; padding: 0 14px 4px; text-transform: uppercase; letter-spacing: .5px; }
+  td { background: var(--card); padding: 14px; font-size: .92rem; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+  tr td:first-child { border-left: 1px solid var(--border); border-radius: 12px 0 0 12px; }
+  tr td:last-child { border-right: 1px solid var(--border); border-radius: 0 12px 12px 0; }
+  td.name { font-weight: 600; }
+  td.name .detail { font-weight: 400; color: var(--muted); font-size: .8rem; margin-top: 4px; white-space: pre-wrap; }
+  td.muted { color: var(--muted); }
+  .num { font-variant-numeric: tabular-nums; }
+
+  .badge { display: inline-block; padding: 4px 11px; border-radius: 999px; font-size: .78rem; font-weight: 600; }
+  .badge.show { background: rgba(79,140,255,.18); color: #7fa9ff; }
+  .badge.wait { background: rgba(241,196,15,.18); color: #f1c40f; }
+  .badge.sold { background: rgba(46,204,113,.18); color: #2ecc71; }
+
+  .row-actions { display: flex; gap: 6px; }
+  .icon-btn {
+    background: var(--card2); border: 1px solid var(--border); color: var(--text);
+    width: 34px; height: 34px; border-radius: 9px; cursor: pointer; font-size: .9rem;
+  }
+  .icon-btn:hover { border-color: var(--accent); }
+  .icon-btn.del:hover { border-color: var(--danger); color: var(--danger); }
+
+  .empty { text-align: center; padding: 60px 20px; color: var(--muted); }
+  .empty .big { font-size: 3rem; margin-bottom: 12px; }
+
+  /* Modal */
+  .overlay {
+    position: fixed; inset: 0; background: rgba(6,8,18,.7); backdrop-filter: blur(4px);
+    display: none; align-items: flex-start; justify-content: center; padding: 40px 16px; z-index: 50; overflow-y: auto;
+  }
+  .overlay.open { display: flex; }
+  .modal {
+    background: var(--card); border: 1px solid var(--border); border-radius: 20px;
+    width: 100%; max-width: 520px; padding: 26px;
+  }
+  .modal h2 { font-size: 1.25rem; margin-bottom: 20px; }
+  .field { margin-bottom: 15px; }
+  .field label { display: block; font-size: .82rem; color: var(--muted); margin-bottom: 6px; }
+  .field input, .field select, .field textarea {
+    width: 100%; background: var(--bg); border: 1px solid var(--border); color: var(--text);
+    padding: 11px 14px; border-radius: 11px; font-size: .95rem;
+    font-family: inherit; resize: vertical;
+  }
+  .field input:focus, .field select:focus, .field textarea:focus { outline: none; border-color: var(--accent); }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .modal-actions { display: flex; gap: 10px; margin-top: 22px; }
+  .modal-actions .btn { flex: 1; }
+
+  @media (max-width: 640px) {
+    th.hide-sm, td.hide-sm { display: none; }
+    .stat .value { font-size: 1.5rem; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>🃏 สต็อกการ์ด <span class="pill">PSA</span></h1>
+  </header>
+
+  <div class="stats">
+    <div class="stat">
+      <div class="label">จำนวนการ์ดทั้งหมด</div>
+      <div class="value num" id="statCount">0</div>
+      <div class="sub" id="statBreak">โชว์ 0 · รอขาย 0 · ขายแล้ว 0</div>
+    </div>
+    <div class="stat">
+      <div class="label">ยอดรวมราคากลาง</div>
+      <div class="value num" id="statMedian">฿0</div>
+      <div class="sub">รวมราคากลางของการ์ดทั้งหมด</div>
+    </div>
+    <div class="stat">
+      <div class="label">ยอดรวมราคารับซื้อ</div>
+      <div class="value num" id="statBuy">฿0</div>
+      <div class="sub" id="statProfit">กำไรคาดการณ์ ฿0</div>
+    </div>
+  </div>
+
+  <div class="toolbar">
+    <button class="btn btn-primary" onclick="openForm()">+ เพิ่มการ์ด</button>
+    <input class="search" id="search" placeholder="ค้นหา ชื่อ / รุ่น / PSA..." oninput="render()">
+    <select class="filter" id="statusFilter" onchange="render()">
+      <option value="">ทุกสถานะ</option>
+      <option value="show">โชว์</option>
+      <option value="wait">รอขาย</option>
+      <option value="sold">ขายแล้ว</option>
+    </select>
+  </div>
+
+  <div id="tableArea"></div>
+</div>
+
+<!-- Modal -->
+<div class="overlay" id="overlay">
+  <div class="modal">
+    <h2 id="modalTitle">เพิ่มการ์ด</h2>
+    <input type="hidden" id="f_id">
+    <div class="field">
+      <label>ชื่อการ์ด *</label>
+      <input id="f_name" placeholder="เช่น Charizard, Pikachu...">
+    </div>
+    <div class="grid2">
+      <div class="field">
+        <label>รุ่น</label>
+        <input id="f_set" placeholder="เช่น Base Set, 151...">
+      </div>
+      <div class="field">
+        <label>หมายเลข PSA</label>
+        <input id="f_psa" placeholder="เช่น 10, 9...">
+      </div>
+    </div>
+    <div class="grid2">
+      <div class="field">
+        <label>ราคากลาง (฿)</label>
+        <input id="f_median" type="number" inputmode="decimal" placeholder="0">
+      </div>
+      <div class="field">
+        <label>ราคารับซื้อ (฿)</label>
+        <input id="f_buy" type="number" inputmode="decimal" placeholder="0">
+      </div>
+    </div>
+    <div class="grid2">
+      <div class="field">
+        <label>ราคาขาย (฿)</label>
+        <input id="f_sell" type="number" inputmode="decimal" placeholder="0">
+      </div>
+      <div class="field">
+        <label>สถานะ</label>
+        <select id="f_status">
+          <option value="show">โชว์</option>
+          <option value="wait">รอขาย</option>
+          <option value="sold">ขายแล้ว</option>
+        </select>
+      </div>
+    </div>
+    <div class="field">
+      <label>รายละเอียด Card</label>
+      <textarea id="f_detail" rows="3" placeholder="รายละเอียดเพิ่มเติม เช่น สภาพ, ตำหนิ, ที่มา..."></textarea>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeForm()">ยกเลิก</button>
+      <button class="btn btn-primary" onclick="saveCard()">บันทึก</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const KEY = 'psa_cards_v1';
+const STATUS = {
+  show: { label: 'โชว์', cls: 'show' },
+  wait: { label: 'รอขาย', cls: 'wait' },
+  sold: { label: 'ขายแล้ว', cls: 'sold' },
+};
+
+let cards = load();
+
+function load() {
+  try { return JSON.parse(localStorage.getItem(KEY)) || []; }
+  catch { return []; }
+}
+function save() { localStorage.setItem(KEY, JSON.stringify(cards)); }
+
+function money(n) {
+  const v = Number(n) || 0;
+  return '฿' + v.toLocaleString('th-TH', { maximumFractionDigits: 0 });
+}
+
+function uid() { return Date.now().toString(36) + Math.floor(Math.random()*1e6).toString(36); }
+
+// ---- Stats ----
+function updateStats() {
+  const count = cards.length;
+  const totalMedian = cards.reduce((s, c) => s + (Number(c.median) || 0), 0);
+  const totalBuy = cards.reduce((s, c) => s + (Number(c.buy) || 0), 0);
+  const totalSell = cards.reduce((s, c) => s + (Number(c.sell) || 0), 0);
+  const nShow = cards.filter(c => c.status === 'show').length;
+  const nWait = cards.filter(c => c.status === 'wait').length;
+  const nSold = cards.filter(c => c.status === 'sold').length;
+
+  document.getElementById('statCount').textContent = count.toLocaleString('th-TH');
+  document.getElementById('statBreak').textContent = `โชว์ ${nShow} · รอขาย ${nWait} · ขายแล้ว ${nSold}`;
+  document.getElementById('statMedian').textContent = money(totalMedian);
+  document.getElementById('statBuy').textContent = money(totalBuy);
+  document.getElementById('statProfit').textContent = 'กำไรคาดการณ์ ' + money(totalSell - totalBuy);
+}
+
+// ---- Render table ----
+function render() {
+  updateStats();
+  const q = document.getElementById('search').value.trim().toLowerCase();
+  const sf = document.getElementById('statusFilter').value;
+  const area = document.getElementById('tableArea');
+
+  let list = cards.slice().reverse();
+  if (sf) list = list.filter(c => c.status === sf);
+  if (q) list = list.filter(c =>
+    (c.name || '').toLowerCase().includes(q) ||
+    (c.set || '').toLowerCase().includes(q) ||
+    (c.psa || '').toLowerCase().includes(q)
+  );
+
+  if (list.length === 0) {
+    area.innerHTML = `<div class="empty"><div class="big">📭</div>
+      ${cards.length === 0 ? 'ยังไม่มีการ์ด — กดปุ่ม “+ เพิ่มการ์ด” เพื่อเริ่มต้น' : 'ไม่พบการ์ดที่ตรงกับเงื่อนไข'}</div>`;
+    return;
+  }
+
+  let rows = list.map(c => {
+    const st = STATUS[c.status] || STATUS.show;
+    return `<tr>
+      <td class="name">${esc(c.name)}${c.detail ? `<div class="detail">${esc(c.detail)}</div>` : ''}</td>
+      <td class="muted hide-sm">${esc(c.set || '-')}</td>
+      <td class="muted">${esc(c.psa || '-')}</td>
+      <td class="num">${money(c.median)}</td>
+      <td class="num hide-sm">${money(c.buy)}</td>
+      <td class="num hide-sm">${money(c.sell)}</td>
+      <td><span class="badge ${st.cls}">${st.label}</span></td>
+      <td>
+        <div class="row-actions">
+          <button class="icon-btn" onclick="editCard('${c.id}')" title="แก้ไข">✏️</button>
+          <button class="icon-btn del" onclick="delCard('${c.id}')" title="ลบ">🗑️</button>
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+
+  area.innerHTML = `<table>
+    <thead><tr>
+      <th>ชื่อการ์ด</th>
+      <th class="hide-sm">รุ่น</th>
+      <th>PSA</th>
+      <th>ราคากลาง</th>
+      <th class="hide-sm">รับซื้อ</th>
+      <th class="hide-sm">ขาย</th>
+      <th>สถานะ</th>
+      <th></th>
+    </tr></thead>
+    <tbody>${rows}</tbody>
+  </table>`;
+}
+
+function esc(s) {
+  return String(s ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+}
+
+// ---- Form ----
+function openForm() {
+  document.getElementById('modalTitle').textContent = 'เพิ่มการ์ด';
+  document.getElementById('f_id').value = '';
+  document.getElementById('f_name').value = '';
+  document.getElementById('f_set').value = '';
+  document.getElementById('f_psa').value = '';
+  document.getElementById('f_median').value = '';
+  document.getElementById('f_buy').value = '';
+  document.getElementById('f_sell').value = '';
+  document.getElementById('f_status').value = 'show';
+  document.getElementById('f_detail').value = '';
+  document.getElementById('overlay').classList.add('open');
+  document.getElementById('f_name').focus();
+}
+
+function editCard(id) {
+  const c = cards.find(x => x.id === id);
+  if (!c) return;
+  document.getElementById('modalTitle').textContent = 'แก้ไขการ์ด';
+  document.getElementById('f_id').value = c.id;
+  document.getElementById('f_name').value = c.name || '';
+  document.getElementById('f_set').value = c.set || '';
+  document.getElementById('f_psa').value = c.psa || '';
+  document.getElementById('f_median').value = c.median ?? '';
+  document.getElementById('f_buy').value = c.buy ?? '';
+  document.getElementById('f_sell').value = c.sell ?? '';
+  document.getElementById('f_status').value = c.status || 'show';
+  document.getElementById('f_detail').value = c.detail || '';
+  document.getElementById('overlay').classList.add('open');
+}
+
+function closeForm() { document.getElementById('overlay').classList.remove('open'); }
+
+function saveCard() {
+  const name = document.getElementById('f_name').value.trim();
+  if (!name) { alert('กรุณากรอกชื่อการ์ด'); return; }
+  const data = {
+    name,
+    set: document.getElementById('f_set').value.trim(),
+    psa: document.getElementById('f_psa').value.trim(),
+    median: parseFloat(document.getElementById('f_median').value) || 0,
+    buy: parseFloat(document.getElementById('f_buy').value) || 0,
+    sell: parseFloat(document.getElementById('f_sell').value) || 0,
+    status: document.getElementById('f_status').value,
+    detail: document.getElementById('f_detail').value.trim(),
+  };
+  const id = document.getElementById('f_id').value;
+  if (id) {
+    const c = cards.find(x => x.id === id);
+    if (c) Object.assign(c, data);
+  } else {
+    cards.push({ id: uid(), ...data });
+  }
+  save();
+  closeForm();
+  render();
+}
+
+function delCard(id) {
+  const c = cards.find(x => x.id === id);
+  if (!c) return;
+  if (confirm(`ลบการ์ด "${c.name}" ?`)) {
+    cards = cards.filter(x => x.id !== id);
+    save();
+    render();
+  }
+}
+
+// close modal on overlay click / Esc
+document.getElementById('overlay').addEventListener('click', e => {
+  if (e.target.id === 'overlay') closeForm();
+});
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeForm(); });
+
+render();
+</script>
+</body>
+</html>
