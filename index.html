@@ -130,6 +130,15 @@
   }
   .field input:focus, .field select:focus, .field textarea:focus { outline: none; border-color: var(--accent); }
   .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .psa-lookup { background: rgba(108,92,231,.12); border: 1px solid var(--accent2); border-radius: 14px; padding: 14px; }
+  .psa-row { display: flex; gap: 8px; }
+  .psa-row input { flex: 1; }
+  .psa-row .btn { white-space: nowrap; padding: 11px 16px; }
+  .psa-row .btn:disabled { opacity: .6; cursor: default; }
+  .psa-msg { font-size: .82rem; margin-top: 8px; min-height: 1em; }
+  .psa-msg.ok { color: var(--green); }
+  .psa-msg.err { color: var(--danger); }
+  .psa-msg.load { color: var(--muted); }
   .modal-actions { display: flex; gap: 10px; margin-top: 22px; }
   .modal-actions .btn { flex: 1; }
 
@@ -207,6 +216,14 @@
     <h2 id="modalTitle">เพิ่มการ์ด</h2>
     <input type="hidden" id="f_id">
     <input type="hidden" id="f_image">
+    <div class="field psa-lookup">
+      <label>⚡ ดึงข้อมูลอัตโนมัติจากเลข cert PSA</label>
+      <div class="psa-row">
+        <input id="f_cert" inputmode="numeric" placeholder="เลข cert บนป้าย เช่น 12345678">
+        <button type="button" class="btn btn-primary" id="psaFetchBtn" onclick="fetchPSA()">ดึงข้อมูล</button>
+      </div>
+      <div class="psa-msg" id="psaMsg"></div>
+    </div>
     <div class="field">
       <label>เรื่อง</label>
       <input id="f_topic" placeholder="เช่น Pokemon, One Piece, Dragon Ball...">
@@ -283,6 +300,11 @@
 
 <script>
 const KEY = 'psa_cards_v1';
+// ที่อยู่หลังบ้าน PSA (Vercel). บน Vercel/localhost ใช้ทางลัด, ที่อื่นใช้ URL เต็ม
+// แก้ค่าได้เองด้วย: localStorage.setItem('psa_api_url', 'https://....vercel.app/api/psa')
+const PSA_API_BASE = (location.hostname.endsWith('vercel.app') || location.hostname === 'localhost')
+  ? '/api/psa'
+  : (localStorage.getItem('psa_api_url') || 'https://card-stock-psa.vercel.app/api/psa');
 const STATUS = {
   show: { label: 'โชว์', cls: 'show' },
   wait: { label: 'รอขาย', cls: 'wait' },
@@ -440,6 +462,8 @@ function esc(s) {
 function openForm() {
   document.getElementById('modalTitle').textContent = 'เพิ่มการ์ด';
   document.getElementById('f_id').value = '';
+  document.getElementById('f_cert').value = '';
+  psaSay('');
   document.getElementById('f_topic').value = '';
   document.getElementById('f_name').value = '';
   document.getElementById('f_set').value = '';
@@ -461,6 +485,8 @@ function editCard(id) {
   if (!c) return;
   document.getElementById('modalTitle').textContent = 'แก้ไขการ์ด';
   document.getElementById('f_id').value = c.id;
+  document.getElementById('f_cert').value = c.cert || '';
+  psaSay('');
   document.getElementById('f_topic').value = c.topic || '';
   document.getElementById('f_name').value = c.name || '';
   document.getElementById('f_set').value = c.set || '';
@@ -526,12 +552,68 @@ function openLightbox(id) {
   document.getElementById('lightbox').classList.add('open');
 }
 
+// ---- ดึงข้อมูลจาก PSA ----
+function psaSay(msg, cls) {
+  const el = document.getElementById('psaMsg');
+  el.textContent = msg || '';
+  el.className = 'psa-msg' + (cls ? ' ' + cls : '');
+}
+
+async function fetchPSA() {
+  const cert = document.getElementById('f_cert').value.trim().replace(/\D/g, '');
+  if (!cert) { psaSay('กรุณากรอกเลข cert ก่อน', 'err'); return; }
+  const btn = document.getElementById('psaFetchBtn');
+  btn.disabled = true;
+  psaSay('กำลังดึงข้อมูลจาก PSA...', 'load');
+  try {
+    const resp = await fetch(`${PSA_API_BASE}?cert=${encodeURIComponent(cert)}`);
+    const data = await resp.json();
+    if (!resp.ok || data.found === false || data.error) {
+      psaSay(data.error || 'ไม่พบข้อมูล', 'err');
+      return;
+    }
+    // เติมข้อมูลลงฟอร์ม (เฉพาะช่องที่ยังว่าง จะได้ไม่ทับของที่พิมพ์ไว้)
+    const setIfEmpty = (id, val) => {
+      const el = document.getElementById(id);
+      if (val && !el.value.trim()) el.value = val;
+    };
+    if (data.category && !document.getElementById('f_topic').value.trim()) {
+      // เดา "เรื่อง" จาก brand เช่น POKEMON GAME -> Pokemon
+      const b = (data.brand || '').toLowerCase();
+      const guess = b.includes('pokemon') ? 'Pokemon'
+        : b.includes('one piece') ? 'One Piece'
+        : b.includes('dragon ball') ? 'Dragon Ball' : '';
+      if (guess) document.getElementById('f_topic').value = guess;
+    }
+    setIfEmpty('f_name', data.subject);
+    setIfEmpty('f_set', [data.year, data.brand].filter(Boolean).join(' '));
+    setIfEmpty('f_psa', data.gradeNumber || data.grade);
+    // รายละเอียดเพิ่มเติม
+    const detailEl = document.getElementById('f_detail');
+    const extra = [
+      data.cardNumber ? `การ์ดเลข ${data.cardNumber}` : '',
+      data.variety || '',
+      data.grade ? `PSA ${data.grade}` : '',
+      `cert ${data.cert}`,
+    ].filter(Boolean).join(' · ');
+    if (extra && !detailEl.value.trim()) detailEl.value = extra;
+    // รูปจาก PSA
+    if (data.frontImage) setImage(data.frontImage);
+    psaSay('✓ ดึงข้อมูลสำเร็จ' + (data.frontImage ? ' (พร้อมรูป)' : ' (ใบนี้ไม่มีรูปใน PSA)'), 'ok');
+  } catch (err) {
+    psaSay('เชื่อมต่อหลังบ้านไม่ได้ — ตรวจสอบว่า Vercel ตั้งค่าแล้ว', 'err');
+  } finally {
+    btn.disabled = false;
+  }
+}
+
 function saveCard() {
   const name = document.getElementById('f_name').value.trim();
   if (!name) { alert('กรุณากรอกชื่อการ์ด'); return; }
   const data = {
     topic: document.getElementById('f_topic').value.trim(),
     name,
+    cert: document.getElementById('f_cert').value.trim().replace(/\D/g, ''),
     image: document.getElementById('f_image').value || '',
     set: document.getElementById('f_set').value.trim(),
     psa: document.getElementById('f_psa').value.trim(),
