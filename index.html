@@ -33,6 +33,15 @@
     margin-bottom: 24px; flex-wrap: wrap; gap: 12px;
   }
   h1 { font-size: 1.6rem; font-weight: 700; letter-spacing: .3px; }
+  .header-right { display: flex; align-items: center; gap: 12px; }
+  .btn-sm { padding: 8px 14px; font-size: .82rem; }
+  .sync { font-size: .8rem; color: var(--muted); white-space: nowrap; }
+  .sync.ok { color: var(--green); }
+  .sync.err { color: var(--danger); }
+  .sync.load { color: var(--accent); }
+  .loginMsg { font-size: .82rem; min-height: 1em; margin-top: 4px; }
+  .loginMsg.err { color: var(--danger); }
+  .loginMsg.ok { color: var(--green); }
   h1 .pill { font-size: .7rem; background: var(--accent2); padding: 3px 9px; border-radius: 999px; vertical-align: middle; margin-left: 6px; }
 
   .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 28px; }
@@ -152,6 +161,10 @@
 <div class="wrap">
   <header>
     <h1>🃏 สต็อกการ์ด <span class="pill">PSA</span></h1>
+    <div class="header-right">
+      <span class="sync" id="syncStatus"></span>
+      <button class="btn btn-ghost btn-sm" id="authBtn" onclick="openLogin()">เข้าสู่ระบบ</button>
+    </div>
   </header>
 
   <div class="stats">
@@ -203,6 +216,28 @@
   </div>
 
   <div id="tableArea"></div>
+</div>
+
+<!-- Login modal -->
+<div class="overlay" id="loginOverlay">
+  <div class="modal" style="max-width:420px">
+    <h2>🔐 เข้าสู่ระบบ</h2>
+    <p style="color:var(--muted);font-size:.88rem;margin-bottom:16px;line-height:1.5">
+      ใส่รหัสผ่านเพื่อซิงก์ข้อมูลกับเซิร์ฟเวอร์ — เปิดเครื่องไหน/มือถือก็เห็นข้อมูลเดียวกัน
+    </p>
+    <div class="field">
+      <label>รหัสผ่าน</label>
+      <input id="f_pass" type="password" placeholder="รหัสผ่าน" onkeydown="if(event.key==='Enter')doLogin()">
+    </div>
+    <div class="loginMsg" id="loginMsg"></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeLogin()">ปิด</button>
+      <button class="btn btn-primary" id="loginBtn" onclick="doLogin()">เข้าสู่ระบบ</button>
+    </div>
+    <p style="color:var(--muted);font-size:.78rem;margin-top:14px">
+      ไม่ใส่รหัสก็ใช้งานแบบเก็บในเครื่องอย่างเดียวได้ (ไม่ซิงก์ข้ามเครื่อง)
+    </p>
+  </div>
 </div>
 
 <!-- Lightbox -->
@@ -305,6 +340,12 @@ const KEY = 'psa_cards_v1';
 const PSA_API_BASE = (location.hostname.endsWith('vercel.app') || location.hostname === 'localhost')
   ? '/api/psa'
   : (localStorage.getItem('psa_api_url') || 'https://card-stock-psa.vercel.app/api/psa');
+// หลังบ้านเก็บข้อมูลกลาง (เซิร์ฟเวอร์)
+const CARDS_API = (location.hostname.endsWith('vercel.app') || location.hostname === 'localhost')
+  ? '/api/cards'
+  : (localStorage.getItem('cards_api_url') || 'https://card-stock-psa.vercel.app/api/cards');
+let passcode = localStorage.getItem('app_pass') || '';
+let syncTimer = null;
 const STATUS = {
   show: { label: 'โชว์', cls: 'show' },
   wait: { label: 'รอขาย', cls: 'wait' },
@@ -318,12 +359,52 @@ function load() {
   catch { return []; }
 }
 function save() {
+  // เก็บสำเนาในเครื่อง (cache / ใช้ตอนออฟไลน์)
+  try { localStorage.setItem(KEY, JSON.stringify(cards)); }
+  catch (e) { /* เครื่องเต็ม — ยังเก็บขึ้นเซิร์ฟเวอร์ได้ */ }
+  // ดันขึ้นเซิร์ฟเวอร์ (หน่วงนิดหน่อยกันยิงถี่)
+  if (passcode) {
+    clearTimeout(syncTimer);
+    syncTimer = setTimeout(pushToServer, 600);
+  }
+  return true;
+}
+
+// ---- ซิงก์กับเซิร์ฟเวอร์ ----
+function setSync(text, cls) {
+  const el = document.getElementById('syncStatus');
+  if (el) { el.textContent = text; el.className = 'sync ' + (cls || ''); }
+}
+
+async function pushToServer() {
+  if (!passcode) return;
+  setSync('⏳ กำลังบันทึกขึ้นเซิร์ฟเวอร์...', 'load');
   try {
-    localStorage.setItem(KEY, JSON.stringify(cards));
-    return true;
+    const r = await fetch(CARDS_API, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-app-pass': passcode },
+      body: JSON.stringify(cards),
+    });
+    if (r.status === 401) { setSync('🔒 รหัสผ่านไม่ถูกต้อง', 'err'); return; }
+    if (!r.ok) { const d = await r.json().catch(() => ({})); setSync('⚠️ บันทึกไม่สำเร็จ: ' + (d.error || r.status), 'err'); return; }
+    setSync('✓ ซิงก์แล้ว', 'ok');
   } catch (e) {
-    alert('พื้นที่จัดเก็บในเครื่องเต็ม (รูปอาจเยอะเกินไป) — ลองลบรูปบางใบหรือใช้รูปเล็กลงครับ');
-    return false;
+    setSync('⚠️ ออฟไลน์ — เก็บในเครื่องไว้ก่อน', 'err');
+  }
+}
+
+async function pullFromServer() {
+  if (!passcode) return { ok: false };
+  setSync('⏳ กำลังโหลดจากเซิร์ฟเวอร์...', 'load');
+  try {
+    const r = await fetch(CARDS_API, { headers: { 'x-app-pass': passcode }, cache: 'no-store' });
+    if (r.status === 401) { setSync('🔒 รหัสผ่านไม่ถูกต้อง', 'err'); return { ok: false, auth: false }; }
+    if (!r.ok) { const d = await r.json().catch(() => ({})); setSync('⚠️ โหลดไม่สำเร็จ: ' + (d.error || r.status), 'err'); return { ok: false }; }
+    const data = await r.json();
+    return { ok: true, cards: Array.isArray(data.cards) ? data.cards : [] };
+  } catch (e) {
+    setSync('⚠️ ออฟไลน์ — ใช้ข้อมูลในเครื่อง', 'err');
+    return { ok: false };
   }
 }
 
@@ -720,13 +801,98 @@ function importJSON(e) {
   reader.readAsText(file);
 }
 
+// ---- Login / Logout ----
+function updateAuthBtn() {
+  const btn = document.getElementById('authBtn');
+  if (passcode) {
+    btn.textContent = '🔓 ออกจากระบบ';
+    btn.onclick = logout;
+  } else {
+    btn.textContent = '🔐 เข้าสู่ระบบ';
+    btn.onclick = openLogin;
+    setSync('');
+  }
+}
+function openLogin() {
+  document.getElementById('f_pass').value = passcode || '';
+  document.getElementById('loginMsg').textContent = '';
+  document.getElementById('loginOverlay').classList.add('open');
+  setTimeout(() => document.getElementById('f_pass').focus(), 50);
+}
+function closeLogin() { document.getElementById('loginOverlay').classList.remove('open'); }
+function loginMsg(t, cls) { const e = document.getElementById('loginMsg'); e.textContent = t || ''; e.className = 'loginMsg ' + (cls || ''); }
+
+async function doLogin() {
+  const val = document.getElementById('f_pass').value.trim();
+  if (!val) { loginMsg('กรุณากรอกรหัสผ่าน', 'err'); return; }
+  const btn = document.getElementById('loginBtn');
+  btn.disabled = true;
+  loginMsg('กำลังตรวจสอบ...', '');
+  const prev = passcode;
+  passcode = val;
+  const res = await pullFromServer();
+  if (res.auth === false) { passcode = prev; loginMsg('รหัสผ่านไม่ถูกต้อง', 'err'); btn.disabled = false; return; }
+  if (!res.ok) { passcode = prev; loginMsg('เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ ลองใหม่อีกครั้ง', 'err'); btn.disabled = false; return; }
+  // สำเร็จ — บันทึกรหัส และตัดสินใจเรื่องข้อมูล
+  localStorage.setItem('app_pass', passcode);
+  if (res.cards.length) {
+    // เซิร์ฟเวอร์มีข้อมูล
+    if (cards.length && !confirm(`เซิร์ฟเวอร์มี ${res.cards.length} การ์ด\nในเครื่องนี้มี ${cards.length} การ์ด\n\nกด "OK" = ใช้ข้อมูลจากเซิร์ฟเวอร์ (แนะนำ)\nกด "Cancel" = อัปโหลดข้อมูลในเครื่องทับเซิร์ฟเวอร์`)) {
+      await pushToServer();
+    } else {
+      cards = res.cards;
+      try { localStorage.setItem(KEY, JSON.stringify(cards)); } catch (e) {}
+      setSync('✓ ซิงก์แล้ว', 'ok');
+    }
+  } else if (cards.length) {
+    // เซิร์ฟเวอร์ว่าง แต่ในเครื่องมีข้อมูล → อัปโหลดขึ้นไป
+    await pushToServer();
+  } else {
+    setSync('✓ ซิงก์แล้ว', 'ok');
+  }
+  updateAuthBtn();
+  render();
+  closeLogin();
+}
+
+function logout() {
+  if (!confirm('ออกจากระบบ? (ข้อมูลบนเซิร์ฟเวอร์ยังอยู่ครบ จะเหลือเฉพาะสำเนาในเครื่องนี้)')) return;
+  passcode = '';
+  localStorage.removeItem('app_pass');
+  updateAuthBtn();
+}
+
+// ---- ซิงก์ตอนเปิดแอป ----
+async function syncOnStart() {
+  updateAuthBtn();
+  if (!passcode) return;
+  const res = await pullFromServer();
+  if (res.auth === false) { passcode = ''; localStorage.removeItem('app_pass'); updateAuthBtn(); openLogin(); return; }
+  if (res.ok) {
+    if (res.cards.length) {
+      cards = res.cards;
+      try { localStorage.setItem(KEY, JSON.stringify(cards)); } catch (e) {}
+      setSync('✓ ซิงก์แล้ว', 'ok');
+    } else if (cards.length) {
+      await pushToServer(); // เซิร์ฟเวอร์ว่าง → อัปโหลดข้อมูลในเครื่อง
+    } else {
+      setSync('✓ ซิงก์แล้ว', 'ok');
+    }
+    render();
+  }
+}
+
 // close modal on overlay click / Esc
 document.getElementById('overlay').addEventListener('click', e => {
   if (e.target.id === 'overlay') closeForm();
 });
-document.addEventListener('keydown', e => { if (e.key === 'Escape') closeForm(); });
+document.getElementById('loginOverlay').addEventListener('click', e => {
+  if (e.target.id === 'loginOverlay') closeLogin();
+});
+document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeForm(); closeLogin(); } });
 
 render();
+syncOnStart();
 
 // เปิดฟอร์ม "เพิ่มการ์ด" อัตโนมัติ ถ้า URL ลงท้ายด้วย #add หรือ ?add
 function maybeOpenAdd() {
