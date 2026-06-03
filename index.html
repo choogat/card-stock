@@ -71,7 +71,22 @@
   tr td:first-child { border-left: 1px solid var(--border); border-radius: 12px 0 0 12px; }
   tr td:last-child { border-right: 1px solid var(--border); border-radius: 0 12px 12px 0; }
   td.name { font-weight: 600; }
+  td.name .topic { font-weight: 600; color: var(--accent); font-size: .72rem; text-transform: uppercase; letter-spacing: .5px; margin-bottom: 2px; }
   td.name .detail { font-weight: 400; color: var(--muted); font-size: .8rem; margin-top: 4px; white-space: pre-wrap; }
+
+  .thumb { width: 46px; height: 64px; object-fit: cover; border-radius: 8px; border: 1px solid var(--border); cursor: pointer; background: var(--card2); }
+  .thumb-empty { width: 46px; height: 64px; border-radius: 8px; border: 1px dashed var(--border); display: flex; align-items: center; justify-content: center; color: var(--muted); font-size: 1.1rem; }
+
+  .img-upload { display: flex; gap: 14px; align-items: center; }
+  .img-preview { width: 96px; height: 130px; border-radius: 12px; border: 1px dashed var(--border); display: flex; align-items: center; justify-content: center; color: var(--muted); font-size: .8rem; overflow: hidden; flex-shrink: 0; }
+  .img-preview img { width: 100%; height: 100%; object-fit: cover; }
+  .img-controls { display: flex; flex-direction: column; gap: 8px; }
+  .img-controls .btn { padding: 9px 14px; font-size: .85rem; }
+
+  /* Lightbox */
+  .lightbox { position: fixed; inset: 0; background: rgba(0,0,0,.85); display: none; align-items: center; justify-content: center; z-index: 100; padding: 30px; }
+  .lightbox.open { display: flex; }
+  .lightbox img { max-width: 90vw; max-height: 90vh; border-radius: 12px; }
   td.muted { color: var(--muted); }
   .num { font-variant-numeric: tabular-nums; }
 
@@ -158,11 +173,21 @@
   <div id="tableArea"></div>
 </div>
 
+<!-- Lightbox -->
+<div class="lightbox" id="lightbox" onclick="this.classList.remove('open')">
+  <img id="lightboxImg" src="" alt="">
+</div>
+
 <!-- Modal -->
 <div class="overlay" id="overlay">
   <div class="modal">
     <h2 id="modalTitle">เพิ่มการ์ด</h2>
     <input type="hidden" id="f_id">
+    <input type="hidden" id="f_image">
+    <div class="field">
+      <label>เรื่อง</label>
+      <input id="f_topic" placeholder="เช่น Pokemon, One Piece, Dragon Ball...">
+    </div>
     <div class="field">
       <label>ชื่อการ์ด *</label>
       <input id="f_name" placeholder="เช่น Charizard, Pikachu...">
@@ -205,6 +230,17 @@
       <label>รายละเอียด Card</label>
       <textarea id="f_detail" rows="3" placeholder="รายละเอียดเพิ่มเติม เช่น สภาพ, ตำหนิ, ที่มา..."></textarea>
     </div>
+    <div class="field">
+      <label>รูป</label>
+      <div class="img-upload">
+        <div class="img-preview" id="imgPreview">ไม่มีรูป</div>
+        <div class="img-controls">
+          <input type="file" id="f_imageFile" accept="image/*" style="display:none" onchange="onPickImage(event)">
+          <button type="button" class="btn btn-ghost" onclick="document.getElementById('f_imageFile').click()">📷 เลือกรูป</button>
+          <button type="button" class="btn btn-ghost" id="imgRemoveBtn" onclick="clearImage()" style="display:none">ลบรูป</button>
+        </div>
+      </div>
+    </div>
     <div class="modal-actions">
       <button class="btn btn-ghost" onclick="closeForm()">ยกเลิก</button>
       <button class="btn btn-primary" onclick="saveCard()">บันทึก</button>
@@ -226,7 +262,15 @@ function load() {
   try { return JSON.parse(localStorage.getItem(KEY)) || []; }
   catch { return []; }
 }
-function save() { localStorage.setItem(KEY, JSON.stringify(cards)); }
+function save() {
+  try {
+    localStorage.setItem(KEY, JSON.stringify(cards));
+    return true;
+  } catch (e) {
+    alert('พื้นที่จัดเก็บในเครื่องเต็ม (รูปอาจเยอะเกินไป) — ลองลบรูปบางใบหรือใช้รูปเล็กลงครับ');
+    return false;
+  }
+}
 
 function money(n) {
   const v = Number(n) || 0;
@@ -262,6 +306,7 @@ function render() {
   let list = cards.slice().reverse();
   if (sf) list = list.filter(c => c.status === sf);
   if (q) list = list.filter(c =>
+    (c.topic || '').toLowerCase().includes(q) ||
     (c.name || '').toLowerCase().includes(q) ||
     (c.set || '').toLowerCase().includes(q) ||
     (c.psa || '').toLowerCase().includes(q)
@@ -275,8 +320,12 @@ function render() {
 
   let rows = list.map(c => {
     const st = STATUS[c.status] || STATUS.show;
+    const img = c.image
+      ? `<img class="thumb" src="${c.image}" onclick="openLightbox('${c.id}')" alt="">`
+      : `<div class="thumb-empty">🃏</div>`;
     return `<tr>
-      <td class="name">${esc(c.name)}${c.detail ? `<div class="detail">${esc(c.detail)}</div>` : ''}</td>
+      <td>${img}</td>
+      <td class="name">${c.topic ? `<div class="topic">${esc(c.topic)}</div>` : ''}${esc(c.name)}${c.detail ? `<div class="detail">${esc(c.detail)}</div>` : ''}</td>
       <td class="muted hide-sm">${esc(c.set || '-')}</td>
       <td class="muted">${esc(c.psa || '-')}</td>
       <td class="num">${money(c.median)}</td>
@@ -294,6 +343,7 @@ function render() {
 
   area.innerHTML = `<table>
     <thead><tr>
+      <th>รูป</th>
       <th>ชื่อการ์ด</th>
       <th class="hide-sm">รุ่น</th>
       <th>PSA</th>
@@ -315,6 +365,7 @@ function esc(s) {
 function openForm() {
   document.getElementById('modalTitle').textContent = 'เพิ่มการ์ด';
   document.getElementById('f_id').value = '';
+  document.getElementById('f_topic').value = '';
   document.getElementById('f_name').value = '';
   document.getElementById('f_set').value = '';
   document.getElementById('f_psa').value = '';
@@ -323,8 +374,9 @@ function openForm() {
   document.getElementById('f_sell').value = '';
   document.getElementById('f_status').value = 'show';
   document.getElementById('f_detail').value = '';
+  setImage('');
   document.getElementById('overlay').classList.add('open');
-  document.getElementById('f_name').focus();
+  document.getElementById('f_topic').focus();
 }
 
 function editCard(id) {
@@ -332,6 +384,7 @@ function editCard(id) {
   if (!c) return;
   document.getElementById('modalTitle').textContent = 'แก้ไขการ์ด';
   document.getElementById('f_id').value = c.id;
+  document.getElementById('f_topic').value = c.topic || '';
   document.getElementById('f_name').value = c.name || '';
   document.getElementById('f_set').value = c.set || '';
   document.getElementById('f_psa').value = c.psa || '';
@@ -340,16 +393,67 @@ function editCard(id) {
   document.getElementById('f_sell').value = c.sell ?? '';
   document.getElementById('f_status').value = c.status || 'show';
   document.getElementById('f_detail').value = c.detail || '';
+  setImage(c.image || '');
   document.getElementById('overlay').classList.add('open');
 }
 
 function closeForm() { document.getElementById('overlay').classList.remove('open'); }
 
+// ---- Image handling ----
+function setImage(dataUrl) {
+  document.getElementById('f_image').value = dataUrl || '';
+  const preview = document.getElementById('imgPreview');
+  const removeBtn = document.getElementById('imgRemoveBtn');
+  if (dataUrl) {
+    preview.innerHTML = `<img src="${dataUrl}" alt="">`;
+    removeBtn.style.display = '';
+  } else {
+    preview.textContent = 'ไม่มีรูป';
+    removeBtn.style.display = 'none';
+  }
+}
+
+function clearImage() {
+  setImage('');
+  document.getElementById('f_imageFile').value = '';
+}
+
+function onPickImage(e) {
+  const file = e.target.files && e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    const img = new Image();
+    img.onload = () => {
+      // ย่อรูปให้ด้านยาวสุดไม่เกิน 700px แล้วแปลงเป็น JPEG เพื่อประหยัดพื้นที่
+      const MAX = 700;
+      let { width, height } = img;
+      if (width > height && width > MAX) { height = Math.round(height * MAX / width); width = MAX; }
+      else if (height > MAX) { width = Math.round(width * MAX / height); height = MAX; }
+      const canvas = document.createElement('canvas');
+      canvas.width = width; canvas.height = height;
+      canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+      setImage(canvas.toDataURL('image/jpeg', 0.8));
+    };
+    img.src = ev.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+function openLightbox(id) {
+  const c = cards.find(x => x.id === id);
+  if (!c || !c.image) return;
+  document.getElementById('lightboxImg').src = c.image;
+  document.getElementById('lightbox').classList.add('open');
+}
+
 function saveCard() {
   const name = document.getElementById('f_name').value.trim();
   if (!name) { alert('กรุณากรอกชื่อการ์ด'); return; }
   const data = {
+    topic: document.getElementById('f_topic').value.trim(),
     name,
+    image: document.getElementById('f_image').value || '',
     set: document.getElementById('f_set').value.trim(),
     psa: document.getElementById('f_psa').value.trim(),
     median: parseFloat(document.getElementById('f_median').value) || 0,
