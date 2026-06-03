@@ -18,8 +18,10 @@ export default async function handler(req, res) {
   const expected = process.env.APP_PASSCODE;
   if (!expected) { res.status(500).json({ error: 'ยังไม่ได้ตั้งค่า APP_PASSCODE' }); return; }
 
+  // v2 ของ @vercel/blob จะใช้ store ที่เชื่อมกับโปรเจกต์อัตโนมัติ (ผ่าน BLOB_STORE_ID)
+  // ถ้ามี static token ก็ใช้ได้ ไม่มีก็ปล่อยให้ SDK จัดการเอง
   const token = process.env.BLOB_READ_WRITE_TOKEN;
-  if (!token) { res.status(500).json({ error: 'ยังไม่ได้เชื่อม Blob store (ไม่มี BLOB_READ_WRITE_TOKEN)' }); return; }
+  const opts = token ? { token } : {};
 
   // ตรวจรหัสผ่าน
   const pass = req.headers['x-app-pass'] || req.query.pass || '';
@@ -27,7 +29,7 @@ export default async function handler(req, res) {
 
   try {
     if (req.method === 'GET') {
-      const { blobs } = await list({ prefix: PATH, token });
+      const { blobs } = await list({ prefix: PATH, ...opts });
       const b = blobs.find(x => x.pathname === PATH);
       if (!b) { res.status(200).json({ cards: [] }); return; }
       const r = await fetch(b.url + '?t=' + Date.now(), { cache: 'no-store' });
@@ -42,11 +44,11 @@ export default async function handler(req, res) {
       if (!Array.isArray(body)) { res.status(400).json({ error: 'ข้อมูลต้องเป็น array' }); return; }
       await put(PATH, JSON.stringify(body), {
         access: 'public',
-        token,
         contentType: 'application/json',
         addRandomSuffix: false,
         allowOverwrite: true,
         cacheControlMaxAge: 0,
+        ...opts,
       });
       res.status(200).json({ ok: true, count: body.length });
       return;
