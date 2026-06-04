@@ -55,6 +55,12 @@
   }
   .status-select.wait { border-color: var(--yellow); color: var(--yellow); }
   .status-select.sold { border-color: var(--green); color: var(--green); }
+  .daily-title { font-weight: 600; font-size: .95rem; margin-bottom: 10px; }
+  .topic-chip.today { border-color: var(--green); background: rgba(46,204,113,.12); }
+  .topic-chip .t-name .t-dot.g { color: var(--green); }
+  .sold-lock { display: inline-flex; align-items: center; gap: 7px; }
+  .lock-btn { background: var(--card2); border: 1px solid var(--border); color: var(--muted); width: 30px; height: 30px; border-radius: 8px; cursor: pointer; font-size: .85rem; }
+  .lock-btn:hover { border-color: var(--accent); color: var(--text); }
 
   @media (max-width: 760px) {
     .layout { flex-direction: column; gap: 16px; }
@@ -294,6 +300,8 @@
       <h2 class="view-title">🏷️ สำหรับขาย</h2>
       <div class="sales-summary" id="salesSummary"></div>
     </div>
+    <div class="daily-title">💰 ยอดขายต่อวัน</div>
+    <div class="topic-breakdown" id="salesDaily"></div>
     <input class="search" id="salesSearch" placeholder="ค้นหา เรื่อง / ชื่อ / รุ่น..." oninput="renderSales()" style="width:100%;margin-bottom:14px">
     <div id="salesTableArea"></div>
   </div><!-- /viewSales -->
@@ -720,18 +728,22 @@ function renderSales() {
     const img = c.image
       ? `<img class="thumb" src="${c.image}" onclick="openLightbox('${c.id}')" alt="">`
       : `<div class="thumb-empty">🃏</div>`;
-    const stCls = c.status === 'sold' ? 'sold' : 'wait';
+    // ขายแล้ว = ล็อก (โชว์ป้าย + ปุ่มกุญแจ ต้องใส่รหัสถึงแก้ได้) / รอขาย = เลือกได้
+    const statusCell = c.status === 'sold'
+      ? `<div class="sold-lock">
+           <span class="badge sold">ขายแล้ว ${c.sellDate ? fmtDate(c.sellDate) : ''}</span>
+           <button class="lock-btn" onclick="unlockSold('${c.id}')" title="แก้ไข (ต้องใส่รหัส)">🔒</button>
+         </div>`
+      : `<select class="status-select wait" onchange="changeStatus('${c.id}', this.value)">
+           <option value="wait" selected>รอขาย</option>
+           <option value="sold">ขายแล้ว</option>
+         </select>`;
     return `<tr>
       <td>${img}</td>
       <td class="name">${c.topic ? `<div class="topic">${esc(c.topic)}</div>` : ''}${esc(c.name)}${c.psa ? ` <span class="muted">(PSA ${esc(c.psa)})</span>` : ''}${c.detail ? `<div class="detail">${esc(c.detail)}</div>` : ''}</td>
       <td class="num">${money(c.buy)}</td>
       <td class="num">${money(c.sell)}</td>
-      <td>
-        <select class="status-select ${stCls}" onchange="changeStatus('${c.id}', this.value)">
-          <option value="wait" ${c.status === 'wait' ? 'selected' : ''}>รอขาย</option>
-          <option value="sold" ${c.status === 'sold' ? 'selected' : ''}>ขายแล้ว</option>
-        </select>
-      </td>
+      <td>${statusCell}</td>
     </tr>`;
   }).join('');
 
@@ -745,15 +757,71 @@ function renderSales() {
     </tr></thead>
     <tbody>${rows}</tbody>
   </table>`;
+
+  renderSalesDaily();
 }
 
-// เปลี่ยนสถานะจากแถบขาย (รอขาย ⇄ ขายแล้ว)
+// ยอดขายต่อวัน — รวมราคาขายของใบที่ขายแล้ว จัดกลุ่มตามวันที่ขาย
+function renderSalesDaily() {
+  const el = document.getElementById('salesDaily');
+  if (!el) return;
+  const byDay = new Map();
+  for (const c of cards) {
+    if (c.status !== 'sold') continue;
+    const day = c.sellDate || '__none__';
+    const g = byDay.get(day) || { count: 0, total: 0 };
+    g.count++;
+    g.total += Number(c.sell) || 0;
+    byDay.set(day, g);
+  }
+  if (byDay.size === 0) { el.innerHTML = '<div class="sales-summary">ยังไม่มีการขาย</div>'; return; }
+  const today = todayISO();
+  const entries = [...byDay.entries()].sort((a, b) => b[0].localeCompare(a[0])); // ล่าสุดก่อน
+  el.innerHTML = entries.map(([day, g]) => {
+    const isToday = day === today;
+    const label = day === '__none__' ? 'ไม่ระบุวันที่' : fmtDate(day) + (isToday ? ' (วันนี้)' : '');
+    return `<div class="topic-chip${isToday ? ' today' : ''}">
+      <div class="t-name"><span class="t-dot${isToday ? ' g' : ''}">●</span> ${label}</div>
+      <div class="t-meta">${g.count} ใบ · ${money(g.total)}</div>
+    </div>`;
+  }).join('');
+}
+
+const EDIT_LOCK_PASS = 'Tumzamag01';
+function todayISO() {
+  const d = new Date();
+  const p = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
+
+// เปลี่ยนสถานะจากแถบขาย — เลือก "ขายแล้ว" ต้องยืนยัน แล้วล็อก
 function changeStatus(id, val) {
   const c = cards.find(x => x.id === id);
   if (!c) return;
-  c.status = val;
+  if (val === 'sold') {
+    if (!confirm(`ยืนยันว่าขายการ์ด "${c.name}" แล้ว?\n\nเมื่อยืนยันแล้วจะล็อก — หากต้องการแก้ไขภายหลังต้องใส่รหัส`)) {
+      renderSales(); // ยกเลิก: รีเซ็ต dropdown กลับเป็นรอขาย
+      return;
+    }
+    c.status = 'sold';
+    if (!c.sellDate) c.sellDate = todayISO(); // บันทึกวันที่ขายเป็นวันนี้ (ถ้ายังไม่มี)
+  } else {
+    c.status = val;
+  }
   save();
-  render(); // อัปเดตทั้งสองแถบ + สถิติ
+  render();
+}
+
+// ปลดล็อกใบที่ขายแล้ว (ต้องใส่รหัส) → กลับเป็นรอขาย เพื่อแก้ไข
+function unlockSold(id) {
+  const c = cards.find(x => x.id === id);
+  if (!c) return;
+  const p = prompt(`การ์ด "${c.name}" ขายแล้ว (ล็อกอยู่)\nใส่รหัสเพื่อแก้ไข:`);
+  if (p === null) return;
+  if (p !== EDIT_LOCK_PASS) { alert('รหัสไม่ถูกต้อง'); return; }
+  c.status = 'wait'; // ปลดล็อกกลับเป็นรอขาย
+  save();
+  render();
 }
 
 function esc(s) {
