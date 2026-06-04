@@ -1076,10 +1076,14 @@ render();
 syncOnStart();
 
 // เปิดฟอร์ม "เพิ่มการ์ด" อัตโนมัติ ถ้า URL ลงท้ายด้วย #add หรือ ?add
+// แล้วลบ #add ออกจาก URL ทันที เพื่อไม่ให้เด้งซ้ำเวลา F5
 function maybeOpenAdd() {
   const h = location.hash.toLowerCase();
   const p = new URLSearchParams(location.search);
-  if (h === '#add' || p.has('add')) openForm();
+  if (h === '#add' || p.has('add')) {
+    openForm();
+    history.replaceState(null, '', location.pathname);
+  }
 }
 maybeOpenAdd();
 window.addEventListener('hashchange', maybeOpenAdd);
