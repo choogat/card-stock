@@ -54,6 +54,18 @@
   .stat .value { font-size: 1.9rem; font-weight: 700; }
   .stat .sub { color: var(--muted); font-size: .78rem; margin-top: 4px; }
 
+  .topic-breakdown { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 22px; }
+  .topic-chip {
+    background: var(--card); border: 1px solid var(--border); border-radius: 13px;
+    padding: 11px 15px; cursor: pointer; transition: border-color .15s, transform .08s; min-width: 120px;
+  }
+  .topic-chip:hover { border-color: var(--accent); }
+  .topic-chip:active { transform: scale(.98); }
+  .topic-chip.active { border-color: var(--accent); background: rgba(79,140,255,.12); }
+  .topic-chip .t-name { font-weight: 600; font-size: .9rem; margin-bottom: 3px; }
+  .topic-chip .t-name .t-dot { color: var(--accent); }
+  .topic-chip .t-meta { font-size: .78rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+
   .toolbar { display: flex; gap: 12px; margin-bottom: 18px; flex-wrap: wrap; align-items: center; }
   .btn {
     border: none; cursor: pointer; border-radius: 12px; padding: 12px 20px;
@@ -184,6 +196,8 @@
       <div class="sub" id="statProfit">กำไรคาดการณ์ ฿0</div>
     </div>
   </div>
+
+  <div class="topic-breakdown" id="topicBreakdown"></div>
 
   <div class="toolbar">
     <button class="btn btn-primary" onclick="openForm()">+ เพิ่มการ์ด</button>
@@ -455,10 +469,44 @@ function refreshTopicFilter() {
   if (topics.includes(cur)) sel.value = cur;
 }
 
+// แยกตามเรื่อง: กี่ใบ + มูลค่า (ราคากลางรวม) — อัปเดตอัตโนมัติเมื่อมีเรื่องใหม่
+function renderTopicBreakdown() {
+  const el = document.getElementById('topicBreakdown');
+  const map = new Map();
+  for (const c of cards) {
+    const key = (c.topic && c.topic.trim()) ? c.topic.trim() : '__none__';
+    const g = map.get(key) || { count: 0, value: 0 };
+    g.count++;
+    g.value += Number(c.median) || 0;
+    map.set(key, g);
+  }
+  if (map.size === 0) { el.innerHTML = ''; return; }
+  const cur = document.getElementById('topicFilter').value;
+  const entries = [...map.entries()].sort((a, b) => b[1].count - a[1].count);
+  el.innerHTML = entries.map(([key, g]) => {
+    const isNone = key === '__none__';
+    const name = isNone ? 'ไม่ระบุเรื่อง' : key;
+    const active = (!isNone && cur === key) ? ' active' : '';
+    const click = isNone ? '' : ` onclick="clickTopicChip('${key.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}')"`;
+    return `<div class="topic-chip${active}"${click}>
+      <div class="t-name"><span class="t-dot">●</span> ${esc(name)}</div>
+      <div class="t-meta">${g.count} ใบ · ${money(g.value)}</div>
+    </div>`;
+  }).join('');
+}
+
+// คลิกชิปเรื่อง = กรองเฉพาะเรื่องนั้น (คลิกซ้ำ = ยกเลิกตัวกรอง)
+function clickTopicChip(topic) {
+  const sel = document.getElementById('topicFilter');
+  sel.value = (sel.value === topic) ? '' : topic;
+  render();
+}
+
 // ---- Render table ----
 function render() {
   updateStats();
   refreshTopicFilter();
+  renderTopicBreakdown();
   const q = document.getElementById('search').value.trim().toLowerCase();
   const sf = document.getElementById('statusFilter').value;
   const tf = document.getElementById('topicFilter').value;
