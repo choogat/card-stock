@@ -465,12 +465,14 @@ function render() {
   let list = cards.map((c, i) => ({ ...c, _i: i }));
   if (sf) list = list.filter(c => c.status === sf);
   if (tf) list = list.filter(c => (c.topic || '') === tf);
-  if (q) list = list.filter(c =>
-    (c.topic || '').toLowerCase().includes(q) ||
-    (c.name || '').toLowerCase().includes(q) ||
-    (c.set || '').toLowerCase().includes(q) ||
-    (c.psa || '').toLowerCase().includes(q)
-  );
+  if (q) {
+    const terms = q.split(/\s+/).filter(Boolean);
+    list = list.filter(c => {
+      const hay = [c.topic, c.name, c.set, c.psa, c.cert, c.detail]
+        .filter(Boolean).join(' ').toLowerCase();
+      return terms.every(t => hay.includes(t)); // เจอเมื่อ "ทุกคำ" ที่พิมพ์อยู่ในข้อมูล
+    });
+  }
 
   const sorters = {
     newest: (a, b) => b._i - a._i,
