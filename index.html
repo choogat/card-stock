@@ -438,8 +438,11 @@ function updateStats() {
   profitEl.className = 'sub ' + (realized > 0 ? 'profit-pos' : realized < 0 ? 'profit-neg' : '');
 }
 
-// กำไรต่อใบ (ราคาขาย − ราคารับซื้อ)
-function cardProfit(c) { return (Number(c.sell) || 0) - (Number(c.buy) || 0); }
+// กำไรต่อใบ — นับเฉพาะใบที่ "ขายแล้ว" เท่านั้น (โชว์/รอขาย = 0 เพราะยังขายไม่ได้)
+function cardProfit(c) {
+  if (c.status !== 'sold') return 0;
+  return (Number(c.sell) || 0) - (Number(c.buy) || 0);
+}
 function fmtDate(d) { return d ? d.split('-').reverse().join('/') : ''; }
 
 // เติมตัวเลือก "เรื่อง" ในตัวกรองจากข้อมูลที่มี
@@ -509,8 +512,8 @@ function render() {
       <td class="num">${money(c.median)}</td>
       <td class="num hide-sm">${money(c.buy)}</td>
       <td class="num hide-sm">${money(c.sell)}</td>
-      <td class="num">${profitCell}</td>
       <td><span class="badge ${st.cls}">${st.label}</span></td>
+      <td class="num">${profitCell}</td>
       <td>
         <div class="row-actions">
           <button class="icon-btn" onclick="editCard('${c.id}')" title="แก้ไข">✏️</button>
@@ -529,8 +532,8 @@ function render() {
       <th>ราคากลาง</th>
       <th class="hide-sm">รับซื้อ</th>
       <th class="hide-sm">ขาย</th>
-      <th>กำไร</th>
       <th>สถานะ</th>
+      <th>กำไร</th>
       <th></th>
     </tr></thead>
     <tbody>${rows}</tbody>
