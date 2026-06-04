@@ -123,6 +123,8 @@
   .lightbox img { max-width: 90vw; max-height: 90vh; border-radius: 12px; }
   td.muted { color: var(--muted); }
   .num { font-variant-numeric: tabular-nums; }
+  .snkr-link { color: var(--accent); text-decoration: none; font-weight: 600; }
+  .snkr-link:hover { text-decoration: underline; }
   .profit-pos { color: var(--green); font-weight: 600; }
   .profit-neg { color: var(--danger); font-weight: 600; }
   .dates { font-size: .74rem; color: var(--muted); margin-top: 3px; }
@@ -354,6 +356,13 @@
       <div class="field">
         <label>วันที่ขาย</label>
         <input id="f_sellDate" type="date">
+      </div>
+    </div>
+    <div class="field">
+      <label>ราคา Last sold — SNKRDUNK (¥)</label>
+      <div class="psa-row">
+        <input id="f_snkr" type="number" inputmode="decimal" placeholder="ราคาที่ขายล่าสุดใน SNKRDUNK">
+        <button type="button" class="btn btn-ghost" onclick="openSnkrFromForm()" title="เปิด SNKRDUNK ค้นหาการ์ดนี้">🔎 เปิด SNKRDUNK</button>
       </div>
     </div>
     <div class="field">
@@ -589,6 +598,7 @@ function render() {
       <td class="muted hide-sm">${esc(c.set || '-')}</td>
       <td class="muted">${esc(c.psa || '-')}</td>
       <td class="num">${money(c.median)}</td>
+      <td class="num hide-sm"><a class="snkr-link" href="${snkrdunkUrl(c.name)}" target="_blank" title="เปิด SNKRDUNK ค้นหาการ์ดนี้">${c.snkr ? yen(c.snkr) : '🔎'}</a></td>
       <td class="num hide-sm">${money(c.buy)}</td>
       <td class="num hide-sm">${money(c.sell)}</td>
       <td><span class="badge ${st.cls}">${st.label}</span></td>
@@ -609,6 +619,7 @@ function render() {
       <th class="hide-sm">รุ่น</th>
       <th>PSA</th>
       <th>ราคากลาง</th>
+      <th class="hide-sm">SNKRDUNK</th>
       <th class="hide-sm">รับซื้อ</th>
       <th class="hide-sm">ขาย</th>
       <th>สถานะ</th>
@@ -639,6 +650,7 @@ function openForm() {
   document.getElementById('f_status').value = 'show';
   document.getElementById('f_buyDate').value = '';
   document.getElementById('f_sellDate').value = '';
+  document.getElementById('f_snkr').value = '';
   document.getElementById('f_detail').value = '';
   setImage('');
   document.getElementById('overlay').classList.add('open');
@@ -662,6 +674,7 @@ function editCard(id) {
   document.getElementById('f_status').value = c.status || 'show';
   document.getElementById('f_buyDate').value = c.buyDate || '';
   document.getElementById('f_sellDate').value = c.sellDate || '';
+  document.getElementById('f_snkr').value = c.snkr ?? '';
   document.getElementById('f_detail').value = c.detail || '';
   setImage(c.image || '');
   document.getElementById('overlay').classList.add('open');
@@ -829,6 +842,7 @@ function renderPSResult(d) {
         ${rows.map(r => `<div class="k">${esc(r[0])}</div><div class="v">${esc(r[1])}</div>`).join('')}
         <div class="k">เกรด PSA</div><div class="v"><span class="ps-grade">${esc(d.grade || '-')}</span></div>
       </div>
+      <button class="btn btn-ghost ps-add" onclick="window.open(snkrdunkUrl('${esc((d.subject || '').replace(/'/g, ''))}'),'_blank')">🔎 เช็คราคา Last sold ใน SNKRDUNK</button>
       <button class="btn btn-primary ps-add" onclick="addFromPSASearch()">+ เพิ่มการ์ดนี้เข้าสต็อก</button>
     </div>`;
 }
@@ -840,6 +854,15 @@ function addFromPSASearch() {
   openForm();
   document.getElementById('f_cert').value = cert;
   fetchPSA(); // เติมข้อมูล+รูปลงฟอร์มอัตโนมัติ
+}
+
+// ---- SNKRDUNK ----
+function yen(n) { const v = Number(n) || 0; return '¥' + v.toLocaleString('th-TH', { maximumFractionDigits: 0 }); }
+function snkrdunkUrl(keyword) { return 'https://snkrdunk.com/en/search?keyword=' + encodeURIComponent(keyword || ''); }
+function openSnkrFromForm() {
+  const name = document.getElementById('f_name').value.trim();
+  if (!name) { alert('ใส่ชื่อการ์ดก่อน แล้วค่อยกดค้นหา SNKRDUNK'); return; }
+  window.open(snkrdunkUrl(name), '_blank');
 }
 
 function saveCard() {
@@ -858,6 +881,7 @@ function saveCard() {
     status: document.getElementById('f_status').value,
     buyDate: document.getElementById('f_buyDate').value || '',
     sellDate: document.getElementById('f_sellDate').value || '',
+    snkr: parseFloat(document.getElementById('f_snkr').value) || 0,
     detail: document.getElementById('f_detail').value.trim(),
   };
   const id = document.getElementById('f_id').value;
@@ -908,7 +932,7 @@ function exportCSV() {
   if (!cards.length) { alert('ยังไม่มีข้อมูลให้ส่งออก'); return; }
   const cols = [
     ['เรื่อง', 'topic'], ['ชื่อการ์ด', 'name'], ['รุ่น', 'set'], ['หมายเลข PSA', 'psa'],
-    ['ราคากลาง', 'median'], ['ราคารับซื้อ', 'buy'], ['ราคาขาย', 'sell'],
+    ['ราคากลาง', 'median'], ['SNKRDUNK(¥)', 'snkr'], ['ราคารับซื้อ', 'buy'], ['ราคาขาย', 'sell'],
     ['กำไร', c => cardProfit(c)], ['สถานะ', c => (STATUS[c.status] || {}).label || c.status],
     ['วันที่ซื้อ', 'buyDate'], ['วันที่ขาย', 'sellDate'], ['รายละเอียด', 'detail'],
   ];
