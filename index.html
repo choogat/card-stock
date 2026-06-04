@@ -104,6 +104,19 @@
   .img-controls { display: flex; flex-direction: column; gap: 8px; }
   .img-controls .btn { padding: 9px 14px; font-size: .85rem; }
 
+  /* PSA search result */
+  .ps-result { margin-top: 16px; border: 1px solid var(--border); border-radius: 14px; padding: 16px; background: var(--bg); }
+  .ps-imgs { display: flex; gap: 10px; margin-bottom: 14px; }
+  .ps-imgs img { width: 110px; height: 150px; object-fit: cover; border-radius: 10px; border: 1px solid var(--border); cursor: pointer; }
+  .ps-imgs .noimg { width: 110px; height: 150px; border-radius: 10px; border: 1px dashed var(--border); display: flex; align-items: center; justify-content: center; color: var(--muted); font-size: .8rem; text-align: center; }
+  .ps-title { font-size: 1.1rem; font-weight: 700; margin-bottom: 2px; }
+  .ps-sub { color: var(--accent); font-size: .82rem; margin-bottom: 12px; }
+  .ps-grid { display: grid; grid-template-columns: auto 1fr; gap: 6px 14px; font-size: .9rem; }
+  .ps-grid .k { color: var(--muted); white-space: nowrap; }
+  .ps-grid .v { font-weight: 500; }
+  .ps-grade { display: inline-block; background: rgba(46,204,113,.18); color: var(--green); padding: 2px 10px; border-radius: 999px; font-weight: 700; }
+  .ps-add { margin-top: 14px; width: 100%; }
+
   /* Lightbox */
   .lightbox { position: fixed; inset: 0; background: rgba(0,0,0,.85); display: none; align-items: center; justify-content: center; z-index: 100; padding: 30px; }
   .lightbox.open { display: flex; }
@@ -201,6 +214,7 @@
 
   <div class="toolbar">
     <button class="btn btn-primary" onclick="openForm()">+ เพิ่มการ์ด</button>
+    <button class="btn btn-ghost" onclick="openPSASearch()">🔍 ค้นหาการ์ด PSA</button>
     <input class="search" id="search" placeholder="ค้นหา เรื่อง / ชื่อ / รุ่น / PSA..." oninput="render()">
     <select class="filter" id="topicFilter" onchange="render()">
       <option value="">ทุกเรื่อง</option>
@@ -230,6 +244,23 @@
   </div>
 
   <div id="tableArea"></div>
+</div>
+
+<!-- PSA search modal -->
+<div class="overlay" id="psaSearchOverlay">
+  <div class="modal" style="max-width:560px">
+    <h2>🔍 ค้นหาการ์ด PSA</h2>
+    <p style="color:var(--muted);font-size:.86rem;margin-bottom:14px">ใส่เลข cert PSA เพื่อดูรายละเอียดการ์ดทั้งหมด แล้วเพิ่มเข้าสต็อกได้</p>
+    <div class="psa-row">
+      <input id="ps_cert" inputmode="numeric" placeholder="เลข cert เช่น 144153428" onkeydown="if(event.key==='Enter')searchPSA()">
+      <button type="button" class="btn btn-primary" id="psSearchBtn" onclick="searchPSA()">ค้นหา</button>
+    </div>
+    <div class="psa-msg" id="psSearchMsg"></div>
+    <div id="psResult"></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closePSASearch()">ปิด</button>
+    </div>
+  </div>
 </div>
 
 <!-- Login modal -->
@@ -741,6 +772,76 @@ async function fetchPSA() {
   }
 }
 
+// ---- ค้นหาการ์ด PSA (แสดงรายละเอียดก่อนเพิ่ม) ----
+let lastPSA = null;
+
+function openPSASearch() {
+  document.getElementById('ps_cert').value = '';
+  document.getElementById('psSearchMsg').textContent = '';
+  document.getElementById('psResult').innerHTML = '';
+  lastPSA = null;
+  document.getElementById('psaSearchOverlay').classList.add('open');
+  setTimeout(() => document.getElementById('ps_cert').focus(), 50);
+}
+function closePSASearch() { document.getElementById('psaSearchOverlay').classList.remove('open'); }
+function psSearchMsg(t, cls) { const e = document.getElementById('psSearchMsg'); e.textContent = t || ''; e.className = 'psa-msg ' + (cls || ''); }
+
+async function searchPSA() {
+  const cert = document.getElementById('ps_cert').value.trim().replace(/\D/g, '');
+  if (!cert) { psSearchMsg('กรุณากรอกเลข cert', 'err'); return; }
+  const btn = document.getElementById('psSearchBtn');
+  btn.disabled = true;
+  psSearchMsg('กำลังค้นหา...', 'load');
+  document.getElementById('psResult').innerHTML = '';
+  try {
+    const resp = await fetch(`${PSA_API_BASE}?cert=${encodeURIComponent(cert)}`);
+    const data = await resp.json();
+    if (!resp.ok || data.found === false || data.error) { psSearchMsg(data.error || 'ไม่พบข้อมูล', 'err'); return; }
+    lastPSA = data;
+    psSearchMsg('✓ พบข้อมูล', 'ok');
+    renderPSResult(data);
+  } catch (err) {
+    psSearchMsg('เชื่อมต่อหลังบ้านไม่ได้', 'err');
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+function renderPSResult(d) {
+  const img = (url, label) => url
+    ? `<img src="${url}" onclick="document.getElementById('lightboxImg').src='${url}';document.getElementById('lightbox').classList.add('open')" alt="${label}">`
+    : `<div class="noimg">ไม่มีรูป${label}</div>`;
+  const rows = [
+    ['ชื่อการ์ด', d.subject],
+    ['ปี', d.year],
+    ['ชุด / Brand', d.brand],
+    ['เลขการ์ด', d.cardNumber],
+    ['ประเภท', d.category],
+    ['Variety', d.variety],
+    ['เลข cert', d.cert],
+  ].filter(r => r[1]);
+  document.getElementById('psResult').innerHTML = `
+    <div class="ps-result">
+      <div class="ps-imgs">${img(d.frontImage, 'หน้า')}${img(d.backImage, 'หลัง')}</div>
+      <div class="ps-title">${esc(d.subject || '-')}</div>
+      <div class="ps-sub">${esc([d.year, d.brand].filter(Boolean).join(' '))}</div>
+      <div class="ps-grid">
+        ${rows.map(r => `<div class="k">${esc(r[0])}</div><div class="v">${esc(r[1])}</div>`).join('')}
+        <div class="k">เกรด PSA</div><div class="v"><span class="ps-grade">${esc(d.grade || '-')}</span></div>
+      </div>
+      <button class="btn btn-primary ps-add" onclick="addFromPSASearch()">+ เพิ่มการ์ดนี้เข้าสต็อก</button>
+    </div>`;
+}
+
+function addFromPSASearch() {
+  if (!lastPSA) return;
+  const cert = lastPSA.cert;
+  closePSASearch();
+  openForm();
+  document.getElementById('f_cert').value = cert;
+  fetchPSA(); // เติมข้อมูล+รูปลงฟอร์มอัตโนมัติ
+}
+
 function saveCard() {
   const name = document.getElementById('f_name').value.trim();
   if (!name) { alert('กรุณากรอกชื่อการ์ด'); return; }
@@ -942,7 +1043,10 @@ document.getElementById('overlay').addEventListener('click', e => {
 document.getElementById('loginOverlay').addEventListener('click', e => {
   if (e.target.id === 'loginOverlay') closeLogin();
 });
-document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeForm(); closeLogin(); } });
+document.getElementById('psaSearchOverlay').addEventListener('click', e => {
+  if (e.target.id === 'psaSearchOverlay') closePSASearch();
+});
+document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeForm(); closeLogin(); closePSASearch(); } });
 
 render();
 syncOnStart();
