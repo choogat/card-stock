@@ -28,6 +28,41 @@
     padding: 24px 16px 80px;
   }
   .wrap { max-width: 1000px; margin: 0 auto; }
+
+  .layout { max-width: 1200px; margin: 0 auto; display: flex; gap: 26px; align-items: flex-start; }
+  .sidebar {
+    width: 215px; flex-shrink: 0; position: sticky; top: 24px;
+    background: var(--card); border: 1px solid var(--border); border-radius: 18px; padding: 18px 14px;
+    display: flex; flex-direction: column; gap: 8px;
+  }
+  .sidebar .brand { font-size: 1.15rem; font-weight: 700; padding: 6px 8px 14px; }
+  .nav { display: flex; flex-direction: column; gap: 6px; }
+  .nav-item {
+    text-align: left; background: transparent; border: 1px solid transparent; color: var(--muted);
+    padding: 12px 14px; border-radius: 12px; cursor: pointer; font-size: .95rem; font-weight: 600; font-family: inherit;
+    transition: background .15s, color .15s;
+  }
+  .nav-item:hover { background: var(--card2); color: var(--text); }
+  .nav-item.active { background: linear-gradient(135deg, var(--accent), var(--accent2)); color: #fff; }
+  .sidebar-foot { margin-top: 12px; padding-top: 14px; border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 10px; align-items: flex-start; }
+  .main { flex: 1; min-width: 0; }
+  .view-title { font-size: 1.4rem; margin-bottom: 6px; }
+  .sales-head { margin-bottom: 16px; }
+  .sales-summary { color: var(--muted); font-size: .9rem; }
+  .status-select {
+    background: var(--bg); border: 1px solid var(--border); color: var(--text);
+    padding: 8px 10px; border-radius: 9px; font-size: .85rem; font-family: inherit; cursor: pointer;
+  }
+  .status-select.wait { border-color: var(--yellow); color: var(--yellow); }
+  .status-select.sold { border-color: var(--green); color: var(--green); }
+
+  @media (max-width: 760px) {
+    .layout { flex-direction: column; gap: 16px; }
+    .sidebar { width: auto; position: static; flex-direction: row; flex-wrap: wrap; align-items: center; }
+    .sidebar .brand { padding: 6px 8px; }
+    .nav { flex-direction: row; flex: 1; }
+    .sidebar-foot { margin-top: 0; padding-top: 0; border-top: none; flex-direction: row; align-items: center; width: 100%; }
+  }
   header {
     display: flex; align-items: center; justify-content: space-between;
     margin-bottom: 24px; flex-wrap: wrap; gap: 12px;
@@ -42,7 +77,7 @@
   .loginMsg { font-size: .82rem; min-height: 1em; margin-top: 4px; }
   .loginMsg.err { color: var(--danger); }
   .loginMsg.ok { color: var(--green); }
-  h1 .pill { font-size: .7rem; background: var(--accent2); padding: 3px 9px; border-radius: 999px; vertical-align: middle; margin-left: 6px; }
+  .pill { font-size: .7rem; background: var(--accent2); padding: 3px 9px; border-radius: 999px; vertical-align: middle; margin-left: 6px; font-weight: 600; }
 
   .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 28px; }
   .stat {
@@ -185,15 +220,21 @@
 </style>
 </head>
 <body>
-<div class="wrap">
-  <header>
-    <h1>🃏 Cielcard <span class="pill">PSA</span></h1>
-    <div class="header-right">
+<div class="layout">
+  <aside class="sidebar">
+    <div class="brand">🃏 Cielcard <span class="pill">PSA</span></div>
+    <nav class="nav">
+      <button class="nav-item active" data-view="stock" onclick="switchView('stock')">📦 สต็อกการ์ด</button>
+      <button class="nav-item" data-view="sales" onclick="switchView('sales')">🏷️ สำหรับขาย</button>
+    </nav>
+    <div class="sidebar-foot">
       <span class="sync" id="syncStatus"></span>
       <button class="btn btn-ghost btn-sm" id="authBtn" onclick="openLogin()">เข้าสู่ระบบ</button>
     </div>
-  </header>
+  </aside>
 
+  <main class="main">
+  <div id="viewStock">
   <div class="stats">
     <div class="stat">
       <div class="label">จำนวนการ์ดทั้งหมด</div>
@@ -246,7 +287,18 @@
   </div>
 
   <div id="tableArea"></div>
-</div>
+  </div><!-- /viewStock -->
+
+  <div id="viewSales" style="display:none">
+    <div class="sales-head">
+      <h2 class="view-title">🏷️ สำหรับขาย</h2>
+      <div class="sales-summary" id="salesSummary"></div>
+    </div>
+    <input class="search" id="salesSearch" placeholder="ค้นหา เรื่อง / ชื่อ / รุ่น..." oninput="renderSales()" style="width:100%;margin-bottom:14px">
+    <div id="salesTableArea"></div>
+  </div><!-- /viewSales -->
+  </main>
+</div><!-- /layout -->
 
 <!-- PSA search modal -->
 <div class="overlay" id="psaSearchOverlay">
@@ -628,6 +680,80 @@ function render() {
     </tr></thead>
     <tbody>${rows}</tbody>
   </table>`;
+
+  renderSales();
+}
+
+// ---- สลับแถบเมนู ----
+function switchView(view) {
+  document.querySelectorAll('.nav-item').forEach(b => b.classList.toggle('active', b.dataset.view === view));
+  document.getElementById('viewStock').style.display = view === 'stock' ? '' : 'none';
+  document.getElementById('viewSales').style.display = view === 'sales' ? '' : 'none';
+}
+
+// ---- แถบ "สำหรับขาย" ----
+// โชว์เฉพาะการ์ดที่กำลังขาย (รอขาย / ขายแล้ว) — ไม่มีราคากลาง / ไม่มีแก้ไข-ลบ
+function renderSales() {
+  const area = document.getElementById('salesTableArea');
+  if (!area) return;
+  const q = (document.getElementById('salesSearch').value || '').trim().toLowerCase();
+  let list = cards.filter(c => c.status === 'wait' || c.status === 'sold');
+  if (q) {
+    const terms = q.split(/\s+/).filter(Boolean);
+    list = list.filter(c => {
+      const hay = [c.topic, c.name, c.set, c.psa, c.cert, c.detail].filter(Boolean).join(' ').toLowerCase();
+      return terms.every(t => hay.includes(t));
+    });
+  }
+  list = list.slice().reverse();
+
+  const nWait = cards.filter(c => c.status === 'wait').length;
+  const nSold = cards.filter(c => c.status === 'sold').length;
+  document.getElementById('salesSummary').textContent = `รอขาย ${nWait} ใบ · ขายแล้ว ${nSold} ใบ`;
+
+  if (list.length === 0) {
+    area.innerHTML = `<div class="empty"><div class="big">🏷️</div>ยังไม่มีการ์ดสำหรับขาย — ตั้งสถานะการ์ดเป็น “รอขาย” ในแถบสต็อก</div>`;
+    return;
+  }
+
+  const rows = list.map(c => {
+    const img = c.image
+      ? `<img class="thumb" src="${c.image}" onclick="openLightbox('${c.id}')" alt="">`
+      : `<div class="thumb-empty">🃏</div>`;
+    const stCls = c.status === 'sold' ? 'sold' : 'wait';
+    return `<tr>
+      <td>${img}</td>
+      <td class="name">${c.topic ? `<div class="topic">${esc(c.topic)}</div>` : ''}${esc(c.name)}${c.psa ? ` <span class="muted">(PSA ${esc(c.psa)})</span>` : ''}${c.detail ? `<div class="detail">${esc(c.detail)}</div>` : ''}</td>
+      <td class="num">${money(c.buy)}</td>
+      <td class="num">${money(c.sell)}</td>
+      <td>
+        <select class="status-select ${stCls}" onchange="changeStatus('${c.id}', this.value)">
+          <option value="wait" ${c.status === 'wait' ? 'selected' : ''}>รอขาย</option>
+          <option value="sold" ${c.status === 'sold' ? 'selected' : ''}>ขายแล้ว</option>
+        </select>
+      </td>
+    </tr>`;
+  }).join('');
+
+  area.innerHTML = `<table>
+    <thead><tr>
+      <th>รูป</th>
+      <th>ชื่อการ์ด</th>
+      <th>ราคารับซื้อ</th>
+      <th>ราคาขาย</th>
+      <th>สถานะ</th>
+    </tr></thead>
+    <tbody>${rows}</tbody>
+  </table>`;
+}
+
+// เปลี่ยนสถานะจากแถบขาย (รอขาย ⇄ ขายแล้ว)
+function changeStatus(id, val) {
+  const c = cards.find(x => x.id === id);
+  if (!c) return;
+  c.status = val;
+  save();
+  render(); // อัปเดตทั้งสองแถบ + สถิติ
 }
 
 function esc(s) {
