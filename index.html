@@ -332,7 +332,6 @@
         <option value="name">ชื่อ A→Z</option>
         <option value="sell_desc">ราคาขาย มาก→น้อย</option>
         <option value="sell_asc">ราคาขาย น้อย→มาก</option>
-        <option value="status">รอขายก่อน</option>
       </select>
     </div>
     <div id="salesTableArea"></div>
@@ -920,9 +919,10 @@ function renderSales() {
     name: (a, b) => (a.name || '').localeCompare(b.name || '', 'th'),
     sell_desc: (a, b) => (Number(b.sell) || 0) - (Number(a.sell) || 0),
     sell_asc: (a, b) => (Number(a.sell) || 0) - (Number(b.sell) || 0),
-    status: (a, b) => (a.status === b.status ? idx.get(b.id) - idx.get(a.id) : a.status === 'wait' ? -1 : 1),
   };
-  list = list.slice().sort(sorters[sortBy] || sorters.newest);
+  const base = sorters[sortBy] || sorters.newest;
+  const rank = c => (c.status === 'wait' ? 0 : 1); // รอขายขึ้นก่อนเสมอ
+  list = list.slice().sort((a, b) => (rank(a) - rank(b)) || base(a, b));
 
   const nWait = cards.filter(c => c.status === 'wait').length;
   const nSold = cards.filter(c => c.status === 'sold').length;
