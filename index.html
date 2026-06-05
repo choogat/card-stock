@@ -396,18 +396,12 @@
         <input id="sale_net" type="number" readonly>
       </div>
     </div>
-    <div class="grid2">
-      <div class="field">
-        <label>ชำระเงิน</label>
-        <select id="sale_payment">
-          <option value="cash">เงินสด</option>
-          <option value="transfer">เงินโอน</option>
-        </select>
-      </div>
-      <div class="field">
-        <label>เวลาที่ขาย</label>
-        <input id="sale_datetime" type="datetime-local">
-      </div>
+    <div class="field">
+      <label>ชำระเงิน</label>
+      <select id="sale_payment">
+        <option value="cash">เงินสด</option>
+        <option value="transfer">เงินโอน</option>
+      </select>
     </div>
     <div class="modal-actions">
       <button class="btn btn-ghost" onclick="closeSale()">ยกเลิก</button>
@@ -1022,7 +1016,6 @@ function markSold(id) {
   document.getElementById('sale_price').value = gross || '';
   document.getElementById('sale_discount').value = c.discount || '';
   document.getElementById('sale_payment').value = c.payment || 'cash';
-  document.getElementById('sale_datetime').value = nowDatetimeLocal();
   updateNet();
   document.getElementById('saleOverlay').classList.add('open');
 }
@@ -1044,9 +1037,11 @@ function confirmSale() {
   if (!isNaN(price)) c.sell = price - disc; // ยอดขายสุทธิทับราคาขายเดิม
   c.discount = disc;
   c.payment = document.getElementById('sale_payment').value;
-  const dt = document.getElementById('sale_datetime').value; // "YYYY-MM-DDTHH:MM"
-  if (dt) { const [d, t] = dt.split('T'); c.sellDate = d; c.sellTime = t; }
-  else if (!c.sellDate) { c.sellDate = todayISO(); }
+  // บันทึกวันที่+เวลา ณ ตอนกดยืนยันอัตโนมัติ
+  const now = new Date();
+  const pad = n => String(n).padStart(2, '0');
+  c.sellDate = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+  c.sellTime = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
   c.status = 'sold';
   save();
   render();
