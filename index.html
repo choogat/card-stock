@@ -324,7 +324,17 @@
     </div>
     <div class="daily-title">💰 ยอดขายต่อวัน</div>
     <div class="topic-breakdown" id="salesDaily"></div>
-    <input class="search" id="salesSearch" placeholder="ค้นหา เรื่อง / ชื่อ / รุ่น..." oninput="renderSales()" style="width:100%;margin-bottom:14px">
+    <div class="toolbar">
+      <input class="search" id="salesSearch" placeholder="ค้นหา เรื่อง / ชื่อ / รุ่น..." oninput="renderSales()">
+      <select class="filter" id="salesSort" onchange="renderSales()">
+        <option value="newest">ใหม่สุดก่อน</option>
+        <option value="oldest">เก่าสุดก่อน</option>
+        <option value="name">ชื่อ A→Z</option>
+        <option value="sell_desc">ราคาขาย มาก→น้อย</option>
+        <option value="sell_asc">ราคาขาย น้อย→มาก</option>
+        <option value="status">รอขายก่อน</option>
+      </select>
+    </div>
     <div id="salesTableArea"></div>
   </div><!-- /viewSales -->
 
@@ -334,6 +344,13 @@
       <label>เลือกวัน</label>
       <input type="date" id="reportDate" onchange="renderReport()">
       <button class="btn btn-ghost btn-sm" onclick="reportToday()">วันนี้</button>
+      <select class="filter" id="reportSort" onchange="renderReport()">
+        <option value="time_desc">เวลาขาย ล่าสุด</option>
+        <option value="time_asc">เวลาขาย เก่าสุด</option>
+        <option value="net_desc">ยอดขายสุทธิ มาก→น้อย</option>
+        <option value="profit_desc">กำไร มาก→น้อย</option>
+        <option value="name">ชื่อ A→Z</option>
+      </select>
     </div>
     <div class="daily-title">เลือกจากวันที่มีการขาย</div>
     <div class="topic-breakdown" id="reportDays"></div>
@@ -849,7 +866,15 @@ function renderReport() {
     area.innerHTML = `<div class="empty"><div class="big">🗓️</div>วันนี้ยังไม่มีการขาย — เลือกวันอื่น หรือไปขายในแถบ “สำหรับขาย”</div>`;
     return;
   }
-  const rows = sold.slice().reverse().map(c => {
+  const reportSorters = {
+    time_desc: (a, b) => (b.sellTime || '').localeCompare(a.sellTime || ''),
+    time_asc: (a, b) => (a.sellTime || '').localeCompare(b.sellTime || ''),
+    net_desc: (a, b) => (Number(b.sell) || 0) - (Number(a.sell) || 0),
+    profit_desc: (a, b) => ((Number(b.sell) || 0) - (Number(b.buy) || 0)) - ((Number(a.sell) || 0) - (Number(a.buy) || 0)),
+    name: (a, b) => (a.name || '').localeCompare(b.name || '', 'th'),
+  };
+  const rsort = document.getElementById('reportSort').value;
+  const rows = sold.slice().sort(reportSorters[rsort] || reportSorters.time_desc).map(c => {
     const img = c.image ? `<img class="thumb" src="${c.image}" onclick="openLightbox('${c.id}')" alt="">` : `<div class="thumb-empty">🃏</div>`;
     const disc = Number(c.discount) || 0;
     const net = Number(c.sell) || 0;
@@ -887,7 +912,17 @@ function renderSales() {
       return terms.every(t => hay.includes(t));
     });
   }
-  list = list.slice().reverse();
+  const idx = new Map(cards.map((c, i) => [c.id, i]));
+  const sortBy = document.getElementById('salesSort').value;
+  const sorters = {
+    newest: (a, b) => idx.get(b.id) - idx.get(a.id),
+    oldest: (a, b) => idx.get(a.id) - idx.get(b.id),
+    name: (a, b) => (a.name || '').localeCompare(b.name || '', 'th'),
+    sell_desc: (a, b) => (Number(b.sell) || 0) - (Number(a.sell) || 0),
+    sell_asc: (a, b) => (Number(a.sell) || 0) - (Number(b.sell) || 0),
+    status: (a, b) => (a.status === b.status ? idx.get(b.id) - idx.get(a.id) : a.status === 'wait' ? -1 : 1),
+  };
+  list = list.slice().sort(sorters[sortBy] || sorters.newest);
 
   const nWait = cards.filter(c => c.status === 'wait').length;
   const nSold = cards.filter(c => c.status === 'sold').length;
