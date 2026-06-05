@@ -665,7 +665,6 @@ function render() {
       <td class="muted hide-sm">${esc(c.set || '-')}</td>
       <td class="muted">${esc(c.psa || '-')}</td>
       <td class="num">${money(c.median)}</td>
-      <td class="num hide-sm"><a class="snkr-link" href="${snkrdunkUrl(c.name)}" target="_blank" title="เปิด SNKRDUNK ค้นหาการ์ดนี้">${c.snkr ? yen(c.snkr) : '🔎'}</a></td>
       <td class="num hide-sm">${money(c.buy)}</td>
       <td class="num hide-sm">${money(c.sell)}</td>
       <td><span class="badge ${st.cls}">${st.label}</span></td>
@@ -690,7 +689,6 @@ function render() {
       <th class="hide-sm">รุ่น</th>
       <th>PSA</th>
       <th>ราคากลาง</th>
-      <th class="hide-sm">SNKRDUNK</th>
       <th class="hide-sm">รับซื้อ</th>
       <th class="hide-sm">ขาย</th>
       <th>สถานะ</th>
