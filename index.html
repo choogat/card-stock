@@ -477,9 +477,20 @@
         <input id="f_psa" placeholder="เช่น 10, 9...">
       </div>
     </div>
-    <div class="field" id="row_qty" style="display:none">
-      <label>จำนวน</label>
-      <input id="f_qty" type="number" inputmode="numeric" min="1" value="1" oninput="updateQtyTotals()">
+    <div class="grid2" id="row_qty" style="display:none">
+      <div class="field">
+        <label>จำนวน</label>
+        <input id="f_qty" type="number" inputmode="numeric" min="1" value="1" oninput="updateQtyTotals()">
+      </div>
+      <div class="field">
+        <label>หน่วย</label>
+        <select id="f_unit" onchange="updateQtyTotals()">
+          <option value="Carton">Carton</option>
+          <option value="Box">Box</option>
+          <option value="Pack">Pack</option>
+          <option value="เล่ม">เล่ม</option>
+        </select>
+      </div>
     </div>
     <div class="grid2">
       <div class="field">
@@ -743,7 +754,7 @@ function render() {
     const profitCell = `<span class="${p > 0 ? 'profit-pos' : p < 0 ? 'profit-neg' : 'muted'}">${p > 0 ? '+' : ''}${money(p)}</span>`;
     return `<tr>
       <td>${img}</td>
-      <td class="name">${c.topic ? `<div class="topic">${esc(c.topic)}</div>` : ''}${esc(c.name)}${c.psa ? ` <span class="muted">(PSA ${esc(c.psa)})</span>` : ''}${(c.qty && c.qty > 1) ? ` <span class="qty-badge">×${c.qty}</span>` : ''}${c.set ? `<div class="cardset">รุ่น: ${esc(c.set)}</div>` : ''}${c.detail ? `<div class="detail">${esc(c.detail)}</div>` : ''}</td>
+      <td class="name">${c.topic ? `<div class="topic">${esc(c.topic)}</div>` : ''}${esc(c.name)}${c.psa ? ` <span class="muted">(PSA ${esc(c.psa)})</span>` : ''}${(c.qty && c.qty > 1) ? ` <span class="qty-badge">×${c.qty}${c.unit ? ' ' + esc(c.unit) : ''}</span>` : ''}${c.set ? `<div class="cardset">รุ่น: ${esc(c.set)}</div>` : ''}${c.detail ? `<div class="detail">${esc(c.detail)}</div>` : ''}</td>
       <td class="num">${money(c.median)}</td>
       <td class="num hide-sm">${money(c.buy)}</td>
       <td class="num hide-sm">${money(c.sell)}</td>
@@ -864,7 +875,7 @@ function renderReport() {
     const p = net - (Number(c.buy) || 0);
     return `<tr>
       <td>${img}</td>
-      <td class="name">${c.topic ? `<div class="topic">${esc(c.topic)}</div>` : ''}${esc(c.name)}${c.psa ? ` <span class="muted">(PSA ${esc(c.psa)})</span>` : ''}${(c.qty && c.qty > 1) ? ` <span class="qty-badge">×${c.qty}</span>` : ''}</td>
+      <td class="name">${c.topic ? `<div class="topic">${esc(c.topic)}</div>` : ''}${esc(c.name)}${c.psa ? ` <span class="muted">(PSA ${esc(c.psa)})</span>` : ''}${(c.qty && c.qty > 1) ? ` <span class="qty-badge">×${c.qty}${c.unit ? ' ' + esc(c.unit) : ''}</span>` : ''}</td>
       <td class="center muted">${c.sellTime || '-'}</td>
       <td class="center"><span class="pay-tag ${c.payment || ''}">${PAYMENT[c.payment] || '-'}</span></td>
       <td class="num">${money(c.buy)}</td>
@@ -933,7 +944,7 @@ function renderSales() {
          </div>`;
     return `<tr>
       <td>${img}</td>
-      <td class="name">${c.topic ? `<div class="topic">${esc(c.topic)}</div>` : ''}${esc(c.name)}${c.psa ? ` <span class="muted">(PSA ${esc(c.psa)})</span>` : ''}${(c.qty && c.qty > 1) ? ` <span class="qty-badge">×${c.qty}</span>` : ''}${c.detail ? `<div class="detail">${esc(c.detail)}</div>` : ''}</td>
+      <td class="name">${c.topic ? `<div class="topic">${esc(c.topic)}</div>` : ''}${esc(c.name)}${c.psa ? ` <span class="muted">(PSA ${esc(c.psa)})</span>` : ''}${(c.qty && c.qty > 1) ? ` <span class="qty-badge">×${c.qty}${c.unit ? ' ' + esc(c.unit) : ''}</span>` : ''}${c.detail ? `<div class="detail">${esc(c.detail)}</div>` : ''}</td>
       <td class="num">${money(c.buy)}</td>
       <td class="num">${money(c.sell)}</td>
       <td style="text-align:right">${statusCell}</td>
@@ -1086,11 +1097,12 @@ function updateQtyTotals() {
   const box = document.getElementById('qtyTotals');
   if (formMode !== 'collect') { box.style.display = 'none'; return; }
   const qty = parseInt(document.getElementById('f_qty').value) || 1;
+  const unit = document.getElementById('f_unit').value || '';
   const m = (parseFloat(document.getElementById('f_median').value) || 0) * qty;
   const b = (parseFloat(document.getElementById('f_buy').value) || 0) * qty;
   const s = (parseFloat(document.getElementById('f_sell').value) || 0) * qty;
   box.style.display = '';
-  box.innerHTML = `ยอดรวม × ${qty} ชิ้น → ราคากลาง <b>${money(m)}</b> · รับซื้อ <b>${money(b)}</b> · ขาย <b>${money(s)}</b>`;
+  box.innerHTML = `ยอดรวม × ${qty} ${unit} → ราคากลาง <b>${money(m)}</b> · รับซื้อ <b>${money(b)}</b> · ขาย <b>${money(s)}</b>`;
 }
 
 function openForm(mode = 'card') {
@@ -1106,6 +1118,7 @@ function openForm(mode = 'card') {
   document.getElementById('f_buy').value = '';
   document.getElementById('f_sell').value = '';
   document.getElementById('f_qty').value = '1';
+  document.getElementById('f_unit').value = 'Box';
   document.getElementById('f_status').value = 'show';
   document.getElementById('f_buyDate').value = '';
   document.getElementById('f_snkr').value = '';
@@ -1129,6 +1142,7 @@ function editCard(id) {
   document.getElementById('f_set').value = c.set || '';
   document.getElementById('f_psa').value = c.psa || '';
   document.getElementById('f_qty').value = c.qty || 1;
+  document.getElementById('f_unit').value = c.unit || 'Box';
   // ของสะสมเก็บราคาต่อชิ้นไว้ใน unit* — โหลดราคาต่อชิ้นมาแก้
   if (mode === 'collect') {
     document.getElementById('f_median').value = c.unitMedian ?? c.median ?? '';
@@ -1349,8 +1363,9 @@ function saveCard() {
     image: document.getElementById('f_image').value || '',
     set: document.getElementById('f_set').value.trim(),
     psa: document.getElementById('f_psa').value.trim(),
-    // ของสะสม: ราคาที่เก็บ = ราคาต่อชิ้น × จำนวน (เก็บราคาต่อชิ้นไว้แก้ทีหลัง)
+    // ของสะสม: ราคาที่เก็บ = ราคาต่อหน่วย × จำนวน (เก็บราคาต่อหน่วยไว้แก้ทีหลัง)
     qty,
+    unit: isCollect ? document.getElementById('f_unit').value : undefined,
     unitMedian: isCollect ? uMedian : undefined,
     unitBuy: isCollect ? uBuy : undefined,
     unitSell: isCollect ? uSell : undefined,
@@ -1370,7 +1385,7 @@ function saveCard() {
   } else if (isCollect) {
     // ของสะสมซ้ำ (ชื่อ+เรื่องตรงกัน และยังไม่ขาย) → รวมจำนวนกับของเดิม
     const match = cards.find(x => x.type === 'collect' && x.status !== 'sold'
-      && key(x.name) === key(name) && key(x.topic) === key(data.topic));
+      && key(x.name) === key(name) && key(x.topic) === key(data.topic) && (x.unit || '') === (data.unit || ''));
     if (match) {
       const newQty = (Number(match.qty) || 1) + qty;
       match.qty = newQty;
