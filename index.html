@@ -1363,9 +1363,31 @@ function saveCard() {
     detail: document.getElementById('f_detail').value.trim(),
   };
   const id = document.getElementById('f_id').value;
+  const key = s => (s || '').trim().toLowerCase();
   if (id) {
     const c = cards.find(x => x.id === id);
     if (c) Object.assign(c, data);
+  } else if (isCollect) {
+    // ของสะสมซ้ำ (ชื่อ+เรื่องตรงกัน และยังไม่ขาย) → รวมจำนวนกับของเดิม
+    const match = cards.find(x => x.type === 'collect' && x.status !== 'sold'
+      && key(x.name) === key(name) && key(x.topic) === key(data.topic));
+    if (match) {
+      const newQty = (Number(match.qty) || 1) + qty;
+      match.qty = newQty;
+      match.unitMedian = Number(match.unitMedian) || uMedian;
+      match.unitBuy = Number(match.unitBuy) || uBuy;
+      match.unitSell = Number(match.unitSell) || uSell;
+      match.median = match.unitMedian * newQty;
+      match.buy = match.unitBuy * newQty;
+      match.sell = match.unitSell * newQty;
+      if (!match.image && data.image) match.image = data.image;
+      save();
+      closeForm();
+      render();
+      alert(`รวมกับของเดิมแล้ว — "${match.name}" รวมเป็น ${newQty} ชิ้น`);
+      return;
+    }
+    cards.push({ id: uid(), ...data });
   } else {
     cards.push({ id: uid(), ...data });
   }
