@@ -661,9 +661,8 @@ function render() {
       : '';
     return `<tr>
       <td>${img}</td>
-      <td class="name">${c.topic ? `<div class="topic">${esc(c.topic)}</div>` : ''}${esc(c.name)}${c.detail ? `<div class="detail">${esc(c.detail)}</div>` : ''}${dates}</td>
+      <td class="name">${c.topic ? `<div class="topic">${esc(c.topic)}</div>` : ''}${esc(c.name)}${c.psa ? ` <span class="muted">(PSA ${esc(c.psa)})</span>` : ''}${c.detail ? `<div class="detail">${esc(c.detail)}</div>` : ''}${dates}</td>
       <td class="muted hide-sm">${esc(c.set || '-')}</td>
-      <td class="muted">${esc(c.psa || '-')}</td>
       <td class="num">${money(c.median)}</td>
       <td class="num hide-sm">${money(c.buy)}</td>
       <td class="num hide-sm">${money(c.sell)}</td>
@@ -687,7 +686,6 @@ function render() {
       <th>รูป</th>
       <th>ชื่อการ์ด</th>
       <th class="hide-sm">รุ่น</th>
-      <th>PSA</th>
       <th>ราคากลาง</th>
       <th class="hide-sm">รับซื้อ</th>
       <th class="hide-sm">ขาย</th>
