@@ -62,7 +62,9 @@
   .report-controls input[type=date]:focus { outline: none; border-color: var(--accent); }
   .topic-chip.today { border-color: var(--green); background: rgba(46,204,113,.12); }
   .topic-chip .t-name .t-dot.g { color: var(--green); }
-  .sale-status-cell { display: flex; align-items: center; gap: 8px; }
+  .sale-status-cell { display: inline-flex; align-items: center; gap: 8px; }
+  .sold-lock { justify-content: center; }
+  .btn-sm { padding: 7px 12px; font-size: .8rem; }
   .sale-check { width: 20px; height: 20px; accent-color: var(--accent); cursor: pointer; }
   .sale-check:disabled { cursor: not-allowed; opacity: .6; }
   .sold-lock { display: inline-flex; align-items: center; gap: 7px; }
@@ -134,11 +136,15 @@
     padding: 12px 14px; border-radius: 12px; font-size: .9rem;
   }
 
-  table { width: 100%; border-collapse: separate; border-spacing: 0 8px; }
-  th { text-align: left; color: var(--muted); font-size: .78rem; font-weight: 600; padding: 0 14px 4px; text-transform: uppercase; letter-spacing: .5px; }
-  td { background: var(--card); padding: 14px; font-size: .92rem; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
-  tr td:first-child { border-left: 1px solid var(--border); border-radius: 12px 0 0 12px; }
-  tr td:last-child { border-right: 1px solid var(--border); border-radius: 0 12px 12px 0; }
+  table { width: 100%; border-collapse: separate; border-spacing: 0 6px; }
+  th { text-align: left; color: var(--muted); font-size: .72rem; font-weight: 600; padding: 2px 12px 6px; text-transform: uppercase; letter-spacing: .4px; white-space: nowrap; }
+  th.num { text-align: right; }
+  th.center { text-align: center; }
+  td { background: var(--card); padding: 9px 12px; font-size: .86rem; vertical-align: middle; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+  tbody tr { transition: filter .12s; }
+  tbody tr:hover td { filter: brightness(1.08); }
+  tr td:first-child { border-left: 1px solid var(--border); border-radius: 10px 0 0 10px; }
+  tr td:last-child { border-right: 1px solid var(--border); border-radius: 0 10px 10px 0; }
   td.name { font-weight: 600; }
   td.name .topic { font-weight: 600; color: var(--accent); font-size: .72rem; text-transform: uppercase; letter-spacing: .5px; margin-bottom: 2px; }
   td.name .cardset { font-weight: 400; color: var(--muted); font-size: .8rem; margin-top: 2px; }
@@ -148,8 +154,8 @@
     display: -webkit-box; -webkit-line-clamp: 3; line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
   }
 
-  .thumb { width: 46px; height: 64px; object-fit: cover; border-radius: 8px; border: 1px solid var(--border); cursor: pointer; background: var(--card2); }
-  .thumb-empty { width: 46px; height: 64px; border-radius: 8px; border: 1px dashed var(--border); display: flex; align-items: center; justify-content: center; color: var(--muted); font-size: 1.1rem; }
+  .thumb { width: 40px; height: 56px; object-fit: cover; border-radius: 7px; border: 1px solid var(--border); cursor: pointer; background: var(--card2); display: block; }
+  .thumb-empty { width: 40px; height: 56px; border-radius: 7px; border: 1px dashed var(--border); display: flex; align-items: center; justify-content: center; color: var(--muted); font-size: 1rem; }
 
   .img-upload { display: flex; gap: 14px; align-items: center; }
   .img-preview { width: 96px; height: 130px; border-radius: 12px; border: 1px dashed var(--border); display: flex; align-items: center; justify-content: center; color: var(--muted); font-size: .8rem; overflow: hidden; flex-shrink: 0; }
@@ -176,6 +182,8 @@
   .lightbox img { max-width: 90vw; max-height: 90vh; border-radius: 12px; }
   td.muted { color: var(--muted); }
   .num { font-variant-numeric: tabular-nums; }
+  td.num { text-align: right; white-space: nowrap; }
+  td.center { text-align: center; }
   .snkr-link { color: var(--accent); text-decoration: none; font-weight: 600; }
   .snkr-link:hover { text-decoration: underline; }
   .profit-pos { color: var(--green); font-weight: 600; }
@@ -681,8 +689,8 @@ function render() {
       <td class="num">${money(c.median)}</td>
       <td class="num hide-sm">${money(c.buy)}</td>
       <td class="num hide-sm">${money(c.sell)}</td>
-      <td><span class="badge ${st.cls}">${st.label}</span></td>
-      <td style="text-align:center">
+      <td class="center"><span class="badge ${st.cls}">${st.label}</span></td>
+      <td class="center">
         <input type="checkbox" class="sale-check" ${c.status !== 'show' ? 'checked' : ''} ${c.status === 'sold' ? 'disabled' : ''}
           onchange="toggleForSale('${c.id}')" title="${c.status === 'sold' ? 'ขายแล้ว (ล็อก)' : 'ติ๊กเพื่อย้ายไปแถบสำหรับขาย'}">
       </td>
@@ -700,12 +708,12 @@ function render() {
     <thead><tr>
       <th>รูป</th>
       <th>ชื่อการ์ด</th>
-      <th>ราคากลาง</th>
-      <th class="hide-sm">รับซื้อ</th>
-      <th class="hide-sm">ขาย</th>
-      <th>สถานะ</th>
-      <th>สำหรับขาย</th>
-      <th>กำไร</th>
+      <th class="num">ราคากลาง</th>
+      <th class="hide-sm num">รับซื้อ</th>
+      <th class="hide-sm num">ขาย</th>
+      <th class="center">สถานะ</th>
+      <th class="center">สำหรับขาย</th>
+      <th class="num">กำไร</th>
       <th></th>
     </tr></thead>
     <tbody>${rows}</tbody>
@@ -789,7 +797,7 @@ function renderReport() {
     </tr>`;
   }).join('');
   area.innerHTML = `<table>
-    <thead><tr><th>รูป</th><th>ชื่อการ์ด</th><th>รับซื้อ</th><th>ขาย</th><th>กำไร</th></tr></thead>
+    <thead><tr><th>รูป</th><th>ชื่อการ์ด</th><th class="num">รับซื้อ</th><th class="num">ขาย</th><th class="num">กำไร</th></tr></thead>
     <tbody>${rows}</tbody>
   </table>`;
 }
@@ -838,7 +846,7 @@ function renderSales() {
       <td class="name">${c.topic ? `<div class="topic">${esc(c.topic)}</div>` : ''}${esc(c.name)}${c.psa ? ` <span class="muted">(PSA ${esc(c.psa)})</span>` : ''}${c.detail ? `<div class="detail">${esc(c.detail)}</div>` : ''}</td>
       <td class="num">${money(c.buy)}</td>
       <td class="num">${money(c.sell)}</td>
-      <td>${statusCell}</td>
+      <td class="center">${statusCell}</td>
     </tr>`;
   }).join('');
 
@@ -846,9 +854,9 @@ function renderSales() {
     <thead><tr>
       <th>รูป</th>
       <th>ชื่อการ์ด</th>
-      <th>ราคารับซื้อ</th>
-      <th>ราคาขาย</th>
-      <th>สถานะ</th>
+      <th class="num">ราคารับซื้อ</th>
+      <th class="num">ราคาขาย</th>
+      <th class="center">สถานะ</th>
     </tr></thead>
     <tbody>${rows}</tbody>
   </table>`;
