@@ -855,13 +855,9 @@ function renderReport() {
   const rows = sold.slice().reverse().map(c => {
     const img = c.image ? `<img class="thumb" src="${c.image}" onclick="openLightbox('${c.id}')" alt="">` : `<div class="thumb-empty">🃏</div>`;
     const p = (Number(c.sell) || 0) - (Number(c.buy) || 0);
-    const disc = Number(c.discount) || 0;
-    const net = Number(c.sell) || 0;
-    const gross = net + disc;
-    const saleLine = `<div class="cardset">ยอดขาย ${money(gross)}${disc > 0 ? ` − ส่วนลด ${money(disc)}` : ''} = สุทธิ ${money(net)}</div>`;
     return `<tr>
       <td>${img}</td>
-      <td class="name">${c.topic ? `<div class="topic">${esc(c.topic)}</div>` : ''}${esc(c.name)}${c.psa ? ` <span class="muted">(PSA ${esc(c.psa)})</span>` : ''}${saleLine}</td>
+      <td class="name">${c.topic ? `<div class="topic">${esc(c.topic)}</div>` : ''}${esc(c.name)}${c.psa ? ` <span class="muted">(PSA ${esc(c.psa)})</span>` : ''}</td>
       <td class="center muted">${c.sellTime || '-'}</td>
       <td class="center"><span class="pay-tag ${c.payment || ''}">${PAYMENT[c.payment] || '-'}</span></td>
       <td class="num">${money(c.buy)}</td>
