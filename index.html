@@ -497,29 +497,9 @@
         </select>
       </div>
     </div>
-    <div class="grid2">
-      <div class="field">
-        <label>วันที่ซื้อ</label>
-        <input id="f_buyDate" type="date">
-      </div>
-      <div class="field">
-        <label>วันที่ขาย</label>
-        <input id="f_sellDate" type="date">
-      </div>
-    </div>
-    <div class="grid2">
-      <div class="field">
-        <label>เวลาที่ขาย</label>
-        <input id="f_sellTime" type="time">
-      </div>
-      <div class="field">
-        <label>ชำระเงิน</label>
-        <select id="f_payment">
-          <option value="">—</option>
-          <option value="cash">เงินสด</option>
-          <option value="transfer">เงินโอน</option>
-        </select>
-      </div>
+    <div class="field">
+      <label>วันที่ซื้อ</label>
+      <input id="f_buyDate" type="date">
     </div>
     <div class="field">
       <label>ราคา Last sold — SNKRDUNK (¥)</label>
@@ -1089,9 +1069,6 @@ function openForm() {
   document.getElementById('f_sell').value = '';
   document.getElementById('f_status').value = 'show';
   document.getElementById('f_buyDate').value = '';
-  document.getElementById('f_sellDate').value = '';
-  document.getElementById('f_sellTime').value = '';
-  document.getElementById('f_payment').value = '';
   document.getElementById('f_snkr').value = '';
   document.getElementById('f_detail').value = '';
   setImage('');
@@ -1115,9 +1092,6 @@ function editCard(id) {
   document.getElementById('f_sell').value = c.sell ?? '';
   document.getElementById('f_status').value = c.status || 'show';
   document.getElementById('f_buyDate').value = c.buyDate || '';
-  document.getElementById('f_sellDate').value = c.sellDate || '';
-  document.getElementById('f_sellTime').value = c.sellTime || '';
-  document.getElementById('f_payment').value = c.payment || '';
   document.getElementById('f_snkr').value = c.snkr ?? '';
   document.getElementById('f_detail').value = c.detail || '';
   setImage(c.image || '');
@@ -1324,9 +1298,6 @@ function saveCard() {
     sell: parseFloat(document.getElementById('f_sell').value) || 0,
     status: document.getElementById('f_status').value,
     buyDate: document.getElementById('f_buyDate').value || '',
-    sellDate: document.getElementById('f_sellDate').value || '',
-    sellTime: document.getElementById('f_sellTime').value || '',
-    payment: document.getElementById('f_payment').value || '',
     snkr: parseFloat(document.getElementById('f_snkr').value) || 0,
     detail: document.getElementById('f_detail').value.trim(),
   };
