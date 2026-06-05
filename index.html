@@ -337,11 +337,15 @@
   <div class="modal" style="max-width:420px">
     <h2>🔐 เข้าสู่ระบบ</h2>
     <p style="color:var(--muted);font-size:.88rem;margin-bottom:16px;line-height:1.5">
-      ใส่รหัสผ่านเพื่อซิงก์ข้อมูลกับเซิร์ฟเวอร์ — เปิดเครื่องไหน/มือถือก็เห็นข้อมูลเดียวกัน
+      ใส่ ID และรหัสผ่านเพื่อซิงก์ข้อมูลกับเซิร์ฟเวอร์ — เปิดเครื่องไหน/มือถือก็เห็นข้อมูลเดียวกัน
     </p>
     <div class="field">
+      <label>ID</label>
+      <input id="f_loginId" placeholder="ID" autocomplete="username" onkeydown="if(event.key==='Enter')doLogin()">
+    </div>
+    <div class="field">
       <label>รหัสผ่าน</label>
-      <input id="f_pass" type="password" placeholder="รหัสผ่าน" onkeydown="if(event.key==='Enter')doLogin()">
+      <input id="f_pass" type="password" placeholder="รหัสผ่าน" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()">
     </div>
     <div class="loginMsg" id="loginMsg"></div>
     <div class="modal-actions">
@@ -1203,28 +1207,33 @@ function updateAuthBtn() {
     setSync('');
   }
 }
+const LOGIN_ID = 'Cielcard';
 function openLogin() {
+  document.getElementById('f_loginId').value = localStorage.getItem('app_id') || '';
   document.getElementById('f_pass').value = passcode || '';
   document.getElementById('loginMsg').textContent = '';
   document.getElementById('loginOverlay').classList.add('open');
-  setTimeout(() => document.getElementById('f_pass').focus(), 50);
+  setTimeout(() => document.getElementById('f_loginId').focus(), 50);
 }
 function closeLogin() { document.getElementById('loginOverlay').classList.remove('open'); }
 function loginMsg(t, cls) { const e = document.getElementById('loginMsg'); e.textContent = t || ''; e.className = 'loginMsg ' + (cls || ''); }
 
 async function doLogin() {
+  const id = document.getElementById('f_loginId').value.trim();
   const val = document.getElementById('f_pass').value.trim();
-  if (!val) { loginMsg('กรุณากรอกรหัสผ่าน', 'err'); return; }
+  if (!id || !val) { loginMsg('กรุณากรอก ID และรหัสผ่าน', 'err'); return; }
+  if (id !== LOGIN_ID) { loginMsg('ID หรือรหัสผ่านไม่ถูกต้อง', 'err'); return; }
   const btn = document.getElementById('loginBtn');
   btn.disabled = true;
   loginMsg('กำลังตรวจสอบ...', '');
   const prev = passcode;
   passcode = val;
   const res = await pullFromServer();
-  if (res.auth === false) { passcode = prev; loginMsg('รหัสผ่านไม่ถูกต้อง', 'err'); btn.disabled = false; return; }
+  if (res.auth === false) { passcode = prev; loginMsg('ID หรือรหัสผ่านไม่ถูกต้อง', 'err'); btn.disabled = false; return; }
   if (!res.ok) { passcode = prev; loginMsg('เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ ลองใหม่อีกครั้ง', 'err'); btn.disabled = false; return; }
-  // สำเร็จ — บันทึกรหัส และตัดสินใจเรื่องข้อมูล
+  // สำเร็จ — บันทึก ID/รหัส และตัดสินใจเรื่องข้อมูล
   localStorage.setItem('app_pass', passcode);
+  localStorage.setItem('app_id', id);
   if (res.cards.length) {
     // เซิร์ฟเวอร์มีข้อมูล
     if (cards.length && !confirm(`เซิร์ฟเวอร์มี ${res.cards.length} การ์ด\nในเครื่องนี้มี ${cards.length} การ์ด\n\nกด "OK" = ใช้ข้อมูลจากเซิร์ฟเวอร์ (แนะนำ)\nกด "Cancel" = อัปโหลดข้อมูลในเครื่องทับเซิร์ฟเวอร์`)) {
