@@ -65,7 +65,7 @@
   .sale-status-cell { display: inline-flex; align-items: center; gap: 8px; }
   .sold-lock { justify-content: center; }
   .btn-sm { padding: 7px 12px; font-size: .8rem; }
-  .btn-sold { padding: 5px 11px; font-size: .76rem; border-radius: 9px; }
+  .btn-sold { padding: 3px 11px; font-size: .72rem; border-radius: 8px; line-height: 1.4; }
   .sale-check { width: 20px; height: 20px; accent-color: var(--accent); cursor: pointer; }
   .sale-check:disabled { cursor: not-allowed; opacity: .6; }
   .sold-lock { display: inline-flex; align-items: center; gap: 5px; flex-wrap: wrap; justify-content: center; }
@@ -900,7 +900,7 @@ function renderSales() {
       <td class="name">${c.topic ? `<div class="topic">${esc(c.topic)}</div>` : ''}${esc(c.name)}${c.psa ? ` <span class="muted">(PSA ${esc(c.psa)})</span>` : ''}${c.detail ? `<div class="detail">${esc(c.detail)}</div>` : ''}</td>
       <td class="num">${money(c.buy)}</td>
       <td class="num">${money(c.sell)}</td>
-      <td class="center">${statusCell}</td>
+      <td style="text-align:right">${statusCell}</td>
     </tr>`;
   }).join('');
 
@@ -910,7 +910,7 @@ function renderSales() {
       <th>ชื่อการ์ด</th>
       <th class="num">ราคารับซื้อ</th>
       <th class="num">ราคาขาย</th>
-      <th class="center">สถานะ</th>
+      <th class="num">สถานะ</th>
     </tr></thead>
     <tbody>${rows}</tbody>
   </table>`;
