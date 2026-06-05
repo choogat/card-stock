@@ -141,6 +141,7 @@
   tr td:last-child { border-right: 1px solid var(--border); border-radius: 0 12px 12px 0; }
   td.name { font-weight: 600; }
   td.name .topic { font-weight: 600; color: var(--accent); font-size: .72rem; text-transform: uppercase; letter-spacing: .5px; margin-bottom: 2px; }
+  td.name .cardset { font-weight: 400; color: var(--muted); font-size: .8rem; margin-top: 2px; }
   td.name .detail {
     font-weight: 400; color: var(--muted); font-size: .8rem; margin-top: 4px;
     white-space: pre-wrap; max-width: 320px;
@@ -676,8 +677,7 @@ function render() {
       : '';
     return `<tr>
       <td>${img}</td>
-      <td class="name">${c.topic ? `<div class="topic">${esc(c.topic)}</div>` : ''}${esc(c.name)}${c.psa ? ` <span class="muted">(PSA ${esc(c.psa)})</span>` : ''}${c.detail ? `<div class="detail">${esc(c.detail)}</div>` : ''}${dates}</td>
-      <td class="muted hide-sm">${esc(c.set || '-')}</td>
+      <td class="name">${c.topic ? `<div class="topic">${esc(c.topic)}</div>` : ''}${esc(c.name)}${c.psa ? ` <span class="muted">(PSA ${esc(c.psa)})</span>` : ''}${c.set ? `<div class="cardset">รุ่น: ${esc(c.set)}</div>` : ''}${c.detail ? `<div class="detail">${esc(c.detail)}</div>` : ''}${dates}</td>
       <td class="num">${money(c.median)}</td>
       <td class="num hide-sm">${money(c.buy)}</td>
       <td class="num hide-sm">${money(c.sell)}</td>
@@ -700,7 +700,6 @@ function render() {
     <thead><tr>
       <th>รูป</th>
       <th>ชื่อการ์ด</th>
-      <th class="hide-sm">รุ่น</th>
       <th>ราคากลาง</th>
       <th class="hide-sm">รับซื้อ</th>
       <th class="hide-sm">ขาย</th>
