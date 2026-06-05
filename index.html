@@ -838,7 +838,7 @@ function renderSales() {
       <td class="name">${c.topic ? `<div class="topic">${esc(c.topic)}</div>` : ''}${esc(c.name)}${c.psa ? ` <span class="muted">(PSA ${esc(c.psa)})</span>` : ''}${c.detail ? `<div class="detail">${esc(c.detail)}</div>` : ''}</td>
       <td class="num">${money(c.buy)}</td>
       <td class="num">${money(c.sell)}</td>
-      <td><div class="sale-status-cell">${statusCell}<button class="icon-btn del" onclick="delCard('${c.id}')" title="ลบ">🗑️</button></div></td>
+      <td>${statusCell}</td>
     </tr>`;
   }).join('');
 
