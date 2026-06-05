@@ -56,6 +56,10 @@
   .status-select.wait { border-color: var(--yellow); color: var(--yellow); }
   .status-select.sold { border-color: var(--green); color: var(--green); }
   .daily-title { font-weight: 600; font-size: .95rem; margin-bottom: 10px; }
+  .report-controls { display: flex; align-items: center; gap: 10px; margin-bottom: 18px; flex-wrap: wrap; }
+  .report-controls label { color: var(--muted); font-size: .9rem; }
+  .report-controls input[type=date] { background: var(--card); border: 1px solid var(--border); color: var(--text); padding: 10px 14px; border-radius: 11px; font-size: .95rem; font-family: inherit; }
+  .report-controls input[type=date]:focus { outline: none; border-color: var(--accent); }
   .topic-chip.today { border-color: var(--green); background: rgba(46,204,113,.12); }
   .topic-chip .t-name .t-dot.g { color: var(--green); }
   .sale-status-cell { display: flex; align-items: center; gap: 8px; }
@@ -239,6 +243,7 @@
     <nav class="nav">
       <button class="nav-item active" data-view="stock" onclick="switchView('stock')">📦 สต็อกการ์ด</button>
       <button class="nav-item" data-view="sales" onclick="switchView('sales')">🏷️ สำหรับขาย</button>
+      <button class="nav-item" data-view="report" onclick="switchView('report')">📊 รายละเอียดการขาย</button>
     </nav>
     <div class="sidebar-foot">
       <span class="sync" id="syncStatus"></span>
@@ -312,6 +317,19 @@
     <input class="search" id="salesSearch" placeholder="ค้นหา เรื่อง / ชื่อ / รุ่น..." oninput="renderSales()" style="width:100%;margin-bottom:14px">
     <div id="salesTableArea"></div>
   </div><!-- /viewSales -->
+
+  <div id="viewReport" style="display:none">
+    <h2 class="view-title">📊 รายละเอียดการขาย</h2>
+    <div class="report-controls">
+      <label>เลือกวัน</label>
+      <input type="date" id="reportDate" onchange="renderReport()">
+      <button class="btn btn-ghost btn-sm" onclick="reportToday()">วันนี้</button>
+    </div>
+    <div class="daily-title">เลือกจากวันที่มีการขาย</div>
+    <div class="topic-breakdown" id="reportDays"></div>
+    <div id="reportSummary"></div>
+    <div id="reportTableArea"></div>
+  </div><!-- /viewReport -->
   </main>
 </div><!-- /layout -->
 
@@ -702,6 +720,7 @@ function render() {
   </table>`;
 
   renderSales();
+  renderReport();
 }
 
 // ---- สลับแถบเมนู ----
@@ -709,6 +728,78 @@ function switchView(view) {
   document.querySelectorAll('.nav-item').forEach(b => b.classList.toggle('active', b.dataset.view === view));
   document.getElementById('viewStock').style.display = view === 'stock' ? '' : 'none';
   document.getElementById('viewSales').style.display = view === 'sales' ? '' : 'none';
+  document.getElementById('viewReport').style.display = view === 'report' ? '' : 'none';
+  if (view === 'report') renderReport();
+}
+
+function reportToday() {
+  document.getElementById('reportDate').value = todayISO();
+  renderReport();
+}
+
+// รายละเอียดการขายของวันที่เลือก
+function renderReport() {
+  const dateEl = document.getElementById('reportDate');
+  if (!dateEl) return;
+  if (!dateEl.value) dateEl.value = todayISO();
+  const day = dateEl.value;
+
+  // ชิปวันที่มีการขาย (คลิกเลือกได้)
+  const byDay = new Map();
+  for (const c of cards) {
+    if (c.status !== 'sold') continue;
+    const d = c.sellDate || '__none__';
+    const g = byDay.get(d) || { count: 0, total: 0 };
+    g.count++; g.total += Number(c.sell) || 0;
+    byDay.set(d, g);
+  }
+  const daysEl = document.getElementById('reportDays');
+  if (byDay.size === 0) {
+    daysEl.innerHTML = '<div class="sales-summary">ยังไม่มีการขาย</div>';
+  } else {
+    const entries = [...byDay.entries()].filter(e => e[0] !== '__none__').sort((a, b) => b[0].localeCompare(a[0]));
+    daysEl.innerHTML = entries.map(([d, g]) => {
+      const active = d === day ? ' active' : '';
+      return `<div class="topic-chip${active}" onclick="document.getElementById('reportDate').value='${d}';renderReport()">
+        <div class="t-name"><span class="t-dot">●</span> ${fmtDate(d)}</div>
+        <div class="t-meta">${g.count} ใบ · ${money(g.total)}</div>
+      </div>`;
+    }).join('');
+  }
+
+  // รายการที่ขายในวันนั้น
+  const sold = cards.filter(c => c.status === 'sold' && (c.sellDate || '') === day);
+  const revenue = sold.reduce((s, c) => s + (Number(c.sell) || 0), 0);
+  const cost = sold.reduce((s, c) => s + (Number(c.buy) || 0), 0);
+  const profit = revenue - cost;
+
+  document.getElementById('reportSummary').innerHTML = `
+    <div class="stats" style="margin:6px 0 18px">
+      <div class="stat"><div class="label">ขายได้ (${fmtDate(day)})</div><div class="value num">${sold.length} ใบ</div></div>
+      <div class="stat"><div class="label">ยอดขาย</div><div class="value num">${money(revenue)}</div></div>
+      <div class="stat"><div class="label">กำไร</div><div class="value num ${profit > 0 ? 'profit-pos' : profit < 0 ? 'profit-neg' : ''}">${money(profit)}</div></div>
+    </div>`;
+
+  const area = document.getElementById('reportTableArea');
+  if (sold.length === 0) {
+    area.innerHTML = `<div class="empty"><div class="big">🗓️</div>วันนี้ยังไม่มีการขาย — เลือกวันอื่น หรือไปขายในแถบ “สำหรับขาย”</div>`;
+    return;
+  }
+  const rows = sold.slice().reverse().map(c => {
+    const img = c.image ? `<img class="thumb" src="${c.image}" onclick="openLightbox('${c.id}')" alt="">` : `<div class="thumb-empty">🃏</div>`;
+    const p = (Number(c.sell) || 0) - (Number(c.buy) || 0);
+    return `<tr>
+      <td>${img}</td>
+      <td class="name">${c.topic ? `<div class="topic">${esc(c.topic)}</div>` : ''}${esc(c.name)}${c.psa ? ` <span class="muted">(PSA ${esc(c.psa)})</span>` : ''}</td>
+      <td class="num">${money(c.buy)}</td>
+      <td class="num">${money(c.sell)}</td>
+      <td class="num"><span class="${p > 0 ? 'profit-pos' : p < 0 ? 'profit-neg' : 'muted'}">${p > 0 ? '+' : ''}${money(p)}</span></td>
+    </tr>`;
+  }).join('');
+  area.innerHTML = `<table>
+    <thead><tr><th>รูป</th><th>ชื่อการ์ด</th><th>รับซื้อ</th><th>ขาย</th><th>กำไร</th></tr></thead>
+    <tbody>${rows}</tbody>
+  </table>`;
 }
 
 // ---- แถบ "สำหรับขาย" ----
