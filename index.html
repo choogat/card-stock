@@ -824,11 +824,15 @@ function renderReport() {
   const revenue = sold.reduce((s, c) => s + (Number(c.sell) || 0), 0);
   const cost = sold.reduce((s, c) => s + (Number(c.buy) || 0), 0);
   const profit = revenue - cost;
+  const cashTotal = sold.filter(c => c.payment === 'cash').reduce((s, c) => s + (Number(c.sell) || 0), 0);
+  const transferTotal = sold.filter(c => c.payment === 'transfer').reduce((s, c) => s + (Number(c.sell) || 0), 0);
 
   document.getElementById('reportSummary').innerHTML = `
     <div class="stats" style="margin:6px 0 18px">
       <div class="stat"><div class="label">ขายได้ (${fmtDate(day)})</div><div class="value num">${sold.length} ใบ</div></div>
-      <div class="stat"><div class="label">ยอดขาย</div><div class="value num">${money(revenue)}</div></div>
+      <div class="stat"><div class="label">ยอดขายรวม</div><div class="value num">${money(revenue)}</div></div>
+      <div class="stat"><div class="label">💵 ยอดขายเงินสด</div><div class="value num profit-pos">${money(cashTotal)}</div></div>
+      <div class="stat"><div class="label">🏦 ยอดขายเงินโอน</div><div class="value num" style="color:#7fa9ff">${money(transferTotal)}</div></div>
       <div class="stat"><div class="label">กำไร</div><div class="value num ${profit > 0 ? 'profit-pos' : profit < 0 ? 'profit-neg' : ''}">${money(profit)}</div></div>
     </div>`;
 
