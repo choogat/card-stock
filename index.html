@@ -65,6 +65,7 @@
   .sale-status-cell { display: inline-flex; align-items: center; gap: 8px; }
   .sold-lock { justify-content: center; }
   .btn-sm { padding: 7px 12px; font-size: .8rem; }
+  .btn-sold { padding: 5px 11px; font-size: .76rem; border-radius: 9px; }
   .sale-check { width: 20px; height: 20px; accent-color: var(--accent); cursor: pointer; }
   .sale-check:disabled { cursor: not-allowed; opacity: .6; }
   .sold-lock { display: inline-flex; align-items: center; gap: 7px; }
@@ -839,7 +840,7 @@ function renderSales() {
          </div>`
       : `<div class="sale-status-cell">
            <span class="badge wait">รอขาย</span>
-           <button class="btn btn-primary btn-sm" onclick="markSold('${c.id}')">✓ ขายแล้ว</button>
+           <button class="btn btn-primary btn-sold" onclick="markSold('${c.id}')">✓ ขายแล้ว</button>
          </div>`;
     return `<tr>
       <td>${img}</td>
