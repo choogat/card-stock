@@ -291,7 +291,8 @@
   <div class="topic-breakdown" id="topicBreakdown"></div>
 
   <div class="toolbar">
-    <button class="btn btn-primary" onclick="openForm()">+ เพิ่มการ์ด</button>
+    <button class="btn btn-primary" onclick="openForm('card')">+ เพิ่มการ์ด</button>
+    <button class="btn btn-primary" onclick="openForm('collect')">+ เพิ่มของสะสม</button>
     <button class="btn btn-ghost" onclick="openPSASearch()">🔍 ค้นหาการ์ด PSA</button>
     <input class="search" id="search" placeholder="ค้นหา เรื่อง / ชื่อ / รุ่น / PSA..." oninput="render()">
     <select class="filter" id="topicFilter" onchange="render()">
@@ -447,7 +448,7 @@
     <h2 id="modalTitle">เพิ่มการ์ด</h2>
     <input type="hidden" id="f_id">
     <input type="hidden" id="f_image">
-    <div class="field psa-lookup">
+    <div class="field psa-lookup" id="row_psaLookup">
       <label>⚡ ดึงข้อมูลอัตโนมัติจากเลข cert PSA</label>
       <div class="psa-row">
         <input id="f_cert" inputmode="numeric" placeholder="เลข cert บนป้าย เช่น 12345678">
@@ -460,10 +461,10 @@
       <input id="f_topic" placeholder="เช่น Pokemon, One Piece, Dragon Ball...">
     </div>
     <div class="field">
-      <label>ชื่อการ์ด *</label>
+      <label id="nameLabel">ชื่อการ์ด *</label>
       <input id="f_name" placeholder="เช่น Charizard, Pikachu...">
     </div>
-    <div class="grid2">
+    <div class="grid2" id="row_setPsa">
       <div class="field">
         <label>รุ่น</label>
         <input id="f_set" placeholder="เช่น Base Set, 151...">
@@ -501,14 +502,14 @@
       <label>วันที่ซื้อ</label>
       <input id="f_buyDate" type="date">
     </div>
-    <div class="field">
+    <div class="field" id="row_snkr">
       <label>ราคา Last sold — SNKRDUNK (¥)</label>
       <div class="psa-row">
         <input id="f_snkr" type="number" inputmode="decimal" placeholder="ราคาที่ขายล่าสุดใน SNKRDUNK">
         <button type="button" class="btn btn-ghost" onclick="openSnkrFromForm()" title="เปิด SNKRDUNK ค้นหาการ์ดนี้">🔎 เปิด SNKRDUNK</button>
       </div>
     </div>
-    <div class="field">
+    <div class="field" id="row_detail">
       <label>รายละเอียด Card</label>
       <textarea id="f_detail" rows="3" placeholder="รายละเอียดเพิ่มเติม เช่น สภาพ, ตำหนิ, ที่มา..."></textarea>
     </div>
@@ -1055,8 +1056,19 @@ function esc(s) {
 }
 
 // ---- Form ----
-function openForm() {
-  document.getElementById('modalTitle').textContent = 'เพิ่มการ์ด';
+let formMode = 'card';
+// ซ่อน/แสดงช่องเฉพาะการ์ด (PSA/รุ่น/SNKRDUNK/รายละเอียด) ตามโหมด
+function applyFormMode(mode) {
+  formMode = mode;
+  const isCollect = mode === 'collect';
+  ['row_psaLookup', 'row_setPsa', 'row_snkr', 'row_detail'].forEach(id => {
+    document.getElementById(id).style.display = isCollect ? 'none' : '';
+  });
+  document.getElementById('nameLabel').textContent = isCollect ? 'ชื่อสินค้า *' : 'ชื่อการ์ด *';
+}
+
+function openForm(mode = 'card') {
+  document.getElementById('modalTitle').textContent = mode === 'collect' ? 'เพิ่มของสะสม' : 'เพิ่มการ์ด';
   document.getElementById('f_id').value = '';
   document.getElementById('f_cert').value = '';
   psaSay('');
@@ -1072,6 +1084,7 @@ function openForm() {
   document.getElementById('f_snkr').value = '';
   document.getElementById('f_detail').value = '';
   setImage('');
+  applyFormMode(mode);
   document.getElementById('overlay').classList.add('open');
   document.getElementById('f_topic').focus();
 }
@@ -1079,7 +1092,8 @@ function openForm() {
 function editCard(id) {
   const c = cards.find(x => x.id === id);
   if (!c) return;
-  document.getElementById('modalTitle').textContent = 'แก้ไขการ์ด';
+  const mode = c.type === 'collect' ? 'collect' : 'card';
+  document.getElementById('modalTitle').textContent = mode === 'collect' ? 'แก้ไขของสะสม' : 'แก้ไขการ์ด';
   document.getElementById('f_id').value = c.id;
   document.getElementById('f_cert').value = c.cert || '';
   psaSay('');
@@ -1095,6 +1109,7 @@ function editCard(id) {
   document.getElementById('f_snkr').value = c.snkr ?? '';
   document.getElementById('f_detail').value = c.detail || '';
   setImage(c.image || '');
+  applyFormMode(mode);
   document.getElementById('overlay').classList.add('open');
 }
 
@@ -1287,6 +1302,7 @@ function saveCard() {
   const name = document.getElementById('f_name').value.trim();
   if (!name) { alert('กรุณากรอกชื่อการ์ด'); return; }
   const data = {
+    type: formMode === 'collect' ? 'collect' : 'card',
     topic: document.getElementById('f_topic').value.trim(),
     name,
     cert: document.getElementById('f_cert').value.trim().replace(/\D/g, ''),
