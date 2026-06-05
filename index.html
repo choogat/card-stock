@@ -1451,9 +1451,7 @@ async function syncOnStart() {
 }
 
 // close modal on overlay click / Esc
-document.getElementById('overlay').addEventListener('click', e => {
-  if (e.target.id === 'overlay') closeForm();
-});
+// หมายเหตุ: ฟอร์มเพิ่ม/แก้ไขการ์ด (#overlay) ปิดได้เฉพาะปุ่มบันทึก/ยกเลิกเท่านั้น
 document.getElementById('loginOverlay').addEventListener('click', e => {
   if (e.target.id === 'loginOverlay') closeLogin();
 });
@@ -1463,7 +1461,7 @@ document.getElementById('psaSearchOverlay').addEventListener('click', e => {
 document.getElementById('saleOverlay').addEventListener('click', e => {
   if (e.target.id === 'saleOverlay') closeSale();
 });
-document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeForm(); closeLogin(); closePSASearch(); closeSale(); } });
+document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeLogin(); closePSASearch(); closeSale(); } });
 
 render();
 syncOnStart();
