@@ -415,6 +415,30 @@
   </div>
 </div>
 
+<!-- Split for sale dialog -->
+<div class="overlay" id="splitOverlay">
+  <div class="modal" style="max-width:420px">
+    <h2>🏷️ ส่งไปขาย</h2>
+    <p id="splitName" style="color:var(--muted);font-size:.9rem;margin-bottom:16px"></p>
+    <input type="hidden" id="split_id">
+    <div class="grid2">
+      <div class="field">
+        <label>จำนวนที่จะขาย</label>
+        <input id="split_qty" type="number" inputmode="numeric" min="1" value="1" oninput="updateSplitTotal()">
+      </div>
+      <div class="field">
+        <label>ราคาขาย / หน่วย (฿)</label>
+        <input id="split_price" type="number" inputmode="decimal" oninput="updateSplitTotal()">
+      </div>
+    </div>
+    <div class="qty-totals" id="splitTotal"></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeSplit()">ยกเลิก</button>
+      <button class="btn btn-primary" onclick="confirmSplit()">ส่งไปขาย</button>
+    </div>
+  </div>
+</div>
+
 <!-- Login modal -->
 <div class="overlay" id="loginOverlay">
   <div class="modal" style="max-width:420px">
@@ -1062,9 +1086,66 @@ function toggleForSale(id) {
   const c = cards.find(x => x.id === id);
   if (!c) return;
   if (c.status === 'sold') { render(); return; } // ขายแล้ว = ล็อก
-  c.status = (c.status === 'show') ? 'wait' : 'show';
+  if (c.status === 'show') {
+    // ของสะสมหลายชิ้น → เลือกจำนวน+ราคาที่จะส่งไปขาย
+    if (c.type === 'collect' && (Number(c.qty) || 1) > 1) { openSplit(id); render(); return; }
+    c.status = 'wait';
+  } else {
+    c.status = 'show'; // เอาออกจากขาย
+  }
   save();
   render();
+}
+
+// ---- แยกของสะสมบางส่วนไปขาย ----
+function openSplit(id) {
+  const c = cards.find(x => x.id === id);
+  if (!c) return;
+  document.getElementById('split_id').value = id;
+  document.getElementById('splitName').textContent = `${c.name} — มี ${c.qty} ${c.unit || ''}`;
+  const qEl = document.getElementById('split_qty');
+  qEl.max = c.qty;
+  qEl.value = c.qty;
+  document.getElementById('split_price').value = c.unitSell || '';
+  updateSplitTotal();
+  document.getElementById('splitOverlay').classList.add('open');
+}
+function closeSplit() { document.getElementById('splitOverlay').classList.remove('open'); }
+function updateSplitTotal() {
+  const q = parseInt(document.getElementById('split_qty').value) || 0;
+  const p = parseFloat(document.getElementById('split_price').value) || 0;
+  document.getElementById('splitTotal').textContent = `ส่งขาย ${q} หน่วย → รวม ${money(q * p)}`;
+}
+function confirmSplit() {
+  const id = document.getElementById('split_id').value;
+  const c = cards.find(x => x.id === id);
+  if (!c) return;
+  const totalQty = Number(c.qty) || 1;
+  const sellQty = Math.max(1, Math.min(totalQty, parseInt(document.getElementById('split_qty').value) || 1));
+  const unitSell = parseFloat(document.getElementById('split_price').value) || 0;
+  if (sellQty >= totalQty) {
+    // ส่งขายทั้งหมด
+    c.status = 'wait';
+    c.unitSell = unitSell;
+    c.sell = unitSell * totalQty;
+  } else {
+    // แยกบางส่วนออกมาขาย
+    const remain = totalQty - sellQty;
+    cards.push({
+      ...c, id: uid(), status: 'wait', qty: sellQty,
+      unitSell,
+      median: (Number(c.unitMedian) || 0) * sellQty,
+      buy: (Number(c.unitBuy) || 0) * sellQty,
+      sell: unitSell * sellQty,
+    });
+    c.qty = remain;
+    c.median = (Number(c.unitMedian) || 0) * remain;
+    c.buy = (Number(c.unitBuy) || 0) * remain;
+    c.sell = (Number(c.unitSell) || 0) * remain;
+  }
+  save();
+  render();
+  closeSplit();
 }
 
 // ปลดล็อกใบที่ขายแล้ว (ต้องใส่รหัส) → กลับเป็นรอขาย เพื่อแก้ไข
@@ -1604,7 +1685,10 @@ document.getElementById('psaSearchOverlay').addEventListener('click', e => {
 document.getElementById('saleOverlay').addEventListener('click', e => {
   if (e.target.id === 'saleOverlay') closeSale();
 });
-document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeLogin(); closePSASearch(); closeSale(); } });
+document.getElementById('splitOverlay').addEventListener('click', e => {
+  if (e.target.id === 'splitOverlay') closeSplit();
+});
+document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeLogin(); closePSASearch(); closeSale(); closeSplit(); } });
 
 render();
 syncOnStart();
