@@ -68,7 +68,10 @@
   .btn-sold { padding: 5px 11px; font-size: .76rem; border-radius: 9px; }
   .sale-check { width: 20px; height: 20px; accent-color: var(--accent); cursor: pointer; }
   .sale-check:disabled { cursor: not-allowed; opacity: .6; }
-  .sold-lock { display: inline-flex; align-items: center; gap: 7px; }
+  .sold-lock { display: inline-flex; align-items: center; gap: 7px; flex-wrap: wrap; justify-content: center; }
+  .pay-tag { display: inline-block; padding: 3px 9px; border-radius: 999px; font-size: .74rem; font-weight: 600; background: var(--card2); color: var(--muted); }
+  .pay-tag.cash { background: rgba(46,204,113,.18); color: var(--green); }
+  .pay-tag.transfer { background: rgba(79,140,255,.18); color: #7fa9ff; }
   .lock-btn { background: var(--card2); border: 1px solid var(--border); color: var(--muted); width: 30px; height: 30px; border-radius: 8px; cursor: pointer; font-size: .85rem; }
   .lock-btn:hover { border-color: var(--accent); color: var(--text); }
 
@@ -353,6 +356,36 @@
   </div>
 </div>
 
+<!-- Sale dialog -->
+<div class="overlay" id="saleOverlay">
+  <div class="modal" style="max-width:430px">
+    <h2>✓ บันทึกการขาย</h2>
+    <p id="saleCardName" style="color:var(--muted);font-size:.9rem;margin-bottom:16px"></p>
+    <input type="hidden" id="sale_id">
+    <div class="field">
+      <label>ราคาพิเศษ / ยอดขายจริง (฿)</label>
+      <input id="sale_price" type="number" inputmode="decimal" placeholder="ใส่ยอดขายจริง (จะทับราคาขายเดิม)">
+    </div>
+    <div class="grid2">
+      <div class="field">
+        <label>ชำระเงิน</label>
+        <select id="sale_payment">
+          <option value="cash">เงินสด</option>
+          <option value="transfer">เงินโอน</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>เวลาที่ขาย</label>
+        <input id="sale_datetime" type="datetime-local">
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeSale()">ยกเลิก</button>
+      <button class="btn btn-primary" onclick="confirmSale()">ยืนยันการขาย</button>
+    </div>
+  </div>
+</div>
+
 <!-- Login modal -->
 <div class="overlay" id="loginOverlay">
   <div class="modal" style="max-width:420px">
@@ -448,6 +481,20 @@
       <div class="field">
         <label>วันที่ขาย</label>
         <input id="f_sellDate" type="date">
+      </div>
+    </div>
+    <div class="grid2">
+      <div class="field">
+        <label>เวลาที่ขาย</label>
+        <input id="f_sellTime" type="time">
+      </div>
+      <div class="field">
+        <label>ชำระเงิน</label>
+        <select id="f_payment">
+          <option value="">—</option>
+          <option value="cash">เงินสด</option>
+          <option value="transfer">เงินโอน</option>
+        </select>
       </div>
     </div>
     <div class="field">
@@ -792,13 +839,15 @@ function renderReport() {
     return `<tr>
       <td>${img}</td>
       <td class="name">${c.topic ? `<div class="topic">${esc(c.topic)}</div>` : ''}${esc(c.name)}${c.psa ? ` <span class="muted">(PSA ${esc(c.psa)})</span>` : ''}</td>
+      <td class="center muted">${c.sellTime || '-'}</td>
+      <td class="center"><span class="pay-tag ${c.payment || ''}">${PAYMENT[c.payment] || '-'}</span></td>
       <td class="num">${money(c.buy)}</td>
       <td class="num">${money(c.sell)}</td>
       <td class="num"><span class="${p > 0 ? 'profit-pos' : p < 0 ? 'profit-neg' : 'muted'}">${p > 0 ? '+' : ''}${money(p)}</span></td>
     </tr>`;
   }).join('');
   area.innerHTML = `<table>
-    <thead><tr><th>รูป</th><th>ชื่อการ์ด</th><th class="num">รับซื้อ</th><th class="num">ขาย</th><th class="num">กำไร</th></tr></thead>
+    <thead><tr><th>รูป</th><th>ชื่อการ์ด</th><th class="center">เวลา</th><th class="center">ชำระเงิน</th><th class="num">รับซื้อ</th><th class="num">ขาย</th><th class="num">กำไร</th></tr></thead>
     <tbody>${rows}</tbody>
   </table>`;
 }
@@ -835,7 +884,8 @@ function renderSales() {
     // ขายแล้ว = ล็อก (ป้าย + กุญแจ ต้องใส่รหัสถึงแก้) / รอขาย = ป้าย + ปุ่มกดขายแล้ว
     const statusCell = c.status === 'sold'
       ? `<div class="sold-lock">
-           <span class="badge sold">ขายแล้ว ${c.sellDate ? fmtDate(c.sellDate) : ''}</span>
+           <span class="badge sold">ขายแล้ว ${c.sellDate ? fmtDate(c.sellDate) : ''}${c.sellTime ? ' ' + c.sellTime : ''}</span>
+           ${c.payment ? `<span class="pay-tag ${c.payment}">${PAYMENT[c.payment]}</span>` : ''}
            <button class="lock-btn" onclick="unlockSold('${c.id}')" title="แก้ไข (ต้องใส่รหัส)">🔒</button>
          </div>`
       : `<div class="sale-status-cell">
@@ -898,15 +948,40 @@ function todayISO() {
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
 }
 
-// กดปุ่ม "ขายแล้ว" จากแถบขาย — ยืนยันแล้วล็อก + บันทึกวันที่ขายเป็นวันนี้
+const PAYMENT = { cash: 'เงินสด', transfer: 'เงินโอน' };
+function nowDatetimeLocal() {
+  const d = new Date();
+  const p = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+
+// กดปุ่ม "ขายแล้ว" → เปิดหน้าต่างบันทึกการขาย (ราคาพิเศษ/ชำระเงิน/เวลา)
 function markSold(id) {
   const c = cards.find(x => x.id === id);
   if (!c) return;
-  if (!confirm(`ยืนยันว่าขายการ์ด "${c.name}" แล้ว?\n\nเมื่อยืนยันแล้วจะล็อก — หากต้องการแก้ไขภายหลังต้องใส่รหัส`)) return;
+  document.getElementById('sale_id').value = id;
+  document.getElementById('saleCardName').textContent = `การ์ด: ${c.name}`;
+  document.getElementById('sale_price').value = c.sell || '';
+  document.getElementById('sale_payment').value = c.payment || 'cash';
+  document.getElementById('sale_datetime').value = nowDatetimeLocal();
+  document.getElementById('saleOverlay').classList.add('open');
+}
+function closeSale() { document.getElementById('saleOverlay').classList.remove('open'); }
+
+function confirmSale() {
+  const id = document.getElementById('sale_id').value;
+  const c = cards.find(x => x.id === id);
+  if (!c) return;
+  const price = parseFloat(document.getElementById('sale_price').value);
+  if (!isNaN(price)) c.sell = price; // ราคาพิเศษทับราคาขายเดิม
+  c.payment = document.getElementById('sale_payment').value;
+  const dt = document.getElementById('sale_datetime').value; // "YYYY-MM-DDTHH:MM"
+  if (dt) { const [d, t] = dt.split('T'); c.sellDate = d; c.sellTime = t; }
+  else if (!c.sellDate) { c.sellDate = todayISO(); }
   c.status = 'sold';
-  if (!c.sellDate) c.sellDate = todayISO();
   save();
   render();
+  closeSale();
 }
 
 // ติ๊ก/ยกเลิก "สำหรับขาย" จากแถบสต็อก (โชว์ ⇄ รอขาย)
@@ -951,6 +1026,8 @@ function openForm() {
   document.getElementById('f_status').value = 'show';
   document.getElementById('f_buyDate').value = '';
   document.getElementById('f_sellDate').value = '';
+  document.getElementById('f_sellTime').value = '';
+  document.getElementById('f_payment').value = '';
   document.getElementById('f_snkr').value = '';
   document.getElementById('f_detail').value = '';
   setImage('');
@@ -975,6 +1052,8 @@ function editCard(id) {
   document.getElementById('f_status').value = c.status || 'show';
   document.getElementById('f_buyDate').value = c.buyDate || '';
   document.getElementById('f_sellDate').value = c.sellDate || '';
+  document.getElementById('f_sellTime').value = c.sellTime || '';
+  document.getElementById('f_payment').value = c.payment || '';
   document.getElementById('f_snkr').value = c.snkr ?? '';
   document.getElementById('f_detail').value = c.detail || '';
   setImage(c.image || '');
@@ -1182,6 +1261,8 @@ function saveCard() {
     status: document.getElementById('f_status').value,
     buyDate: document.getElementById('f_buyDate').value || '',
     sellDate: document.getElementById('f_sellDate').value || '',
+    sellTime: document.getElementById('f_sellTime').value || '',
+    payment: document.getElementById('f_payment').value || '',
     snkr: parseFloat(document.getElementById('f_snkr').value) || 0,
     detail: document.getElementById('f_detail').value.trim(),
   };
@@ -1376,7 +1457,10 @@ document.getElementById('loginOverlay').addEventListener('click', e => {
 document.getElementById('psaSearchOverlay').addEventListener('click', e => {
   if (e.target.id === 'psaSearchOverlay') closePSASearch();
 });
-document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeForm(); closeLogin(); closePSASearch(); } });
+document.getElementById('saleOverlay').addEventListener('click', e => {
+  if (e.target.id === 'saleOverlay') closeSale();
+});
+document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeForm(); closeLogin(); closePSASearch(); closeSale(); } });
 
 render();
 syncOnStart();
