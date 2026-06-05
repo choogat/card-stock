@@ -832,20 +832,16 @@ function renderReport() {
 
   // รายการที่ขายในวันนั้น
   const sold = cards.filter(c => c.status === 'sold' && (c.sellDate || '') === day);
-  const net = sold.reduce((s, c) => s + (Number(c.sell) || 0), 0);           // ยอดขายสุทธิ (หลังหักส่วนลด)
-  const discountTotal = sold.reduce((s, c) => s + (Number(c.discount) || 0), 0);
-  const gross = net + discountTotal;                                          // ยอดขาย (ก่อนหักส่วนลด)
+  const revenue = sold.reduce((s, c) => s + (Number(c.sell) || 0), 0);
   const cost = sold.reduce((s, c) => s + (Number(c.buy) || 0), 0);
-  const profit = net - cost;
+  const profit = revenue - cost;
   const cashTotal = sold.filter(c => c.payment === 'cash').reduce((s, c) => s + (Number(c.sell) || 0), 0);
   const transferTotal = sold.filter(c => c.payment === 'transfer').reduce((s, c) => s + (Number(c.sell) || 0), 0);
 
   document.getElementById('reportSummary').innerHTML = `
     <div class="stats" style="margin:6px 0 18px">
       <div class="stat"><div class="label">ขายได้ (${fmtDate(day)})</div><div class="value num">${sold.length} ใบ</div></div>
-      <div class="stat"><div class="label">ยอดขาย</div><div class="value num">${money(gross)}</div></div>
-      <div class="stat"><div class="label">ส่วนลด</div><div class="value num" style="color:var(--yellow)">${money(discountTotal)}</div></div>
-      <div class="stat"><div class="label">ยอดขายสุทธิ</div><div class="value num">${money(net)}</div></div>
+      <div class="stat"><div class="label">ยอดขายรวม (สุทธิ)</div><div class="value num">${money(revenue)}</div></div>
       <div class="stat"><div class="label">💵 ยอดขายเงินสด</div><div class="value num profit-pos">${money(cashTotal)}</div></div>
       <div class="stat"><div class="label">🏦 ยอดขายเงินโอน</div><div class="value num" style="color:#7fa9ff">${money(transferTotal)}</div></div>
       <div class="stat"><div class="label">กำไร</div><div class="value num ${profit > 0 ? 'profit-pos' : profit < 0 ? 'profit-neg' : ''}">${money(profit)}</div></div>
@@ -859,9 +855,13 @@ function renderReport() {
   const rows = sold.slice().reverse().map(c => {
     const img = c.image ? `<img class="thumb" src="${c.image}" onclick="openLightbox('${c.id}')" alt="">` : `<div class="thumb-empty">🃏</div>`;
     const p = (Number(c.sell) || 0) - (Number(c.buy) || 0);
+    const disc = Number(c.discount) || 0;
+    const net = Number(c.sell) || 0;
+    const gross = net + disc;
+    const saleLine = `<div class="cardset">ยอดขาย ${money(gross)}${disc > 0 ? ` − ส่วนลด ${money(disc)}` : ''} = สุทธิ ${money(net)}</div>`;
     return `<tr>
       <td>${img}</td>
-      <td class="name">${c.topic ? `<div class="topic">${esc(c.topic)}</div>` : ''}${esc(c.name)}${c.psa ? ` <span class="muted">(PSA ${esc(c.psa)})</span>` : ''}</td>
+      <td class="name">${c.topic ? `<div class="topic">${esc(c.topic)}</div>` : ''}${esc(c.name)}${c.psa ? ` <span class="muted">(PSA ${esc(c.psa)})</span>` : ''}${saleLine}</td>
       <td class="center muted">${c.sellTime || '-'}</td>
       <td class="center"><span class="pay-tag ${c.payment || ''}">${PAYMENT[c.payment] || '-'}</span></td>
       <td class="num">${money(c.buy)}</td>
