@@ -233,6 +233,7 @@
     font-family: inherit; resize: vertical;
   }
   .field input:focus, .field select:focus, .field textarea:focus { outline: none; border-color: var(--accent); }
+  .field input[readonly] { background: var(--card2); color: var(--accent); font-weight: 600; }
   .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
   .psa-lookup { background: rgba(108,92,231,.12); border: 1px solid var(--accent2); border-radius: 14px; padding: 14px; }
   .psa-row { display: flex; gap: 8px; }
@@ -366,8 +367,18 @@
     <p id="saleCardName" style="color:var(--muted);font-size:.9rem;margin-bottom:16px"></p>
     <input type="hidden" id="sale_id">
     <div class="field">
-      <label>ราคาพิเศษ / ยอดขายจริง (฿)</label>
-      <input id="sale_price" type="number" inputmode="decimal" placeholder="ใส่ยอดขายจริง (จะทับราคาขายเดิม)">
+      <label>ยอดขาย (฿)</label>
+      <input id="sale_price" type="number" inputmode="decimal" oninput="updateNet()" placeholder="ยอดขาย (จะทับราคาขายเดิม)">
+    </div>
+    <div class="grid2">
+      <div class="field">
+        <label>ส่วนลด (฿)</label>
+        <input id="sale_discount" type="number" inputmode="decimal" oninput="updateNet()" placeholder="0">
+      </div>
+      <div class="field">
+        <label>ยอดขายสุทธิ (฿)</label>
+        <input id="sale_net" type="number" readonly>
+      </div>
     </div>
     <div class="grid2">
       <div class="field">
@@ -821,16 +832,20 @@ function renderReport() {
 
   // รายการที่ขายในวันนั้น
   const sold = cards.filter(c => c.status === 'sold' && (c.sellDate || '') === day);
-  const revenue = sold.reduce((s, c) => s + (Number(c.sell) || 0), 0);
+  const net = sold.reduce((s, c) => s + (Number(c.sell) || 0), 0);           // ยอดขายสุทธิ (หลังหักส่วนลด)
+  const discountTotal = sold.reduce((s, c) => s + (Number(c.discount) || 0), 0);
+  const gross = net + discountTotal;                                          // ยอดขาย (ก่อนหักส่วนลด)
   const cost = sold.reduce((s, c) => s + (Number(c.buy) || 0), 0);
-  const profit = revenue - cost;
+  const profit = net - cost;
   const cashTotal = sold.filter(c => c.payment === 'cash').reduce((s, c) => s + (Number(c.sell) || 0), 0);
   const transferTotal = sold.filter(c => c.payment === 'transfer').reduce((s, c) => s + (Number(c.sell) || 0), 0);
 
   document.getElementById('reportSummary').innerHTML = `
     <div class="stats" style="margin:6px 0 18px">
       <div class="stat"><div class="label">ขายได้ (${fmtDate(day)})</div><div class="value num">${sold.length} ใบ</div></div>
-      <div class="stat"><div class="label">ยอดขายรวม</div><div class="value num">${money(revenue)}</div></div>
+      <div class="stat"><div class="label">ยอดขาย</div><div class="value num">${money(gross)}</div></div>
+      <div class="stat"><div class="label">ส่วนลด</div><div class="value num" style="color:var(--yellow)">${money(discountTotal)}</div></div>
+      <div class="stat"><div class="label">ยอดขายสุทธิ</div><div class="value num">${money(net)}</div></div>
       <div class="stat"><div class="label">💵 ยอดขายเงินสด</div><div class="value num profit-pos">${money(cashTotal)}</div></div>
       <div class="stat"><div class="label">🏦 ยอดขายเงินโอน</div><div class="value num" style="color:#7fa9ff">${money(transferTotal)}</div></div>
       <div class="stat"><div class="label">กำไร</div><div class="value num ${profit > 0 ? 'profit-pos' : profit < 0 ? 'profit-neg' : ''}">${money(profit)}</div></div>
@@ -963,25 +978,38 @@ function nowDatetimeLocal() {
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
 }
 
-// กดปุ่ม "ขายแล้ว" → เปิดหน้าต่างบันทึกการขาย (ราคาพิเศษ/ชำระเงิน/เวลา)
+// กดปุ่ม "ขายแล้ว" → เปิดหน้าต่างบันทึกการขาย (ยอดขาย/ส่วนลด/สุทธิ/ชำระเงิน/เวลา)
 function markSold(id) {
   const c = cards.find(x => x.id === id);
   if (!c) return;
   document.getElementById('sale_id').value = id;
   document.getElementById('saleCardName').textContent = `การ์ด: ${c.name}`;
-  document.getElementById('sale_price').value = c.sell || '';
+  // ยอดขาย(ก่อนหักส่วนลด) = ยอดสุทธิเดิม + ส่วนลดเดิม
+  const gross = (Number(c.sell) || 0) + (Number(c.discount) || 0);
+  document.getElementById('sale_price').value = gross || '';
+  document.getElementById('sale_discount').value = c.discount || '';
   document.getElementById('sale_payment').value = c.payment || 'cash';
   document.getElementById('sale_datetime').value = nowDatetimeLocal();
+  updateNet();
   document.getElementById('saleOverlay').classList.add('open');
 }
 function closeSale() { document.getElementById('saleOverlay').classList.remove('open'); }
+
+// คำนวณยอดขายสุทธิ = ยอดขาย − ส่วนลด
+function updateNet() {
+  const price = parseFloat(document.getElementById('sale_price').value) || 0;
+  const disc = parseFloat(document.getElementById('sale_discount').value) || 0;
+  document.getElementById('sale_net').value = price - disc;
+}
 
 function confirmSale() {
   const id = document.getElementById('sale_id').value;
   const c = cards.find(x => x.id === id);
   if (!c) return;
   const price = parseFloat(document.getElementById('sale_price').value);
-  if (!isNaN(price)) c.sell = price; // ราคาพิเศษทับราคาขายเดิม
+  const disc = parseFloat(document.getElementById('sale_discount').value) || 0;
+  if (!isNaN(price)) c.sell = price - disc; // ยอดขายสุทธิทับราคาขายเดิม
+  c.discount = disc;
   c.payment = document.getElementById('sale_payment').value;
   const dt = document.getElementById('sale_datetime').value; // "YYYY-MM-DDTHH:MM"
   if (dt) { const [d, t] = dt.split('T'); c.sellDate = d; c.sellTime = t; }
