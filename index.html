@@ -823,16 +823,16 @@ function renderSales() {
     const img = c.image
       ? `<img class="thumb" src="${c.image}" onclick="openLightbox('${c.id}')" alt="">`
       : `<div class="thumb-empty">🃏</div>`;
-    // ขายแล้ว = ล็อก (โชว์ป้าย + ปุ่มกุญแจ ต้องใส่รหัสถึงแก้ได้) / รอขาย = เลือกได้
+    // ขายแล้ว = ล็อก (ป้าย + กุญแจ ต้องใส่รหัสถึงแก้) / รอขาย = ป้าย + ปุ่มกดขายแล้ว
     const statusCell = c.status === 'sold'
       ? `<div class="sold-lock">
            <span class="badge sold">ขายแล้ว ${c.sellDate ? fmtDate(c.sellDate) : ''}</span>
            <button class="lock-btn" onclick="unlockSold('${c.id}')" title="แก้ไข (ต้องใส่รหัส)">🔒</button>
          </div>`
-      : `<select class="status-select wait" onchange="changeStatus('${c.id}', this.value)">
-           <option value="wait" selected>รอขาย</option>
-           <option value="sold">ขายแล้ว</option>
-         </select>`;
+      : `<div class="sale-status-cell">
+           <span class="badge wait">รอขาย</span>
+           <button class="btn btn-primary btn-sm" onclick="markSold('${c.id}')">✓ ขายแล้ว</button>
+         </div>`;
     return `<tr>
       <td>${img}</td>
       <td class="name">${c.topic ? `<div class="topic">${esc(c.topic)}</div>` : ''}${esc(c.name)}${c.psa ? ` <span class="muted">(PSA ${esc(c.psa)})</span>` : ''}${c.detail ? `<div class="detail">${esc(c.detail)}</div>` : ''}</td>
@@ -889,20 +889,13 @@ function todayISO() {
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
 }
 
-// เปลี่ยนสถานะจากแถบขาย — เลือก "ขายแล้ว" ต้องยืนยัน แล้วล็อก
-function changeStatus(id, val) {
+// กดปุ่ม "ขายแล้ว" จากแถบขาย — ยืนยันแล้วล็อก + บันทึกวันที่ขายเป็นวันนี้
+function markSold(id) {
   const c = cards.find(x => x.id === id);
   if (!c) return;
-  if (val === 'sold') {
-    if (!confirm(`ยืนยันว่าขายการ์ด "${c.name}" แล้ว?\n\nเมื่อยืนยันแล้วจะล็อก — หากต้องการแก้ไขภายหลังต้องใส่รหัส`)) {
-      renderSales(); // ยกเลิก: รีเซ็ต dropdown กลับเป็นรอขาย
-      return;
-    }
-    c.status = 'sold';
-    if (!c.sellDate) c.sellDate = todayISO(); // บันทึกวันที่ขายเป็นวันนี้ (ถ้ายังไม่มี)
-  } else {
-    c.status = val;
-  }
+  if (!confirm(`ยืนยันว่าขายการ์ด "${c.name}" แล้ว?\n\nเมื่อยืนยันแล้วจะล็อก — หากต้องการแก้ไขภายหลังต้องใส่รหัส`)) return;
+  c.status = 'sold';
+  if (!c.sellDate) c.sellDate = todayISO();
   save();
   render();
 }
