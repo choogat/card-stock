@@ -137,7 +137,11 @@
   tr td:last-child { border-right: 1px solid var(--border); border-radius: 0 12px 12px 0; }
   td.name { font-weight: 600; }
   td.name .topic { font-weight: 600; color: var(--accent); font-size: .72rem; text-transform: uppercase; letter-spacing: .5px; margin-bottom: 2px; }
-  td.name .detail { font-weight: 400; color: var(--muted); font-size: .8rem; margin-top: 4px; white-space: pre-wrap; }
+  td.name .detail {
+    font-weight: 400; color: var(--muted); font-size: .8rem; margin-top: 4px;
+    white-space: pre-wrap; max-width: 320px;
+    display: -webkit-box; -webkit-line-clamp: 3; line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+  }
 
   .thumb { width: 46px; height: 64px; object-fit: cover; border-radius: 8px; border: 1px solid var(--border); cursor: pointer; background: var(--card2); }
   .thumb-empty { width: 46px; height: 64px; border-radius: 8px; border: 1px dashed var(--border); display: flex; align-items: center; justify-content: center; color: var(--muted); font-size: 1.1rem; }
