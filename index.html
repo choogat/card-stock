@@ -854,19 +854,24 @@ function renderReport() {
   }
   const rows = sold.slice().reverse().map(c => {
     const img = c.image ? `<img class="thumb" src="${c.image}" onclick="openLightbox('${c.id}')" alt="">` : `<div class="thumb-empty">🃏</div>`;
-    const p = (Number(c.sell) || 0) - (Number(c.buy) || 0);
+    const disc = Number(c.discount) || 0;
+    const net = Number(c.sell) || 0;
+    const gross = net + disc;
+    const p = net - (Number(c.buy) || 0);
     return `<tr>
       <td>${img}</td>
       <td class="name">${c.topic ? `<div class="topic">${esc(c.topic)}</div>` : ''}${esc(c.name)}${c.psa ? ` <span class="muted">(PSA ${esc(c.psa)})</span>` : ''}</td>
       <td class="center muted">${c.sellTime || '-'}</td>
       <td class="center"><span class="pay-tag ${c.payment || ''}">${PAYMENT[c.payment] || '-'}</span></td>
       <td class="num">${money(c.buy)}</td>
-      <td class="num">${money(c.sell)}</td>
+      <td class="num">${money(gross)}</td>
+      <td class="num">${disc > 0 ? money(disc) : '-'}</td>
+      <td class="num">${money(net)}</td>
       <td class="num"><span class="${p > 0 ? 'profit-pos' : p < 0 ? 'profit-neg' : 'muted'}">${p > 0 ? '+' : ''}${money(p)}</span></td>
     </tr>`;
   }).join('');
   area.innerHTML = `<table>
-    <thead><tr><th>รูป</th><th>ชื่อการ์ด</th><th class="center">เวลา</th><th class="center">ชำระเงิน</th><th class="num">รับซื้อ</th><th class="num">ขาย</th><th class="num">กำไร</th></tr></thead>
+    <thead><tr><th>รูป</th><th>ชื่อการ์ด</th><th class="center">เวลา</th><th class="center">ชำระเงิน</th><th class="num">รับซื้อ</th><th class="num">ขาย</th><th class="num">ส่วนลด</th><th class="num">ยอดขายสุทธิ</th><th class="num">กำไร</th></tr></thead>
     <tbody>${rows}</tbody>
   </table>`;
 }
