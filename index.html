@@ -259,7 +259,7 @@
     <nav class="nav">
       <button class="nav-item active" data-view="stock" onclick="switchView('stock')">📦 สต็อกการ์ด</button>
       <button class="nav-item" data-view="sales" onclick="switchView('sales')">🏷️ สำหรับขาย</button>
-      <button class="nav-item" data-view="report" onclick="switchView('report')">📊 รายละเอียดการขาย</button>
+      <button class="nav-item" data-view="report" onclick="switchView('report')">📊 รายงานการขาย</button>
     </nav>
     <div class="sidebar-foot">
       <span class="sync" id="syncStatus"></span>
@@ -328,7 +328,7 @@
   </div><!-- /viewSales -->
 
   <div id="viewReport" style="display:none">
-    <h2 class="view-title">📊 รายละเอียดการขาย</h2>
+    <h2 class="view-title">📊 รายงานการขาย</h2>
     <div class="report-controls">
       <label>เลือกวัน</label>
       <input type="date" id="reportDate" onchange="renderReport()">
