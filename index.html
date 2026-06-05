@@ -742,12 +742,9 @@ function render() {
       : `<div class="thumb-empty">🃏</div>`;
     const p = cardProfit(c);
     const profitCell = `<span class="${p > 0 ? 'profit-pos' : p < 0 ? 'profit-neg' : 'muted'}">${p > 0 ? '+' : ''}${money(p)}</span>`;
-    const dates = (c.buyDate || c.sellDate)
-      ? `<div class="dates">${c.buyDate ? `<span class="d">ซื้อ ${fmtDate(c.buyDate)}</span>` : ''}${c.buyDate && c.sellDate ? ' · ' : ''}${c.sellDate ? `<span class="d">ขาย ${fmtDate(c.sellDate)}</span>` : ''}</div>`
-      : '';
     return `<tr>
       <td>${img}</td>
-      <td class="name">${c.topic ? `<div class="topic">${esc(c.topic)}</div>` : ''}${esc(c.name)}${c.psa ? ` <span class="muted">(PSA ${esc(c.psa)})</span>` : ''}${c.set ? `<div class="cardset">รุ่น: ${esc(c.set)}</div>` : ''}${c.detail ? `<div class="detail">${esc(c.detail)}</div>` : ''}${dates}</td>
+      <td class="name">${c.topic ? `<div class="topic">${esc(c.topic)}</div>` : ''}${esc(c.name)}${c.psa ? ` <span class="muted">(PSA ${esc(c.psa)})</span>` : ''}${c.set ? `<div class="cardset">รุ่น: ${esc(c.set)}</div>` : ''}${c.detail ? `<div class="detail">${esc(c.detail)}</div>` : ''}</td>
       <td class="num">${money(c.median)}</td>
       <td class="num hide-sm">${money(c.buy)}</td>
       <td class="num hide-sm">${money(c.sell)}</td>
