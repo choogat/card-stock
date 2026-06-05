@@ -58,6 +58,9 @@
   .daily-title { font-weight: 600; font-size: .95rem; margin-bottom: 10px; }
   .topic-chip.today { border-color: var(--green); background: rgba(46,204,113,.12); }
   .topic-chip .t-name .t-dot.g { color: var(--green); }
+  .sale-status-cell { display: flex; align-items: center; gap: 8px; }
+  .sale-check { width: 20px; height: 20px; accent-color: var(--accent); cursor: pointer; }
+  .sale-check:disabled { cursor: not-allowed; opacity: .6; }
   .sold-lock { display: inline-flex; align-items: center; gap: 7px; }
   .lock-btn { background: var(--card2); border: 1px solid var(--border); color: var(--muted); width: 30px; height: 30px; border-radius: 8px; cursor: pointer; font-size: .85rem; }
   .lock-btn:hover { border-color: var(--accent); color: var(--text); }
@@ -662,6 +665,10 @@ function render() {
       <td class="num hide-sm">${money(c.buy)}</td>
       <td class="num hide-sm">${money(c.sell)}</td>
       <td><span class="badge ${st.cls}">${st.label}</span></td>
+      <td style="text-align:center">
+        <input type="checkbox" class="sale-check" ${c.status !== 'show' ? 'checked' : ''} ${c.status === 'sold' ? 'disabled' : ''}
+          onchange="toggleForSale('${c.id}')" title="${c.status === 'sold' ? 'ขายแล้ว (ล็อก)' : 'ติ๊กเพื่อย้ายไปแถบสำหรับขาย'}">
+      </td>
       <td class="num">${profitCell}</td>
       <td>
         <div class="row-actions">
@@ -683,6 +690,7 @@ function render() {
       <th class="hide-sm">รับซื้อ</th>
       <th class="hide-sm">ขาย</th>
       <th>สถานะ</th>
+      <th>สำหรับขาย</th>
       <th>กำไร</th>
       <th></th>
     </tr></thead>
@@ -743,7 +751,7 @@ function renderSales() {
       <td class="name">${c.topic ? `<div class="topic">${esc(c.topic)}</div>` : ''}${esc(c.name)}${c.psa ? ` <span class="muted">(PSA ${esc(c.psa)})</span>` : ''}${c.detail ? `<div class="detail">${esc(c.detail)}</div>` : ''}</td>
       <td class="num">${money(c.buy)}</td>
       <td class="num">${money(c.sell)}</td>
-      <td>${statusCell}</td>
+      <td><div class="sale-status-cell">${statusCell}<button class="icon-btn del" onclick="delCard('${c.id}')" title="ลบ">🗑️</button></div></td>
     </tr>`;
   }).join('');
 
@@ -808,6 +816,16 @@ function changeStatus(id, val) {
   } else {
     c.status = val;
   }
+  save();
+  render();
+}
+
+// ติ๊ก/ยกเลิก "สำหรับขาย" จากแถบสต็อก (โชว์ ⇄ รอขาย)
+function toggleForSale(id) {
+  const c = cards.find(x => x.id === id);
+  if (!c) return;
+  if (c.status === 'sold') { render(); return; } // ขายแล้ว = ล็อก
+  c.status = (c.status === 'show') ? 'wait' : 'show';
   save();
   render();
 }
