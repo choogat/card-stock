@@ -237,6 +237,7 @@
   .qty-totals { background: rgba(79,140,255,.1); border: 1px solid var(--border); border-radius: 12px; padding: 11px 14px; font-size: .85rem; margin-bottom: 15px; line-height: 1.7; }
   .qty-totals b { color: var(--text); }
   .qty-badge { display: inline-block; background: var(--accent2); color: #fff; padding: 1px 8px; border-radius: 999px; font-size: .72rem; font-weight: 700; }
+  .lang-badge { display: inline-block; background: var(--card2); border: 1px solid var(--border); color: var(--muted); padding: 1px 7px; border-radius: 6px; font-size: .68rem; font-weight: 700; }
   .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
   .psa-lookup { background: rgba(108,92,231,.12); border: 1px solid var(--accent2); border-radius: 14px; padding: 14px; }
   .psa-row { display: flex; gap: 8px; }
@@ -466,6 +467,14 @@
     <div class="field">
       <label id="nameLabel">ชื่อการ์ด *</label>
       <input id="f_name" placeholder="เช่น Charizard, Pikachu...">
+    </div>
+    <div class="field">
+      <label>ภาษา</label>
+      <select id="f_lang">
+        <option value="JP">JP</option>
+        <option value="EN">EN</option>
+        <option value="CN">CN</option>
+      </select>
     </div>
     <div class="grid2" id="row_setPsa">
       <div class="field">
@@ -754,7 +763,7 @@ function render() {
     const profitCell = `<span class="${p > 0 ? 'profit-pos' : p < 0 ? 'profit-neg' : 'muted'}">${p > 0 ? '+' : ''}${money(p)}</span>`;
     return `<tr>
       <td>${img}</td>
-      <td class="name">${c.topic ? `<div class="topic">${esc(c.topic)}</div>` : ''}${esc(c.name)}${c.psa ? ` <span class="muted">(PSA ${esc(c.psa)})</span>` : ''}${(c.qty && c.qty > 1) ? ` <span class="qty-badge">×${c.qty}${c.unit ? ' ' + esc(c.unit) : ''}</span>` : ''}${c.set ? `<div class="cardset">รุ่น: ${esc(c.set)}</div>` : ''}${c.detail ? `<div class="detail">${esc(c.detail)}</div>` : ''}</td>
+      <td class="name">${c.topic ? `<div class="topic">${esc(c.topic)}</div>` : ''}${esc(c.name)}${c.lang ? ` <span class="lang-badge">${esc(c.lang)}</span>` : ''}${c.psa ? ` <span class="muted">(PSA ${esc(c.psa)})</span>` : ''}${(c.qty && c.qty > 1) ? ` <span class="qty-badge">×${c.qty}${c.unit ? ' ' + esc(c.unit) : ''}</span>` : ''}${c.set ? `<div class="cardset">รุ่น: ${esc(c.set)}</div>` : ''}${c.detail ? `<div class="detail">${esc(c.detail)}</div>` : ''}</td>
       <td class="num">${money(c.median)}</td>
       <td class="num hide-sm">${money(c.buy)}</td>
       <td class="num hide-sm">${money(c.sell)}</td>
@@ -875,7 +884,7 @@ function renderReport() {
     const p = net - (Number(c.buy) || 0);
     return `<tr>
       <td>${img}</td>
-      <td class="name">${c.topic ? `<div class="topic">${esc(c.topic)}</div>` : ''}${esc(c.name)}${c.psa ? ` <span class="muted">(PSA ${esc(c.psa)})</span>` : ''}${(c.qty && c.qty > 1) ? ` <span class="qty-badge">×${c.qty}${c.unit ? ' ' + esc(c.unit) : ''}</span>` : ''}</td>
+      <td class="name">${c.topic ? `<div class="topic">${esc(c.topic)}</div>` : ''}${esc(c.name)}${c.lang ? ` <span class="lang-badge">${esc(c.lang)}</span>` : ''}${c.psa ? ` <span class="muted">(PSA ${esc(c.psa)})</span>` : ''}${(c.qty && c.qty > 1) ? ` <span class="qty-badge">×${c.qty}${c.unit ? ' ' + esc(c.unit) : ''}</span>` : ''}</td>
       <td class="center muted">${c.sellTime || '-'}</td>
       <td class="center"><span class="pay-tag ${c.payment || ''}">${PAYMENT[c.payment] || '-'}</span></td>
       <td class="num">${money(c.buy)}</td>
@@ -944,7 +953,7 @@ function renderSales() {
          </div>`;
     return `<tr>
       <td>${img}</td>
-      <td class="name">${c.topic ? `<div class="topic">${esc(c.topic)}</div>` : ''}${esc(c.name)}${c.psa ? ` <span class="muted">(PSA ${esc(c.psa)})</span>` : ''}${(c.qty && c.qty > 1) ? ` <span class="qty-badge">×${c.qty}${c.unit ? ' ' + esc(c.unit) : ''}</span>` : ''}${c.detail ? `<div class="detail">${esc(c.detail)}</div>` : ''}</td>
+      <td class="name">${c.topic ? `<div class="topic">${esc(c.topic)}</div>` : ''}${esc(c.name)}${c.lang ? ` <span class="lang-badge">${esc(c.lang)}</span>` : ''}${c.psa ? ` <span class="muted">(PSA ${esc(c.psa)})</span>` : ''}${(c.qty && c.qty > 1) ? ` <span class="qty-badge">×${c.qty}${c.unit ? ' ' + esc(c.unit) : ''}</span>` : ''}${c.detail ? `<div class="detail">${esc(c.detail)}</div>` : ''}</td>
       <td class="num">${money(c.buy)}</td>
       <td class="num">${money(c.sell)}</td>
       <td style="text-align:right">${statusCell}</td>
@@ -1112,6 +1121,7 @@ function openForm(mode = 'card') {
   psaSay('');
   document.getElementById('f_topic').value = '';
   document.getElementById('f_name').value = '';
+  document.getElementById('f_lang').value = 'JP';
   document.getElementById('f_set').value = '';
   document.getElementById('f_psa').value = '';
   document.getElementById('f_median').value = '';
@@ -1139,6 +1149,7 @@ function editCard(id) {
   psaSay('');
   document.getElementById('f_topic').value = c.topic || '';
   document.getElementById('f_name').value = c.name || '';
+  document.getElementById('f_lang').value = c.lang || 'JP';
   document.getElementById('f_set').value = c.set || '';
   document.getElementById('f_psa').value = c.psa || '';
   document.getElementById('f_qty').value = c.qty || 1;
@@ -1359,6 +1370,7 @@ function saveCard() {
     type: isCollect ? 'collect' : 'card',
     topic: document.getElementById('f_topic').value.trim(),
     name,
+    lang: document.getElementById('f_lang').value,
     cert: document.getElementById('f_cert').value.trim().replace(/\D/g, ''),
     image: document.getElementById('f_image').value || '',
     set: document.getElementById('f_set').value.trim(),
@@ -1385,7 +1397,8 @@ function saveCard() {
   } else if (isCollect) {
     // ของสะสมซ้ำ (ชื่อ+เรื่องตรงกัน และยังไม่ขาย) → รวมจำนวนกับของเดิม
     const match = cards.find(x => x.type === 'collect' && x.status !== 'sold'
-      && key(x.name) === key(name) && key(x.topic) === key(data.topic) && (x.unit || '') === (data.unit || ''));
+      && key(x.name) === key(name) && key(x.topic) === key(data.topic)
+      && (x.unit || '') === (data.unit || '') && (x.lang || '') === (data.lang || ''));
     if (match) {
       const newQty = (Number(match.qty) || 1) + qty;
       match.qty = newQty;
