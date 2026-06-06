@@ -359,6 +359,8 @@
     </div>
     <div class="daily-title">💰 ยอดขายต่อวัน</div>
     <div class="topic-breakdown" id="salesDaily"></div>
+    <div class="daily-title">📦 ของรอขาย (แยกตามหน่วย)</div>
+    <div class="topic-breakdown" id="salesUnsold"></div>
     <div class="toolbar">
       <input class="search" id="salesSearch" placeholder="ค้นหา เรื่อง / ชื่อ / รุ่น..." oninput="renderSales()">
       <select class="filter" id="salesSort" onchange="renderSales()">
@@ -1238,6 +1240,33 @@ function renderSalesDaily() {
     return `<div class="topic-chip${isToday ? ' today' : ''}">
       <div class="t-name"><span class="t-dot${isToday ? ' g' : ''}">●</span> ${label}</div>
       <div class="t-meta">${g.count} ใบ · ${money(g.total)}</div>
+    </div>`;
+  }).join('');
+  renderSalesUnsold();
+}
+
+// ของรอขาย (status=wait) แยกตามหน่วย: ใบ(การ์ด) / Pack / Box / Carton / เล่ม
+function renderSalesUnsold() {
+  const el = document.getElementById('salesUnsold');
+  if (!el) return;
+  const order = ['ใบ', 'Pack', 'Box', 'Carton', 'เล่ม'];
+  const buckets = {};
+  for (const c of cards) {
+    if (c.status !== 'wait') continue;
+    const unit = c.type === 'collect' ? (c.unit || 'อื่นๆ') : 'ใบ';
+    const b = buckets[unit] || { qty: 0, value: 0 };
+    b.qty += Number(c.qty) || 1;
+    b.value += Number(c.sell) || 0;
+    buckets[unit] = b;
+  }
+  const keys = Object.keys(buckets);
+  if (!keys.length) { el.innerHTML = '<div class="sales-summary">ไม่มีของรอขาย</div>'; return; }
+  keys.sort((a, b) => (order.indexOf(a) < 0 ? 99 : order.indexOf(a)) - (order.indexOf(b) < 0 ? 99 : order.indexOf(b)));
+  el.innerHTML = keys.map(u => {
+    const b = buckets[u];
+    return `<div class="topic-chip">
+      <div class="t-name"><span class="t-dot">●</span> ${esc(u)}</div>
+      <div class="t-meta">${b.qty} ${esc(u)} · ${money(b.value)}</div>
     </div>`;
   }).join('');
 }
