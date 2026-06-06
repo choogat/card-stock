@@ -30,6 +30,8 @@
   .wrap { max-width: 1000px; margin: 0 auto; }
 
   .layout { width: 100%; max-width: 100%; margin: 0; display: flex; gap: 26px; align-items: flex-start; }
+  body.locked .layout { display: none; }
+  body.locked #loginOverlay { align-items: center; }
   .sidebar {
     width: 215px; flex-shrink: 0; position: sticky; top: 24px;
     background: var(--card); border: 1px solid var(--border); border-radius: 18px; padding: 18px 14px;
@@ -491,12 +493,9 @@
     </div>
     <div class="loginMsg" id="loginMsg"></div>
     <div class="modal-actions">
-      <button class="btn btn-ghost" onclick="closeLogin()">ปิด</button>
+      <button class="btn btn-ghost" id="loginCloseBtn" onclick="closeLogin()">ปิด</button>
       <button class="btn btn-primary" id="loginBtn" onclick="doLogin()">เข้าสู่ระบบ</button>
     </div>
-    <p style="color:var(--muted);font-size:.78rem;margin-top:14px">
-      ไม่ใส่รหัสก็ใช้งานแบบเก็บในเครื่องอย่างเดียวได้ (ไม่ซิงก์ข้ามเครื่อง)
-    </p>
   </div>
 </div>
 
@@ -1663,14 +1662,25 @@ function updateAuthBtn() {
     setSync('');
   }
 }
+// ยังไม่ล็อกอิน → ล็อกหน้าจอ ซ่อนแอป เหลือแต่หน้าล็อกอิน
+function updateAuthGate() {
+  const locked = !passcode;
+  document.body.classList.toggle('locked', locked);
+  if (locked) openLogin(); else closeLogin();
+}
 function openLogin() {
+  const locked = !passcode;
+  document.getElementById('loginCloseBtn').style.display = locked ? 'none' : '';
   document.getElementById('f_loginId').value = localStorage.getItem('app_id') || '';
   document.getElementById('f_pass').value = passcode || '';
   document.getElementById('loginMsg').textContent = '';
   document.getElementById('loginOverlay').classList.add('open');
   setTimeout(() => document.getElementById('f_loginId').focus(), 50);
 }
-function closeLogin() { document.getElementById('loginOverlay').classList.remove('open'); }
+function closeLogin() {
+  if (!passcode) return; // ยังไม่ล็อกอิน = ปิดไม่ได้
+  document.getElementById('loginOverlay').classList.remove('open');
+}
 function loginMsg(t, cls) { const e = document.getElementById('loginMsg'); e.textContent = t || ''; e.className = 'loginMsg ' + (cls || ''); }
 
 async function doLogin() {
@@ -1713,28 +1723,29 @@ async function doLogin() {
   updateAuthBtn();
   applyPermissions();
   render();
-  closeLogin();
+  updateAuthGate();
 }
 
 function logout() {
-  if (!confirm('ออกจากระบบ? (ข้อมูลบนเซิร์ฟเวอร์ยังอยู่ครบ จะเหลือเฉพาะสำเนาในเครื่องนี้)')) return;
+  if (!confirm('ออกจากระบบ?')) return;
   passcode = ''; loginId = ''; userRole = ''; userTabs = [];
   ['app_pass', 'app_id', 'app_role', 'app_tabs'].forEach(k => localStorage.removeItem(k));
   updateAuthBtn();
   applyPermissions();
+  updateAuthGate();
 }
 
 // ---- ซิงก์ตอนเปิดแอป ----
 async function syncOnStart() {
   updateAuthBtn();
-  if (!passcode || !loginId) { applyPermissions(); openLogin(); return; }
+  if (!passcode || !loginId) { applyPermissions(); updateAuthGate(); return; }
   // รีเฟรชสิทธิ์ (role/tabs) จากเซิร์ฟเวอร์ เผื่อแอดมินเปลี่ยนสิทธิ์
   try {
     const lr = await fetch(LOGIN_API, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: loginId, password: passcode }) });
     if (lr.status === 401) {
       passcode = ''; loginId = ''; userRole = ''; userTabs = [];
       ['app_pass', 'app_id', 'app_role', 'app_tabs'].forEach(k => localStorage.removeItem(k));
-      updateAuthBtn(); applyPermissions(); openLogin(); return;
+      updateAuthBtn(); applyPermissions(); updateAuthGate(); return;
     }
     if (lr.ok) {
       const a = await lr.json();
@@ -1748,7 +1759,7 @@ async function syncOnStart() {
   if (res.auth === false) {
     passcode = ''; loginId = ''; userRole = ''; userTabs = [];
     ['app_pass', 'app_id', 'app_role', 'app_tabs'].forEach(k => localStorage.removeItem(k));
-    updateAuthBtn(); applyPermissions(); openLogin(); return;
+    updateAuthBtn(); applyPermissions(); updateAuthGate(); return;
   }
   if (res.ok) {
     if (res.cards.length) {
@@ -1848,6 +1859,7 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeLogin
 
 render();
 applyPermissions(); // ตั้งเมนู/แถบตามสิทธิ์ + คงแถบเดิมหลัง F5
+updateAuthGate();   // ยังไม่ล็อกอิน → ล็อกหน้าจอ เหลือแต่หน้าล็อกอิน
 syncOnStart();
 
 // เปิดฟอร์ม "เพิ่มการ์ด" อัตโนมัติ ถ้า URL ลงท้ายด้วย #add หรือ ?add
