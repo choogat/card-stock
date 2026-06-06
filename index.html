@@ -388,8 +388,6 @@
         <option value="name">ชื่อ A→Z</option>
       </select>
     </div>
-    <div class="daily-title">เลือกจากวันที่มีการขาย</div>
-    <div class="topic-breakdown" id="reportDays"></div>
     <div id="reportSummary"></div>
     <div id="reportTableArea"></div>
   </div><!-- /viewReport -->
@@ -1022,29 +1020,6 @@ function renderReport() {
   if (!dateEl) return;
   if (!dateEl.value) dateEl.value = todayISO();
   const day = dateEl.value;
-
-  // ชิปวันที่มีการขาย (คลิกเลือกได้)
-  const byDay = new Map();
-  for (const c of cards) {
-    if (c.status !== 'sold') continue;
-    const d = c.sellDate || '__none__';
-    const g = byDay.get(d) || { count: 0, total: 0 };
-    g.count++; g.total += Number(c.sell) || 0;
-    byDay.set(d, g);
-  }
-  const daysEl = document.getElementById('reportDays');
-  if (byDay.size === 0) {
-    daysEl.innerHTML = '<div class="sales-summary">ยังไม่มีการขาย</div>';
-  } else {
-    const entries = [...byDay.entries()].filter(e => e[0] !== '__none__').sort((a, b) => b[0].localeCompare(a[0]));
-    daysEl.innerHTML = entries.map(([d, g]) => {
-      const active = d === day ? ' active' : '';
-      return `<div class="topic-chip${active}" onclick="document.getElementById('reportDate').value='${d}';renderReport()">
-        <div class="t-name"><span class="t-dot">●</span> ${fmtDate(d)}</div>
-        <div class="t-meta">${g.count} ใบ · ${money(g.total)}</div>
-      </div>`;
-    }).join('');
-  }
 
   // รายการที่ขายในวันนั้น
   const sold = cards.filter(c => c.status === 'sold' && (c.sellDate || '') === day);
