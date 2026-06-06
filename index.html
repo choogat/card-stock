@@ -1161,14 +1161,13 @@ function renderProductSearch() {
     g.qty += Number(c.qty) || 1;
     if (!g.img && c.image) g.img = c.image;
   }
-  const rows = groups.map(({ rep: c, qty, img: gImg, lang: gLang }) => {
+  const rows = groups.map(({ rep: c, img: gImg, lang: gLang }) => {
     const img = gImg
       ? `<img class="thumb" src="${gImg}" onclick="openLightbox('${c.id}')" alt="">`
       : `<div class="thumb-empty">🃏</div>`;
-    const qtyBadge = qty > 1 ? ` <span class="qty-badge">×${qty}</span>` : '';
     return `<tr>
       <td>${img}</td>
-      <td class="name">${c.topic ? `<div class="topic">${esc(c.topic)}</div>` : ''}${esc(c.name)}${gLang ? ` <span class="lang-badge">${esc(gLang)}</span>` : ''}${qtyBadge}${setMetaHTML(c)}${c.set ? `<div class="cardset">รุ่น: ${esc(c.set)}</div>` : ''}${c.detail ? `<div class="detail">${esc(c.detail)}</div>` : ''}</td>
+      <td class="name">${c.topic ? `<div class="topic">${esc(c.topic)}</div>` : ''}${esc(c.name)}${gLang ? ` <span class="lang-badge">${esc(gLang)}</span>` : ''}${setMetaHTML(c)}${c.set ? `<div class="cardset">รุ่น: ${esc(c.set)}</div>` : ''}${c.detail ? `<div class="detail">${esc(c.detail)}</div>` : ''}</td>
       <td class="num">${money(c.buy)}</td>
       <td class="num">${money(c.sell)}</td>
     </tr>`;
