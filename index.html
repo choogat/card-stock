@@ -265,6 +265,11 @@
   .psa-row input { flex: 1; }
   .psa-row .btn { white-space: nowrap; padding: 11px 16px; }
   .psa-row .btn:disabled { opacity: .6; cursor: default; }
+  .op-results { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; max-height: 260px; overflow-y: auto; }
+  .op-item { display: flex; align-items: center; gap: 10px; background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 7px 10px; cursor: pointer; text-align: left; font-family: inherit; color: var(--text); }
+  .op-item:hover { border-color: var(--accent); }
+  .op-item img { width: 34px; height: 34px; object-fit: contain; border-radius: 6px; background: var(--card2); flex-shrink: 0; }
+  .op-item .nm { font-size: .82rem; line-height: 1.3; }
   .psa-msg { font-size: .82rem; margin-top: 8px; min-height: 1em; }
   .psa-msg.ok { color: var(--green); }
   .psa-msg.err { color: var(--danger); }
@@ -539,10 +544,11 @@
     <div class="field psa-lookup" id="row_opLookup" style="display:none">
       <label>🏴‍☠️ ดึงข้อมูล Booster One Piece (พิมพ์รหัส)</label>
       <div class="psa-row">
-        <input id="f_opCode" placeholder="เช่น OP-01, EB-01, PRB-01" onkeydown="if(event.key==='Enter')fetchOnePiece()">
+        <input id="f_opCode" placeholder="รหัส หรือ ชื่อบางคำ เช่น OP-01, sleeve, playmat" onkeydown="if(event.key==='Enter')fetchOnePiece()">
         <button type="button" class="btn btn-primary" id="opFetchBtn" onclick="fetchOnePiece()">ดึงข้อมูล</button>
       </div>
       <div class="psa-msg" id="opMsg"></div>
+      <div class="op-results" id="opResults"></div>
     </div>
     <div class="field">
       <label>เรื่อง</label>
@@ -1451,6 +1457,7 @@ function openForm(mode = 'card') {
   psaSay('');
   document.getElementById('f_opCode').value = '';
   document.getElementById('opMsg').textContent = '';
+  document.getElementById('opResults').innerHTML = '';
   document.getElementById('f_topic').value = '';
   document.getElementById('f_name').value = '';
   document.getElementById('f_lang').value = 'JP';
@@ -1610,27 +1617,45 @@ async function fetchPSA() {
   }
 }
 
-// ---- ดึงข้อมูล Booster One Piece ----
+// ---- ดึงข้อมูลสินค้า One Piece (boosters + others) ----
 function opMsg(t, cls) { const e = document.getElementById('opMsg'); e.textContent = t || ''; e.className = 'psa-msg ' + (cls || ''); }
+let opResultsCache = [];
 async function fetchOnePiece() {
-  const code = document.getElementById('f_opCode').value.trim();
-  if (!code) { opMsg('กรุณากรอกรหัส เช่น OP-01', 'err'); return; }
+  const q = document.getElementById('f_opCode').value.trim();
+  if (!q) { opMsg('กรอกรหัส หรือ ชื่อบางคำ', 'err'); return; }
   const btn = document.getElementById('opFetchBtn');
   btn.disabled = true;
-  opMsg('กำลังดึงข้อมูล...', 'load');
+  document.getElementById('opResults').innerHTML = '';
+  opMsg('กำลังค้นหา...', 'load');
   try {
-    const r = await fetch(`${ONEPIECE_API}?code=${encodeURIComponent(code)}`);
+    const r = await fetch(`${ONEPIECE_API}?q=${encodeURIComponent(q)}`);
     const d = await r.json();
-    if (!r.ok || d.found === false || d.error) { opMsg(d.error || 'ไม่พบรหัสนี้', 'err'); return; }
-    if (!document.getElementById('f_topic').value.trim()) document.getElementById('f_topic').value = 'One Piece';
-    if (!document.getElementById('f_name').value.trim()) document.getElementById('f_name').value = d.name;
-    if (d.image) setImage(d.image);
-    opMsg('✓ ดึงข้อมูลสำเร็จ' + (d.image ? ' (พร้อมรูป)' : ' (ไม่มีรูป)'), 'ok');
+    if (!r.ok || d.error) { opMsg(d.error || 'ผิดพลาด', 'err'); return; }
+    const results = d.results || [];
+    opResultsCache = results;
+    if (!results.length) { opMsg('ไม่พบสินค้าที่ตรงกับ "' + q + '"', 'err'); return; }
+    if (results.length === 1) { applyOpResult(0); return; }
+    // หลายรายการ → ให้เลือก
+    opMsg(`พบ ${results.length} รายการ — เลือก 1 รายการ`, 'ok');
+    document.getElementById('opResults').innerHTML = results.map((it, i) => `
+      <button type="button" class="op-item" onclick="applyOpResult(${i})">
+        ${it.image ? `<img src="${it.image}" alt="">` : ''}
+        <span class="nm">${esc(it.name)}</span>
+      </button>`).join('');
   } catch (e) {
     opMsg('เชื่อมต่อหลังบ้านไม่ได้', 'err');
   } finally {
     btn.disabled = false;
   }
+}
+function applyOpResult(i) {
+  const it = opResultsCache[i];
+  if (!it) return;
+  if (!document.getElementById('f_topic').value.trim()) document.getElementById('f_topic').value = 'One Piece';
+  document.getElementById('f_name').value = it.name;
+  if (it.image) setImage(it.image);
+  document.getElementById('opResults').innerHTML = '';
+  opMsg('✓ เลือกแล้ว: ' + it.name, 'ok');
 }
 
 // ---- ค้นหาการ์ด PSA (แสดงรายละเอียดก่อนเพิ่ม) ----
