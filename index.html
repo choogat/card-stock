@@ -7,22 +7,22 @@
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   :root {
-    --bg: #0f1220;
-    --card: #1a1f35;
-    --card2: #232a46;
-    --accent: #4f8cff;
+    --bg: #eef1f7;
+    --card: #ffffff;
+    --card2: #eff2f8;
+    --accent: #2f6fed;
     --accent2: #6c5ce7;
-    --green: #2ecc71;
-    --yellow: #f1c40f;
+    --green: #18a558;
+    --yellow: #c08a00;
     --gray: #8a93b2;
-    --text: #e8ecf6;
-    --muted: #9aa3c0;
-    --danger: #ff5b6e;
-    --border: #2c3354;
+    --text: #1c2333;
+    --muted: #6b7280;
+    --danger: #e23b4e;
+    --border: #e2e6ee;
   }
   body {
     font-family: "Segoe UI", "Sarabun", Tahoma, sans-serif;
-    background: linear-gradient(160deg, #0f1220 0%, #141832 100%);
+    background: linear-gradient(160deg, #f5f7fc 0%, #eaeef6 100%);
     color: var(--text);
     min-height: 100vh;
     padding: 20px 24px 80px;
@@ -86,8 +86,8 @@
   .sold-lock .pay-tag { padding: 2px 7px; font-size: .66rem; }
   .sold-lock .lock-btn { width: 24px; height: 24px; font-size: .72rem; }
   .pay-tag { display: inline-block; padding: 3px 9px; border-radius: 999px; font-size: .74rem; font-weight: 600; background: var(--card2); color: var(--muted); }
-  .pay-tag.cash { background: rgba(46,204,113,.18); color: var(--green); }
-  .pay-tag.transfer { background: rgba(79,140,255,.18); color: #7fa9ff; }
+  .pay-tag.cash { background: rgba(24,165,88,.15); color: var(--green); }
+  .pay-tag.transfer { background: rgba(47,111,237,.14); color: var(--accent); }
   .lock-btn { background: var(--card2); border: 1px solid var(--border); color: var(--muted); width: 30px; height: 30px; border-radius: 8px; cursor: pointer; font-size: .85rem; }
   .lock-btn:hover { border-color: var(--accent); color: var(--text); }
 
@@ -162,7 +162,7 @@
   th.center { text-align: center; }
   td { background: var(--card); padding: 9px 12px; font-size: .86rem; vertical-align: middle; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
   tbody tr { transition: filter .12s; }
-  tbody tr:hover td { filter: brightness(1.08); }
+  tbody tr:hover td { filter: brightness(0.97); }
   tr td:first-child { border-left: 1px solid var(--border); border-radius: 10px 0 0 10px; }
   tr td:last-child { border-right: 1px solid var(--border); border-radius: 0 10px 10px 0; }
   td.name { font-weight: 600; }
@@ -212,9 +212,9 @@
   .dates .d { white-space: nowrap; }
 
   .badge { display: inline-block; padding: 4px 11px; border-radius: 999px; font-size: .78rem; font-weight: 600; }
-  .badge.show { background: rgba(79,140,255,.18); color: #7fa9ff; }
-  .badge.wait { background: rgba(241,196,15,.18); color: #f1c40f; }
-  .badge.sold { background: rgba(46,204,113,.18); color: #2ecc71; }
+  .badge.show { background: rgba(47,111,237,.14); color: var(--accent); }
+  .badge.wait { background: rgba(192,138,0,.16); color: var(--yellow); }
+  .badge.sold { background: rgba(24,165,88,.15); color: var(--green); }
 
   .row-actions { display: flex; gap: 6px; }
   .icon-btn {
@@ -253,7 +253,7 @@
   .lang-badge { display: inline-block; background: var(--card2); border: 1px solid var(--border); color: var(--muted); padding: 1px 7px; border-radius: 6px; font-size: .68rem; font-weight: 700; }
   tr.group-head { cursor: pointer; }
   tr.group-head td { background: var(--card2); }
-  tr.group-head:hover td { filter: brightness(1.1); }
+  tr.group-head:hover td { filter: brightness(0.96); }
   tr.group-head .exp { color: var(--accent); font-weight: 700; margin-right: 4px; }
   tr.child-row td:first-child { border-left: 3px solid var(--accent2); }
   tr.child-row td { background: rgba(108,92,231,.06); }
@@ -1016,7 +1016,7 @@ function renderReport() {
       <div class="stat"><div class="label">ขายได้ (${fmtDate(day)})</div><div class="value num">${sold.length} ใบ</div></div>
       <div class="stat"><div class="label">ยอดขายรวม (สุทธิ)</div><div class="value num">${money(revenue)}</div></div>
       <div class="stat"><div class="label">💵 ยอดขายเงินสด</div><div class="value num profit-pos">${money(cashTotal)}</div></div>
-      <div class="stat"><div class="label">🏦 ยอดขายเงินโอน</div><div class="value num" style="color:#7fa9ff">${money(transferTotal)}</div></div>
+      <div class="stat"><div class="label">🏦 ยอดขายเงินโอน</div><div class="value num" style="color:var(--accent)">${money(transferTotal)}</div></div>
       <div class="stat"><div class="label">กำไร</div><div class="value num ${profit > 0 ? 'profit-pos' : profit < 0 ? 'profit-neg' : ''}">${money(profit)}</div></div>
     </div>`;
 
