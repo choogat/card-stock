@@ -363,6 +363,7 @@
       <option value="">ทุกสถานะ</option>
       <option value="show">สะสม</option>
       <option value="wait">รอขาย</option>
+      <option value="instock">สะสม + รอขาย</option>
       <option value="sold">ขายแล้ว</option>
     </select>
     <select class="filter" id="sortBy" onchange="render()">
@@ -869,7 +870,8 @@ function render() {
   const area = document.getElementById('tableArea');
 
   let list = cards.map((c, i) => ({ ...c, _i: i }));
-  if (sf) list = list.filter(c => c.status === sf);
+  if (sf === 'instock') list = list.filter(c => c.status !== 'sold'); // สะสม + รอขาย
+  else if (sf) list = list.filter(c => c.status === sf);
   if (tf) list = list.filter(c => (c.topic || '') === tf);
   if (q) {
     const terms = q.split(/\s+/).filter(Boolean);
