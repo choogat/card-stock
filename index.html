@@ -317,6 +317,7 @@
       <button class="nav-item active" data-view="stock" onclick="switchView('stock')">📦 สต็อกการ์ด</button>
       <button class="nav-item" data-view="sales" onclick="switchView('sales')">🏷️ สินค้าขาย</button>
       <button class="nav-item" data-view="report" onclick="switchView('report')">📊 รายงานการขาย</button>
+      <button class="nav-item" data-view="buy" onclick="switchView('buy')">🛒 รับซื้อสินค้า</button>
       <button class="nav-item" data-view="product" onclick="switchView('product')">📋 ข้อมูลสินค้า</button>
       <button class="nav-item" data-view="users" onclick="switchView('users')" style="display:none">👥 ผู้ใช้งาน</button>
     </nav>
@@ -421,6 +422,22 @@
     <div id="reportTableArea"></div>
   </div><!-- /viewReport -->
 
+  <div id="viewBuy" style="display:none">
+    <h2 class="view-title">🛒 รับซื้อสินค้า</h2>
+    <div class="product-section">
+      <div class="daily-title">⚡ PSA — เพิ่มการ์ดด้วยเลข cert</div>
+      <div class="toolbar">
+        <button class="btn btn-primary" onclick="openForm('card')">⚡ เพิ่มการ์ด (ดึง PSA)</button>
+        <button class="btn btn-ghost" onclick="openPSASearch()">🔍 ค้นหาการ์ด PSA</button>
+      </div>
+    </div>
+    <div class="product-section">
+      <div class="daily-title">🔎 ค้นหาการ์ดในสต็อก</div>
+      <input class="search" id="buySearch" placeholder="ค้นหา เรื่อง / ชื่อ / รุ่น / PSA / cert..." oninput="renderBuySearch()" style="width:100%">
+      <div id="buySearchArea"></div>
+    </div>
+  </div><!-- /viewBuy -->
+
   <div id="viewProduct" style="display:none">
     <h2 class="view-title">📋 ข้อมูลสินค้า</h2>
     <div class="product-section">
@@ -452,6 +469,7 @@
           <label><input type="checkbox" id="u_tab_stock" value="stock"> 📦 สต็อกการ์ด</label>
           <label><input type="checkbox" id="u_tab_sales" value="sales"> 🏷️ สินค้าขาย</label>
           <label><input type="checkbox" id="u_tab_report" value="report"> 📊 รายงานการขาย</label>
+          <label><input type="checkbox" id="u_tab_buy" value="buy"> 🛒 รับซื้อสินค้า</label>
           <label><input type="checkbox" id="u_tab_product" value="product"> 📋 ข้อมูลสินค้า</label>
         </div>
       </div>
@@ -724,7 +742,7 @@ const USERS_API = API_BASE + '/users';
 const ONEPIECE_API = API_BASE + '/onepiece';
 const OPIMG_API = API_BASE + '/opimg';
 function opImgUrl(u) { return `${OPIMG_API}?url=${encodeURIComponent(u)}`; }
-const ALL_TABS = ['stock', 'sales', 'report', 'product'];
+const ALL_TABS = ['stock', 'sales', 'report', 'buy', 'product'];
 let passcode = localStorage.getItem('app_pass') || '';
 let loginId = localStorage.getItem('app_id') || '';
 let userRole = localStorage.getItem('app_role') || '';
@@ -1057,9 +1075,11 @@ function switchView(view) {
   document.getElementById('viewStock').style.display = view === 'stock' ? '' : 'none';
   document.getElementById('viewSales').style.display = view === 'sales' ? '' : 'none';
   document.getElementById('viewReport').style.display = view === 'report' ? '' : 'none';
+  document.getElementById('viewBuy').style.display = view === 'buy' ? '' : 'none';
   document.getElementById('viewProduct').style.display = view === 'product' ? '' : 'none';
   document.getElementById('viewUsers').style.display = view === 'users' ? '' : 'none';
   if (view === 'report') renderReport();
+  if (view === 'buy') renderBuySearch();
   if (view === 'product') renderProductSearch();
   if (view === 'users') renderUsers();
   localStorage.setItem('app_view', view); // จำแถบล่าสุด ไว้คงหน้าตอน F5
@@ -1082,14 +1102,10 @@ function applyPermissions() {
   switchView(allowed.includes(cur) ? cur : (allowed[0] || 'stock'));
 }
 
-// ค้นหาการ์ดในแถบ "ข้อมูลสินค้า" — โชว์ข้อมูลแบบอ่านอย่างเดียว
-function renderProductSearch() {
-  const area = document.getElementById('productSearchArea');
-  if (!area) return;
-  const q = (document.getElementById('productSearch').value || '').trim().toLowerCase();
+// ค้นหาการ์ดในสต็อก (ใช้ร่วมกันทั้งแถบ "ข้อมูลสินค้า" และ "รับซื้อสินค้า") — อ่านอย่างเดียว
+function cardSearchResultsHTML(q) {
   if (!q) {
-    area.innerHTML = `<div class="empty"><div class="big">🔎</div>พิมพ์เพื่อค้นหาการ์ดจาก ชื่อ / เรื่อง / รุ่น / PSA / cert</div>`;
-    return;
+    return `<div class="empty"><div class="big">🔎</div>พิมพ์เพื่อค้นหาการ์ดจาก ชื่อ / เรื่อง / รุ่น / PSA / cert</div>`;
   }
   const terms = q.split(/\s+/).filter(Boolean);
   const list = cards.filter(c => {
@@ -1097,8 +1113,7 @@ function renderProductSearch() {
     return terms.every(t => hay.includes(t));
   });
   if (!list.length) {
-    area.innerHTML = `<div class="empty"><div class="big">🃏</div>ไม่พบการ์ดที่ตรงกับ “${esc(q)}”</div>`;
-    return;
+    return `<div class="empty"><div class="big">🃏</div>ไม่พบการ์ดที่ตรงกับ “${esc(q)}”</div>`;
   }
   const rows = list.map(c => {
     const st = STATUS[c.status] || STATUS.show;
@@ -1112,11 +1127,21 @@ function renderProductSearch() {
       <td class="num">${money(c.sell)}</td>
     </tr>`;
   }).join('');
-  area.innerHTML = `<div class="sales-summary" style="margin:10px 0">พบ ${list.length} รายการ</div>
+  return `<div class="sales-summary" style="margin:10px 0">พบ ${list.length} รายการ</div>
     <table>
       <thead><tr><th>รูป</th><th>ชื่อการ์ด</th><th class="center">สถานะ</th><th class="num">ราคาขาย</th></tr></thead>
       <tbody>${rows}</tbody>
     </table>`;
+}
+function renderProductSearch() {
+  const area = document.getElementById('productSearchArea');
+  if (!area) return;
+  area.innerHTML = cardSearchResultsHTML((document.getElementById('productSearch').value || '').trim().toLowerCase());
+}
+function renderBuySearch() {
+  const area = document.getElementById('buySearchArea');
+  if (!area) return;
+  area.innerHTML = cardSearchResultsHTML((document.getElementById('buySearch').value || '').trim().toLowerCase());
 }
 
 function reportToday() {
@@ -2322,7 +2347,7 @@ async function syncOnStart() {
 // ---- จัดการผู้ใช้ (แอดมิน) ----
 let usersCache = [];
 function usersMsg(t, cls) { const e = document.getElementById('usersMsg'); e.textContent = t || ''; e.className = 'usersMsg ' + (cls || ''); }
-const TAB_NAME = { stock: 'สต็อก', sales: 'สินค้าขาย', report: 'รายงาน', product: 'ข้อมูลสินค้า' };
+const TAB_NAME = { stock: 'สต็อก', sales: 'สินค้าขาย', report: 'รายงาน', buy: 'รับซื้อสินค้า', product: 'ข้อมูลสินค้า' };
 
 function renderUsersList() {
   const list = document.getElementById('usersList');
