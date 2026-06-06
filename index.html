@@ -1724,12 +1724,13 @@ function saveCard() {
     cards.push({ id: uid(), ...data });
   }
   // การ์ด (ไม่ใช่ของสะสม): ราคารับซื้อ/ขาย ให้เท่ากันทุกใบในกลุ่มชื่อเดียวกัน
+  // แต่ "ข้ามใบที่ขายแล้ว" — ราคาที่ขายไปแล้วล็อกไว้ ไม่โดนแก้ตาม
   if (!isCollect) {
     const target = id ? cards.find(x => x.id === id) : cards[cards.length - 1];
-    if (target) {
+    if (target && target.status !== 'sold') {
       const gk = groupKeyOf(target);
       cards.forEach(x => {
-        if (x !== target && x.type !== 'collect' && groupKeyOf(x) === gk) {
+        if (x !== target && x.type !== 'collect' && x.status !== 'sold' && groupKeyOf(x) === gk) {
           x.buy = target.buy; x.sell = target.sell;
         }
       });
