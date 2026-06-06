@@ -1727,7 +1727,23 @@ function logout() {
 // ---- ซิงก์ตอนเปิดแอป ----
 async function syncOnStart() {
   updateAuthBtn();
-  if (!passcode) return;
+  if (!passcode || !loginId) { applyPermissions(); return; }
+  // รีเฟรชสิทธิ์ (role/tabs) จากเซิร์ฟเวอร์ เผื่อแอดมินเปลี่ยนสิทธิ์
+  try {
+    const lr = await fetch(LOGIN_API, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: loginId, password: passcode }) });
+    if (lr.status === 401) {
+      passcode = ''; loginId = ''; userRole = ''; userTabs = [];
+      ['app_pass', 'app_id', 'app_role', 'app_tabs'].forEach(k => localStorage.removeItem(k));
+      updateAuthBtn(); applyPermissions(); openLogin(); return;
+    }
+    if (lr.ok) {
+      const a = await lr.json();
+      userRole = a.role || userRole; userTabs = a.tabs || userTabs;
+      localStorage.setItem('app_role', userRole);
+      localStorage.setItem('app_tabs', JSON.stringify(userTabs));
+    }
+  } catch (e) { /* ออฟไลน์ — ใช้สิทธิ์ที่เก็บไว้ */ }
+  applyPermissions();
   const res = await pullFromServer();
   if (res.auth === false) {
     passcode = ''; loginId = ''; userRole = ''; userTabs = [];
