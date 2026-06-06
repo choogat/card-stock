@@ -424,6 +424,10 @@
     <h2>✓ บันทึกการขาย</h2>
     <p id="saleCardName" style="color:var(--muted);font-size:.9rem;margin-bottom:16px"></p>
     <input type="hidden" id="sale_id">
+    <div class="field" id="row_saleQty" style="display:none">
+      <label>จำนวนที่ขาย (มีทั้งหมด <span id="saleMaxQty"></span>)</label>
+      <input id="sale_qty" type="number" inputmode="numeric" min="1" value="1" oninput="onSaleQtyChange()">
+    </div>
     <div class="field">
       <label>ยอดขาย (฿)</label>
       <input id="sale_price" type="number" inputmode="decimal" oninput="updateNet()" placeholder="ยอดขาย (จะทับราคาขายเดิม)">
@@ -1106,15 +1110,35 @@ function markSold(id) {
   if (!c) return;
   document.getElementById('sale_id').value = id;
   document.getElementById('saleCardName').textContent = `การ์ด: ${c.name}`;
-  // ยอดขาย(ก่อนหักส่วนลด) = ยอดสุทธิเดิม + ส่วนลดเดิม
-  const gross = (Number(c.sell) || 0) + (Number(c.discount) || 0);
-  document.getElementById('sale_price').value = gross || '';
+  // ของสะสมหลายชิ้น → โชว์ช่องเลือกจำนวนที่ขาย
+  const isMulti = c.type === 'collect' && (Number(c.qty) || 1) > 1;
+  document.getElementById('row_saleQty').style.display = isMulti ? '' : 'none';
+  if (isMulti) {
+    document.getElementById('saleMaxQty').textContent = c.qty + (c.unit ? ' ' + c.unit : '');
+    const qEl = document.getElementById('sale_qty');
+    qEl.max = c.qty; qEl.value = c.qty;
+    document.getElementById('sale_price').value = (Number(c.unitSell) || 0) * c.qty || ((Number(c.sell) || 0) + (Number(c.discount) || 0)) || '';
+  } else {
+    // ยอดขาย(ก่อนหักส่วนลด) = ยอดสุทธิเดิม + ส่วนลดเดิม
+    document.getElementById('sale_price').value = ((Number(c.sell) || 0) + (Number(c.discount) || 0)) || '';
+  }
   document.getElementById('sale_discount').value = c.discount || '';
   document.getElementById('sale_payment').value = c.payment || 'cash';
   updateNet();
   document.getElementById('saleOverlay').classList.add('open');
 }
 function closeSale() { document.getElementById('saleOverlay').classList.remove('open'); }
+
+// เปลี่ยนจำนวนที่ขาย → คิดยอดขายใหม่ตามราคาต่อหน่วย
+function onSaleQtyChange() {
+  const c = cards.find(x => x.id === document.getElementById('sale_id').value);
+  if (!c) return;
+  let q = parseInt(document.getElementById('sale_qty').value) || 1;
+  q = Math.max(1, Math.min(Number(c.qty) || 1, q));
+  document.getElementById('sale_qty').value = q;
+  document.getElementById('sale_price').value = (Number(c.unitSell) || 0) * q;
+  updateNet();
+}
 
 // คำนวณยอดขายสุทธิ = ยอดขาย − ส่วนลด
 function updateNet() {
@@ -1127,17 +1151,46 @@ function confirmSale() {
   const id = document.getElementById('sale_id').value;
   const c = cards.find(x => x.id === id);
   if (!c) return;
-  const price = parseFloat(document.getElementById('sale_price').value);
+  const price = parseFloat(document.getElementById('sale_price').value) || 0;
   const disc = parseFloat(document.getElementById('sale_discount').value) || 0;
-  if (!isNaN(price)) c.sell = price - disc; // ยอดขายสุทธิทับราคาขายเดิม
-  c.discount = disc;
-  c.payment = document.getElementById('sale_payment').value;
-  // บันทึกวันที่+เวลา ณ ตอนกดยืนยันอัตโนมัติ
+  const net = price - disc;
+  const payment = document.getElementById('sale_payment').value;
   const now = new Date();
   const pad = n => String(n).padStart(2, '0');
-  c.sellDate = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
-  c.sellTime = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
-  c.status = 'sold';
+  const sellDate = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+  const sellTime = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
+
+  const totalQty = Number(c.qty) || 1;
+  const isMulti = c.type === 'collect' && totalQty > 1;
+  let soldQty = totalQty;
+  if (isMulti) {
+    soldQty = Math.max(1, Math.min(totalQty, parseInt(document.getElementById('sale_qty').value) || 1));
+  }
+
+  if (isMulti && soldQty < totalQty) {
+    // ขายบางส่วน → แยกใบที่ขายออกมา ที่เหลืออยู่ในแถบขายต่อ
+    const remain = totalQty - soldQty;
+    cards.push({
+      ...c, id: uid(), status: 'sold', qty: soldQty,
+      discount: disc, payment, sellDate, sellTime,
+      sell: net, unitSell: soldQty ? net / soldQty : c.unitSell,
+      median: (Number(c.unitMedian) || 0) * soldQty,
+      buy: (Number(c.unitBuy) || 0) * soldQty,
+    });
+    c.qty = remain;
+    c.median = (Number(c.unitMedian) || 0) * remain;
+    c.buy = (Number(c.unitBuy) || 0) * remain;
+    c.sell = (Number(c.unitSell) || 0) * remain;
+    // c คงสถานะ 'wait'
+  } else {
+    // ขายทั้งหมด
+    c.sell = net;
+    c.discount = disc;
+    c.payment = payment;
+    c.sellDate = sellDate;
+    c.sellTime = sellTime;
+    c.status = 'sold';
+  }
   save();
   render();
   closeSale();
