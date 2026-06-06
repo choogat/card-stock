@@ -536,6 +536,14 @@
       </div>
       <div class="psa-msg" id="psaMsg"></div>
     </div>
+    <div class="field psa-lookup" id="row_opLookup" style="display:none">
+      <label>🏴‍☠️ ดึงข้อมูล Booster One Piece (พิมพ์รหัส)</label>
+      <div class="psa-row">
+        <input id="f_opCode" placeholder="เช่น OP-01, EB-01, PRB-01" onkeydown="if(event.key==='Enter')fetchOnePiece()">
+        <button type="button" class="btn btn-primary" id="opFetchBtn" onclick="fetchOnePiece()">ดึงข้อมูล</button>
+      </div>
+      <div class="psa-msg" id="opMsg"></div>
+    </div>
     <div class="field">
       <label>เรื่อง</label>
       <input id="f_topic" placeholder="เช่น Pokemon, One Piece, Dragon Ball...">
@@ -649,6 +657,7 @@ const CARDS_API = (location.hostname.endsWith('vercel.app') || location.hostname
 const API_BASE = CARDS_API.replace(/\/cards$/, '');
 const LOGIN_API = API_BASE + '/login';
 const USERS_API = API_BASE + '/users';
+const ONEPIECE_API = API_BASE + '/onepiece';
 const ALL_TABS = ['stock', 'sales', 'report'];
 let passcode = localStorage.getItem('app_pass') || '';
 let loginId = localStorage.getItem('app_id') || '';
@@ -1413,6 +1422,7 @@ function applyFormMode(mode) {
     document.getElementById(id).style.display = isCollect ? 'none' : '';
   });
   document.getElementById('row_qty').style.display = isCollect ? '' : 'none';
+  document.getElementById('row_opLookup').style.display = isCollect ? '' : 'none';
   document.getElementById('nameLabel').textContent = isCollect ? 'ชื่อสินค้า *' : 'ชื่อการ์ด *';
   // โหมดของสะสม: ราคาเป็น "ต่อชิ้น"
   document.getElementById('lblMedian').textContent = isCollect ? 'ราคากลาง / ชิ้น (฿)' : 'ราคากลาง (฿)';
@@ -1439,6 +1449,8 @@ function openForm(mode = 'card') {
   document.getElementById('f_id').value = '';
   document.getElementById('f_cert').value = '';
   psaSay('');
+  document.getElementById('f_opCode').value = '';
+  document.getElementById('opMsg').textContent = '';
   document.getElementById('f_topic').value = '';
   document.getElementById('f_name').value = '';
   document.getElementById('f_lang').value = 'JP';
@@ -1593,6 +1605,29 @@ async function fetchPSA() {
     psaSay('✓ ดึงข้อมูลสำเร็จ' + (data.frontImage ? ' (พร้อมรูป)' : ' (ใบนี้ไม่มีรูปใน PSA)'), 'ok');
   } catch (err) {
     psaSay('เชื่อมต่อหลังบ้านไม่ได้ — ตรวจสอบว่า Vercel ตั้งค่าแล้ว', 'err');
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+// ---- ดึงข้อมูล Booster One Piece ----
+function opMsg(t, cls) { const e = document.getElementById('opMsg'); e.textContent = t || ''; e.className = 'psa-msg ' + (cls || ''); }
+async function fetchOnePiece() {
+  const code = document.getElementById('f_opCode').value.trim();
+  if (!code) { opMsg('กรุณากรอกรหัส เช่น OP-01', 'err'); return; }
+  const btn = document.getElementById('opFetchBtn');
+  btn.disabled = true;
+  opMsg('กำลังดึงข้อมูล...', 'load');
+  try {
+    const r = await fetch(`${ONEPIECE_API}?code=${encodeURIComponent(code)}`);
+    const d = await r.json();
+    if (!r.ok || d.found === false || d.error) { opMsg(d.error || 'ไม่พบรหัสนี้', 'err'); return; }
+    if (!document.getElementById('f_topic').value.trim()) document.getElementById('f_topic').value = 'One Piece';
+    if (!document.getElementById('f_name').value.trim()) document.getElementById('f_name').value = d.name;
+    if (d.image) setImage(d.image);
+    opMsg('✓ ดึงข้อมูลสำเร็จ' + (d.image ? ' (พร้อมรูป)' : ' (ไม่มีรูป)'), 'ok');
+  } catch (e) {
+    opMsg('เชื่อมต่อหลังบ้านไม่ได้', 'err');
   } finally {
     btn.disabled = false;
   }
