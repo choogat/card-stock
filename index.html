@@ -255,9 +255,14 @@
   .qty-totals { background: rgba(79,140,255,.1); border: 1px solid var(--border); border-radius: 12px; padding: 11px 14px; font-size: .85rem; margin-bottom: 15px; line-height: 1.7; }
   .set-toggle { display: flex !important; align-items: center; gap: 8px; cursor: pointer; font-size: .92rem; color: var(--text); background: var(--card2); border: 1px solid var(--border); border-radius: 11px; padding: 11px 14px; }
   .set-toggle input { width: auto; }
-  .set-item-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+  .set-item-row { display: flex; align-items: center; gap: 7px; margin-bottom: 8px; flex-wrap: wrap; }
   .set-item-row .si-num { color: var(--muted); font-size: .82rem; min-width: 22px; text-align: right; font-variant-numeric: tabular-nums; }
   .set-item-row input { flex: 1; }
+  .set-item-row .set-item-cert { flex: 0 1 92px; min-width: 70px; }
+  .set-item-row .set-item-input { flex: 1 1 140px; }
+  .set-item-row .si-psa { background: rgba(108,92,231,.15); border: 1px solid var(--accent2); color: var(--accent2); border-radius: 9px; width: 38px; height: 38px; cursor: pointer; font-size: 1rem; flex: none; }
+  .set-item-row .si-psa:hover { background: var(--accent2); color: #fff; }
+  .set-item-row .si-psa:disabled { opacity: .5; cursor: default; }
   .set-item-row .si-del { background: var(--card2); border: 1px solid var(--border); color: var(--muted); border-radius: 9px; width: 34px; height: 38px; cursor: pointer; font-size: 1rem; flex: none; }
   .set-item-row .si-del:hover { border-color: var(--danger); color: var(--danger); }
   .set-badge { display: inline-block; background: #7c3aed; color: #fff; padding: 1px 9px; border-radius: 999px; font-size: .72rem; font-weight: 700; }
@@ -578,7 +583,7 @@
       <input id="f_name" placeholder="เช่น Charizard, Pikachu...">
     </div>
     <div class="field" id="row_setItems" style="display:none">
-      <label>รายชื่อการ์ดในชุด (สูงสุด 15 ใบ)</label>
+      <label>รายชื่อการ์ดในชุด (สูงสุด 15 ใบ) · ใส่เลข cert แล้วกด ⚡ เพื่อดึงชื่อจาก PSA</label>
       <div id="setItemsList"></div>
       <button type="button" class="btn btn-ghost btn-sm" id="setAddBtn" onclick="addSetItem()">+ เพิ่มใบ</button>
     </div>
@@ -1551,9 +1556,38 @@ const SET_MAX = 15;
 function setItemRowHTML(i, name) {
   return `<div class="set-item-row">
     <span class="si-num">${i + 1}.</span>
+    <input type="text" class="set-item-cert" inputmode="numeric" placeholder="cert PSA" title="ใส่เลข cert แล้วกด ⚡ เพื่อดึงชื่อ" onkeydown="if(event.key==='Enter'){event.preventDefault();fetchSetItemPSA(this.nextElementSibling)}">
+    <button type="button" class="si-psa" title="ดึงชื่อจาก PSA" onclick="fetchSetItemPSA(this)">⚡</button>
     <input type="text" class="set-item-input" placeholder="ชื่อการ์ดใบที่ ${i + 1}" value="${esc(name || '')}">
     <button type="button" class="si-del" title="ลบใบนี้" onclick="removeSetItem(this)">✕</button>
   </div>`;
+}
+// ดึงชื่อการ์ดจาก PSA ตามเลข cert ของใบนั้น แล้วเติมลงช่องชื่อ (+ เดาเรื่อง/รูปชุดถ้ายังว่าง)
+async function fetchSetItemPSA(btn) {
+  const row = btn.closest('.set-item-row');
+  const certEl = row.querySelector('.set-item-cert');
+  const nameEl = row.querySelector('.set-item-input');
+  const cert = certEl.value.trim().replace(/\D/g, '');
+  if (!cert) { certEl.focus(); return; }
+  const orig = btn.textContent;
+  btn.disabled = true; btn.textContent = '…';
+  try {
+    const resp = await fetch(`${PSA_API_BASE}?cert=${encodeURIComponent(cert)}`);
+    const data = await resp.json();
+    if (!resp.ok || data.found === false || data.error) { alert(data.error || ('ไม่พบข้อมูล cert ' + cert)); return; }
+    if (data.subject) nameEl.value = data.subject;
+    const topicEl = document.getElementById('f_topic');
+    if (!topicEl.value.trim()) {
+      const b = (data.brand || '').toLowerCase();
+      const guess = b.includes('pokemon') ? 'Pokemon' : b.includes('one piece') ? 'One Piece' : b.includes('dragon ball') ? 'Dragon Ball' : '';
+      if (guess) topicEl.value = guess;
+    }
+    if (data.frontImage && !document.getElementById('f_image').value) setImage(data.frontImage);
+  } catch (e) {
+    alert('เชื่อมต่อหลังบ้านไม่ได้ — ตรวจสอบ Vercel');
+  } finally {
+    btn.disabled = false; btn.textContent = orig;
+  }
 }
 function renderSetItemRows(names) {
   const arr = (names && names.length) ? names.slice(0, SET_MAX) : ['', '', ''];
