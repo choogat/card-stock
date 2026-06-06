@@ -251,6 +251,12 @@
   .qty-totals b { color: var(--text); }
   .qty-badge { display: inline-block; background: var(--accent2); color: #fff; padding: 1px 8px; border-radius: 999px; font-size: .72rem; font-weight: 700; }
   .lang-badge { display: inline-block; background: var(--card2); border: 1px solid var(--border); color: var(--muted); padding: 1px 7px; border-radius: 6px; font-size: .68rem; font-weight: 700; }
+  tr.group-head { cursor: pointer; }
+  tr.group-head td { background: var(--card2); }
+  tr.group-head:hover td { filter: brightness(1.1); }
+  tr.group-head .exp { color: var(--accent); font-weight: 700; margin-right: 4px; }
+  tr.child-row td:first-child { border-left: 3px solid var(--accent2); }
+  tr.child-row td { background: rgba(108,92,231,.06); }
   .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
   .psa-lookup { background: rgba(108,92,231,.12); border: 1px solid var(--accent2); border-radius: 14px; padding: 14px; }
   .psa-row { display: flex; gap: 8px; }
@@ -824,33 +830,7 @@ function render() {
     return;
   }
 
-  let rows = list.map(c => {
-    const st = STATUS[c.status] || STATUS.show;
-    const img = c.image
-      ? `<img class="thumb" src="${c.image}" onclick="openLightbox('${c.id}')" alt="">`
-      : `<div class="thumb-empty">🃏</div>`;
-    const p = cardProfit(c);
-    const profitCell = `<span class="${p > 0 ? 'profit-pos' : p < 0 ? 'profit-neg' : 'muted'}">${p > 0 ? '+' : ''}${money(p)}</span>`;
-    return `<tr>
-      <td>${img}</td>
-      <td class="name">${c.topic ? `<div class="topic">${esc(c.topic)}</div>` : ''}${esc(c.name)}${c.lang ? ` <span class="lang-badge">${esc(c.lang)}</span>` : ''}${c.psa ? ` <span class="muted">(PSA ${esc(c.psa)})</span>` : ''}${(c.qty && c.qty > 1) ? ` <span class="qty-badge">×${c.qty}${c.unit ? ' ' + esc(c.unit) : ''}</span>` : ''}${c.set ? `<div class="cardset">รุ่น: ${esc(c.set)}</div>` : ''}${c.detail ? `<div class="detail">${esc(c.detail)}</div>` : ''}</td>
-      <td class="num">${money(c.median)}</td>
-      <td class="num hide-sm">${money(c.buy)}</td>
-      <td class="num hide-sm">${money(c.sell)}</td>
-      <td class="center"><span class="badge ${st.cls}">${st.label}</span></td>
-      <td class="center">
-        <input type="checkbox" class="sale-check" ${c.status !== 'show' ? 'checked' : ''} ${c.status === 'sold' ? 'disabled' : ''}
-          onchange="toggleForSale('${c.id}')" title="${c.status === 'sold' ? 'ขายแล้ว (ล็อก)' : 'ติ๊กเพื่อย้ายไปแถบสำหรับขาย'}">
-      </td>
-      <td class="num">${profitCell}</td>
-      <td>
-        <div class="row-actions">
-          <button class="icon-btn" onclick="editCard('${c.id}')" title="แก้ไข">✏️</button>
-          <button class="icon-btn del" onclick="delCard('${c.id}')" title="ลบ">🗑️</button>
-        </div>
-      </td>
-    </tr>`;
-  }).join('');
+  let rows = buildStockRows(list);
 
   area.innerHTML = `<table>
     <thead><tr>
@@ -869,6 +849,91 @@ function render() {
 
   renderSales();
   renderReport();
+}
+
+// ---- รวมกลุ่มการ์ดชื่อเดียวกัน (เกรด PSA ต่างได้) ----
+const expandedGroups = new Set();
+function groupKeyOf(c) {
+  if (c.type === 'collect') return 'c:' + c.id; // ของสะสมไม่รวมกลุ่มแบบนี้
+  return 'g:' + (c.name || '').trim().toLowerCase() + '|' + (c.topic || '').trim().toLowerCase() + '|' + (c.lang || '');
+}
+function toggleGroup(key) {
+  if (expandedGroups.has(key)) expandedGroups.delete(key); else expandedGroups.add(key);
+  render();
+}
+
+// แถวการ์ดเดี่ยว (isChild = แถวย่อยในกลุ่ม)
+function stockRow(c, isChild) {
+  const st = STATUS[c.status] || STATUS.show;
+  const img = c.image
+    ? `<img class="thumb" src="${c.image}" onclick="openLightbox('${c.id}')" alt="">`
+    : `<div class="thumb-empty">🃏</div>`;
+  const p = cardProfit(c);
+  const profitCell = `<span class="${p > 0 ? 'profit-pos' : p < 0 ? 'profit-neg' : 'muted'}">${p > 0 ? '+' : ''}${money(p)}</span>`;
+  return `<tr class="${isChild ? 'child-row' : ''}">
+    <td>${img}</td>
+    <td class="name">${c.topic ? `<div class="topic">${esc(c.topic)}</div>` : ''}${esc(c.name)}${c.lang ? ` <span class="lang-badge">${esc(c.lang)}</span>` : ''}${c.psa ? ` <span class="muted">(PSA ${esc(c.psa)})</span>` : ''}${(c.qty && c.qty > 1) ? ` <span class="qty-badge">×${c.qty}${c.unit ? ' ' + esc(c.unit) : ''}</span>` : ''}${c.set ? `<div class="cardset">รุ่น: ${esc(c.set)}</div>` : ''}${c.detail ? `<div class="detail">${esc(c.detail)}</div>` : ''}</td>
+    <td class="num">${money(c.median)}</td>
+    <td class="num hide-sm">${money(c.buy)}</td>
+    <td class="num hide-sm">${money(c.sell)}</td>
+    <td class="center"><span class="badge ${st.cls}">${st.label}</span></td>
+    <td class="center">
+      <input type="checkbox" class="sale-check" ${c.status !== 'show' ? 'checked' : ''} ${c.status === 'sold' ? 'disabled' : ''}
+        onchange="toggleForSale('${c.id}')" title="${c.status === 'sold' ? 'ขายแล้ว (ล็อก)' : 'ติ๊กเพื่อย้ายไปแถบสำหรับขาย'}">
+    </td>
+    <td class="num">${profitCell}</td>
+    <td>
+      <div class="row-actions">
+        <button class="icon-btn" onclick="editCard('${c.id}')" title="แก้ไข">✏️</button>
+        <button class="icon-btn del" onclick="delCard('${c.id}')" title="ลบ">🗑️</button>
+      </div>
+    </td>
+  </tr>`;
+}
+
+// แถวหัวกลุ่ม (มีหลายใบ) — กดเพื่อแตกดูใบย่อย
+function groupRow(g) {
+  const items = g.items, rep = items[0], count = items.length;
+  const open = expandedGroups.has(g.key);
+  const totMedian = items.reduce((s, c) => s + (Number(c.median) || 0), 0);
+  const totProfit = items.reduce((s, c) => s + cardProfit(c), 0);
+  const grades = items.map(c => c.psa).filter(Boolean);
+  const cnt = { show: 0, wait: 0, sold: 0 };
+  items.forEach(c => { cnt[c.status] = (cnt[c.status] || 0) + 1; });
+  const stSummary = [cnt.show ? `โชว์ ${cnt.show}` : '', cnt.wait ? `รอขาย ${cnt.wait}` : '', cnt.sold ? `ขายแล้ว ${cnt.sold}` : ''].filter(Boolean).join(' · ');
+  const img = rep.image
+    ? `<img class="thumb" src="${rep.image}" onclick="event.stopPropagation();openLightbox('${rep.id}')" alt="">`
+    : `<div class="thumb-empty">🃏</div>`;
+  const pCls = totProfit > 0 ? 'profit-pos' : totProfit < 0 ? 'profit-neg' : 'muted';
+  return `<tr class="group-head" onclick="toggleGroup('${g.key.replace(/'/g, "\\'")}')">
+    <td>${img}</td>
+    <td class="name"><span class="exp">${open ? '▾' : '▸'}</span> ${rep.topic ? `<div class="topic" style="display:inline-block">${esc(rep.topic)}</div> ` : ''}${esc(rep.name)}${rep.lang ? ` <span class="lang-badge">${esc(rep.lang)}</span>` : ''} <span class="qty-badge">${count} ใบ</span>${grades.length ? `<div class="cardset">PSA: ${grades.map(esc).join(', ')}</div>` : ''}</td>
+    <td class="num">${money(totMedian)}</td>
+    <td class="num hide-sm">${money(rep.buy)}</td>
+    <td class="num hide-sm">${money(rep.sell)}</td>
+    <td class="center muted" style="font-size:.74rem">${stSummary}</td>
+    <td class="center">—</td>
+    <td class="num"><span class="${pCls}">${totProfit > 0 ? '+' : ''}${money(totProfit)}</span></td>
+    <td></td>
+  </tr>`;
+}
+
+// สร้างแถวตารางสต็อกแบบรวมกลุ่ม
+function buildStockRows(list) {
+  const groups = [];
+  const gmap = new Map();
+  for (const c of list) {
+    const k = groupKeyOf(c);
+    let g = gmap.get(k);
+    if (!g) { g = { key: k, items: [] }; gmap.set(k, g); groups.push(g); }
+    g.items.push(c);
+  }
+  return groups.map(g => {
+    if (g.items.length === 1) return stockRow(g.items[0], false);
+    let html = groupRow(g);
+    if (expandedGroups.has(g.key)) html += g.items.map(c => stockRow(c, true)).join('');
+    return html;
+  }).join('');
 }
 
 // ---- สลับแถบเมนู ----
@@ -1614,6 +1679,18 @@ function saveCard() {
     cards.push({ id: uid(), ...data });
   } else {
     cards.push({ id: uid(), ...data });
+  }
+  // การ์ด (ไม่ใช่ของสะสม): ราคารับซื้อ/ขาย ให้เท่ากันทุกใบในกลุ่มชื่อเดียวกัน
+  if (!isCollect) {
+    const target = id ? cards.find(x => x.id === id) : cards[cards.length - 1];
+    if (target) {
+      const gk = groupKeyOf(target);
+      cards.forEach(x => {
+        if (x !== target && x.type !== 'collect' && groupKeyOf(x) === gk) {
+          x.buy = target.buy; x.sell = target.sell;
+        }
+      });
+    }
   }
   save();
   closeForm();
