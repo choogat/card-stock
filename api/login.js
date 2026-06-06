@@ -19,7 +19,7 @@ export default async function handler(req, res) {
   try {
     const v = await verify(id, pass, opts);
     if (!v.ok) { res.status(401).json({ error: 'ID หรือรหัสผ่านไม่ถูกต้อง' }); return; }
-    res.status(200).json({ ok: true, id: v.id, role: v.role, tabs: v.tabs });
+    res.status(200).json({ ok: true, id: v.id, role: v.role, tabs: v.tabs, seeProfit: v.seeProfit });
   } catch (err) {
     res.status(500).json({ error: 'เซิร์ฟเวอร์ผิดพลาด: ' + (err.message || err) });
   }

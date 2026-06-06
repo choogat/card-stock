@@ -20,7 +20,7 @@ export default async function handler(req, res) {
 
     if (req.method === 'GET') {
       const users = await loadUsers(opts);
-      res.status(200).json({ users: users.map(u => ({ id: u.id, tabs: u.tabs || [] })) });
+      res.status(200).json({ users: users.map(u => ({ id: u.id, tabs: u.tabs || [], seeProfit: u.seeProfit !== false })) });
       return;
     }
 
@@ -31,14 +31,16 @@ export default async function handler(req, res) {
       if (!id) { res.status(400).json({ error: 'กรุณาระบุ ID' }); return; }
       if (id === ADMIN_ID) { res.status(400).json({ error: 'ใช้ ID นี้ไม่ได้ (สงวนไว้สำหรับแอดมิน)' }); return; }
       const tabs = Array.isArray(body.tabs) ? body.tabs.filter(t => ALL_TABS.includes(t)) : [];
+      const seeProfit = body.seeProfit !== false;
       const users = await loadUsers(opts);
       const existing = users.find(u => u.id === id);
       if (existing) {
         if (body.password) existing.password = body.password;
         existing.tabs = tabs;
+        existing.seeProfit = seeProfit;
       } else {
         if (!body.password) { res.status(400).json({ error: 'กรุณาตั้งรหัสผ่าน' }); return; }
-        users.push({ id, password: body.password, tabs });
+        users.push({ id, password: body.password, tabs, seeProfit });
       }
       await saveUsers(users, opts);
       res.status(200).json({ ok: true });

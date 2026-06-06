@@ -400,6 +400,12 @@
           <label><input type="checkbox" id="u_tab_report" value="report"> 📊 รายงานการขาย</label>
         </div>
       </div>
+      <div class="field">
+        <label>สิทธิ์ดูข้อมูล</label>
+        <div class="tab-perms">
+          <label><input type="checkbox" id="u_seeProfit" checked> 💰 ดูกำไรได้</label>
+        </div>
+      </div>
       <div class="usersMsg" id="usersMsg"></div>
       <button class="btn btn-primary" onclick="saveUser()">บันทึกผู้ใช้</button>
       <button class="btn btn-ghost" onclick="clearUserForm()">ล้างฟอร์ม</button>
@@ -648,6 +654,8 @@ let passcode = localStorage.getItem('app_pass') || '';
 let loginId = localStorage.getItem('app_id') || '';
 let userRole = localStorage.getItem('app_role') || '';
 let userTabs = (() => { try { return JSON.parse(localStorage.getItem('app_tabs')) || []; } catch (e) { return []; } })();
+let userSeeProfit = localStorage.getItem('app_seeprofit') !== '0';
+function canSeeProfit() { return userRole === 'admin' || !passcode || userSeeProfit; }
 function authHeaders(extra) { return Object.assign({ 'x-app-id': loginId, 'x-app-pass': passcode }, extra || {}); }
 let syncTimer = null;
 const STATUS = {
@@ -843,7 +851,7 @@ function render() {
       <th class="hide-sm num">ขาย</th>
       <th class="center">สถานะ</th>
       <th class="center">สำหรับขาย</th>
-      <th class="num">กำไร</th>
+      ${canSeeProfit() ? '<th class="num">กำไร</th>' : ''}
       <th></th>
     </tr></thead>
     <tbody>${rows}</tbody>
@@ -885,7 +893,7 @@ function stockRow(c, isChild) {
       <input type="checkbox" class="sale-check" ${c.status !== 'show' ? 'checked' : ''} ${c.status === 'sold' ? 'disabled' : ''}
         onchange="toggleForSale('${c.id}')" title="${c.status === 'sold' ? 'ขายแล้ว (ล็อก)' : 'ติ๊กเพื่อย้ายไปแถบสำหรับขาย'}">
     </td>
-    <td class="num">${profitCell}</td>
+    ${canSeeProfit() ? `<td class="num">${profitCell}</td>` : ''}
     <td>
       <div class="row-actions">
         <button class="icon-btn" onclick="editCard('${c.id}')" title="แก้ไข">✏️</button>
@@ -920,7 +928,7 @@ function groupRow(g) {
     <td class="num hide-sm">${money(rep.sell)}</td>
     <td class="center muted" style="font-size:.74rem">${stSummary}</td>
     <td class="center">—</td>
-    <td class="num"><span class="${pCls}">${totProfit > 0 ? '+' : ''}${money(totProfit)}</span></td>
+    ${canSeeProfit() ? `<td class="num"><span class="${pCls}">${totProfit > 0 ? '+' : ''}${money(totProfit)}</span></td>` : ''}
     <td></td>
   </tr>`;
 }
@@ -1022,7 +1030,7 @@ function renderReport() {
       <div class="stat"><div class="label">ยอดขายรวม (สุทธิ)</div><div class="value num">${money(revenue)}</div></div>
       <div class="stat"><div class="label">💵 ยอดขายเงินสด</div><div class="value num profit-pos">${money(cashTotal)}</div></div>
       <div class="stat"><div class="label">🏦 ยอดขายเงินโอน</div><div class="value num" style="color:var(--accent)">${money(transferTotal)}</div></div>
-      <div class="stat"><div class="label">กำไร</div><div class="value num ${profit > 0 ? 'profit-pos' : profit < 0 ? 'profit-neg' : ''}">${money(profit)}</div></div>
+      ${canSeeProfit() ? `<div class="stat"><div class="label">กำไร</div><div class="value num ${profit > 0 ? 'profit-pos' : profit < 0 ? 'profit-neg' : ''}">${money(profit)}</div></div>` : ''}
     </div>`;
 
   const area = document.getElementById('reportTableArea');
@@ -1053,11 +1061,11 @@ function renderReport() {
       <td class="num">${money(gross)}</td>
       <td class="num">${disc > 0 ? money(disc) : '-'}</td>
       <td class="num">${money(net)}</td>
-      <td class="num"><span class="${p > 0 ? 'profit-pos' : p < 0 ? 'profit-neg' : 'muted'}">${p > 0 ? '+' : ''}${money(p)}</span></td>
+      ${canSeeProfit() ? `<td class="num"><span class="${p > 0 ? 'profit-pos' : p < 0 ? 'profit-neg' : 'muted'}">${p > 0 ? '+' : ''}${money(p)}</span></td>` : ''}
     </tr>`;
   }).join('');
   area.innerHTML = `<table>
-    <thead><tr><th>รูป</th><th>ชื่อการ์ด</th><th class="center">เวลา</th><th class="center">ชำระเงิน</th><th class="num">รับซื้อ</th><th class="num">ขาย</th><th class="num">ส่วนลด</th><th class="num">ยอดขายสุทธิ</th><th class="num">กำไร</th></tr></thead>
+    <thead><tr><th>รูป</th><th>ชื่อการ์ด</th><th class="center">เวลา</th><th class="center">ชำระเงิน</th><th class="num">รับซื้อ</th><th class="num">ขาย</th><th class="num">ส่วนลด</th><th class="num">ยอดขายสุทธิ</th>${canSeeProfit() ? '<th class="num">กำไร</th>' : ''}</tr></thead>
     <tbody>${rows}</tbody>
   </table>`;
 }
@@ -1882,10 +1890,12 @@ async function doLogin() {
   } catch (e) { loginMsg('เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ ลองใหม่อีกครั้ง', 'err'); btn.disabled = false; return; }
   // บันทึกข้อมูลผู้ใช้
   loginId = id; passcode = val; userRole = auth.role || 'assistant'; userTabs = auth.tabs || [];
+  userSeeProfit = auth.seeProfit !== false;
   localStorage.setItem('app_pass', passcode);
   localStorage.setItem('app_id', id);
   localStorage.setItem('app_role', userRole);
   localStorage.setItem('app_tabs', JSON.stringify(userTabs));
+  localStorage.setItem('app_seeprofit', userSeeProfit ? '1' : '0');
   const res = await pullFromServer();
   if (res.ok && res.cards.length) {
     // เซิร์ฟเวอร์มีข้อมูล
@@ -1932,8 +1942,10 @@ async function syncOnStart() {
     if (lr.ok) {
       const a = await lr.json();
       userRole = a.role || userRole; userTabs = a.tabs || userTabs;
+      userSeeProfit = a.seeProfit !== false;
       localStorage.setItem('app_role', userRole);
       localStorage.setItem('app_tabs', JSON.stringify(userTabs));
+      localStorage.setItem('app_seeprofit', userSeeProfit ? '1' : '0');
     }
   } catch (e) { /* ออฟไลน์ — ใช้สิทธิ์ที่เก็บไว้ */ }
   applyPermissions();
@@ -1974,7 +1986,7 @@ async function renderUsers() {
     list.innerHTML = usersCache.length ? usersCache.map(u => `
       <div class="user-row">
         <span class="uid">${esc(u.id)}</span>
-        <span class="utabs">${(u.tabs || []).map(t => TAB_NAME[t] || t).join(' · ') || '— ไม่มีสิทธิ์แถบใด'}</span>
+        <span class="utabs">${(u.tabs || []).map(t => TAB_NAME[t] || t).join(' · ') || '— ไม่มีสิทธิ์แถบใด'}${u.seeProfit === false ? ' · 🚫กำไร' : ' · 💰กำไร'}</span>
         <button class="btn btn-ghost btn-sm" onclick="editUser('${esc(u.id).replace(/'/g, "\\'")}')">แก้ไข</button>
         <button class="icon-btn del" onclick="deleteUser('${esc(u.id).replace(/'/g, "\\'")}')" title="ลบ">🗑️</button>
       </div>`).join('') : '<div class="sales-summary">ยังไม่มีผู้ช่วย</div>';
@@ -1988,6 +2000,7 @@ function editUser(id) {
   document.getElementById('u_pass').value = '';
   document.getElementById('u_pass').placeholder = 'เว้นว่าง = ไม่เปลี่ยนรหัส';
   ALL_TABS.forEach(t => { document.getElementById('u_tab_' + t).checked = (u.tabs || []).includes(t); });
+  document.getElementById('u_seeProfit').checked = u.seeProfit !== false;
   usersMsg('กำลังแก้ไข "' + u.id + '" — เว้นรหัสว่างถ้าไม่เปลี่ยน', '');
 }
 
@@ -1996,6 +2009,7 @@ function clearUserForm() {
   document.getElementById('u_pass').value = '';
   document.getElementById('u_pass').placeholder = 'รหัสผ่าน';
   ALL_TABS.forEach(t => { document.getElementById('u_tab_' + t).checked = false; });
+  document.getElementById('u_seeProfit').checked = true;
   usersMsg('');
 }
 
@@ -2003,9 +2017,10 @@ async function saveUser() {
   const id = document.getElementById('u_id').value.trim();
   const pass = document.getElementById('u_pass').value;
   const tabs = ALL_TABS.filter(t => document.getElementById('u_tab_' + t).checked);
+  const seeProfit = document.getElementById('u_seeProfit').checked;
   if (!id) { usersMsg('กรุณาระบุ ID', 'err'); return; }
   try {
-    const r = await fetch(USERS_API, { method: 'POST', headers: authHeaders({ 'Content-Type': 'application/json' }), body: JSON.stringify({ id, password: pass, tabs }) });
+    const r = await fetch(USERS_API, { method: 'POST', headers: authHeaders({ 'Content-Type': 'application/json' }), body: JSON.stringify({ id, password: pass, tabs, seeProfit }) });
     const d = await r.json().catch(() => ({}));
     if (!r.ok) { usersMsg(d.error || 'บันทึกไม่สำเร็จ', 'err'); return; }
     usersMsg('✓ บันทึกผู้ใช้แล้ว', 'ok');
