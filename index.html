@@ -1042,6 +1042,30 @@ function renderReport() {
       ${canSeeProfit() ? `<div class="stat"><div class="label">กำไร</div><div class="value num ${profit > 0 ? 'profit-pos' : profit < 0 ? 'profit-neg' : ''}">${money(profit)}</div></div>` : ''}
     </div>`;
 
+  // 📚 ยอดขายแยกตามเรื่อง (One Piece / Pokémon / ...) ของวันที่เลือก — กี่ใบ + ยอดเงินสุทธิ
+  const topicMap = new Map();
+  for (const c of sold) {
+    const key = (c.topic && c.topic.trim()) ? c.topic.trim() : '__none__';
+    const g = topicMap.get(key) || { count: 0, value: 0 };
+    g.count += 1;
+    g.value += Number(c.sell) || 0;
+    topicMap.set(key, g);
+  }
+  const topicsEl = document.getElementById('reportTopics');
+  if (topicMap.size === 0) {
+    topicsEl.innerHTML = '<div class="sales-summary">— ยังไม่มีการขายในวันนี้ —</div>';
+  } else {
+    topicsEl.innerHTML = [...topicMap.entries()]
+      .sort((a, b) => b[1].value - a[1].value)
+      .map(([key, g]) => {
+        const name = key === '__none__' ? 'ไม่ระบุเรื่อง' : key;
+        return `<div class="topic-chip" style="cursor:default">
+          <div class="t-name"><span class="t-dot">●</span> ${esc(name)}</div>
+          <div class="t-meta">${g.count} ใบ · ${money(g.value)}</div>
+        </div>`;
+      }).join('');
+  }
+
   const area = document.getElementById('reportTableArea');
   if (sold.length === 0) {
     area.innerHTML = `<div class="empty"><div class="big">🗓️</div>วันนี้ยังไม่มีการขาย — เลือกวันอื่น หรือไปขายในแถบ “สำหรับขาย”</div>`;
