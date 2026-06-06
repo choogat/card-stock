@@ -1143,23 +1143,32 @@ function renderProductSearch() {
     return;
   }
   // ยุบใบที่เป็น "ชิ้นเดียวกัน" → ชื่อเดียวกัน + ภาษาเดียวกัน ถือเป็นชิ้นเดียว (เหลือใบเดียว + รวมจำนวน)
+  // ใบที่ไม่ได้ระบุภาษา (ว่าง) ให้ยุบเข้ากลุ่มชื่อเดียวกันได้ทุกภาษา
   const groups = [];
-  const gmap = new Map();
+  const byName = new Map(); // ชื่อ → กลุ่มทั้งหมดของชื่อนั้น
   for (const c of list) {
-    const key = `${(c.name || '').trim().toLowerCase()}|${c.lang || ''}`;
-    let g = gmap.get(key);
-    if (!g) { g = { rep: c, qty: 0, img: '' }; gmap.set(key, g); groups.push(g); }
+    const name = (c.name || '').trim().toLowerCase();
+    const lang = c.lang || '';
+    const arr = byName.get(name) || [];
+    let g = lang
+      ? (arr.find(x => x.lang === lang) || arr.find(x => !x.lang))   // มีภาษา → กลุ่มภาษาตรง หรือกลุ่มที่ยังไม่ระบุภาษา
+      : arr[0];                                                       // ไม่มีภาษา → กลุ่มแรกของชื่อนั้น
+    if (!g) {
+      g = { rep: c, qty: 0, img: '', lang };
+      groups.push(g); arr.push(g); byName.set(name, arr);
+    }
+    if (!g.lang && lang) g.lang = lang; // กลุ่มยังไม่ระบุภาษา แล้วเจอใบที่มีภาษา → ใช้ภาษานั้น
     g.qty += Number(c.qty) || 1;
     if (!g.img && c.image) g.img = c.image;
   }
-  const rows = groups.map(({ rep: c, qty, img: gImg }) => {
+  const rows = groups.map(({ rep: c, qty, img: gImg, lang: gLang }) => {
     const img = gImg
       ? `<img class="thumb" src="${gImg}" onclick="openLightbox('${c.id}')" alt="">`
       : `<div class="thumb-empty">🃏</div>`;
     const qtyBadge = qty > 1 ? ` <span class="qty-badge">×${qty}</span>` : '';
     return `<tr>
       <td>${img}</td>
-      <td class="name">${c.topic ? `<div class="topic">${esc(c.topic)}</div>` : ''}${esc(c.name)}${c.lang ? ` <span class="lang-badge">${esc(c.lang)}</span>` : ''}${qtyBadge}${setMetaHTML(c)}${c.set ? `<div class="cardset">รุ่น: ${esc(c.set)}</div>` : ''}${c.detail ? `<div class="detail">${esc(c.detail)}</div>` : ''}</td>
+      <td class="name">${c.topic ? `<div class="topic">${esc(c.topic)}</div>` : ''}${esc(c.name)}${gLang ? ` <span class="lang-badge">${esc(gLang)}</span>` : ''}${qtyBadge}${setMetaHTML(c)}${c.set ? `<div class="cardset">รุ่น: ${esc(c.set)}</div>` : ''}${c.detail ? `<div class="detail">${esc(c.detail)}</div>` : ''}</td>
       <td class="num">${money(c.buy)}</td>
       <td class="num">${money(c.sell)}</td>
     </tr>`;
