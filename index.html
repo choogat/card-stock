@@ -257,6 +257,8 @@
   tr.group-head .exp { color: var(--accent); font-weight: 700; margin-right: 4px; }
   tr.child-row td:first-child { border-left: 3px solid var(--accent2); }
   tr.child-row td { background: rgba(108,92,231,.06); }
+  .grp-price { width: 84px; background: var(--bg); border: 1px solid var(--border); color: var(--text); padding: 6px 8px; border-radius: 8px; font-size: .85rem; text-align: right; font-variant-numeric: tabular-nums; }
+  .grp-price:focus { outline: none; border-color: var(--accent); }
   .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
   .psa-lookup { background: rgba(108,92,231,.12); border: 1px solid var(--accent2); border-radius: 14px; padding: 14px; }
   .psa-row { display: flex; gap: 8px; }
@@ -897,7 +899,6 @@ function groupRow(g) {
   const open = expandedGroups.has(g.key);
   const totMedian = items.reduce((s, c) => s + (Number(c.median) || 0), 0);
   const totProfit = items.reduce((s, c) => s + cardProfit(c), 0);
-  const grades = items.map(c => c.psa).filter(Boolean);
   const cnt = { show: 0, wait: 0, sold: 0 };
   items.forEach(c => { cnt[c.status] = (cnt[c.status] || 0) + 1; });
   const stSummary = [cnt.show ? `โชว์ ${cnt.show}` : '', cnt.wait ? `รอขาย ${cnt.wait}` : '', cnt.sold ? `ขายแล้ว ${cnt.sold}` : ''].filter(Boolean).join(' · ');
@@ -905,17 +906,28 @@ function groupRow(g) {
     ? `<img class="thumb" src="${rep.image}" onclick="event.stopPropagation();openLightbox('${rep.id}')" alt="">`
     : `<div class="thumb-empty">🃏</div>`;
   const pCls = totProfit > 0 ? 'profit-pos' : totProfit < 0 ? 'profit-neg' : 'muted';
-  return `<tr class="group-head" onclick="toggleGroup('${g.key.replace(/'/g, "\\'")}')">
+  const k = g.key.replace(/'/g, "\\'");
+  const priceInput = (field, val) => `<input class="grp-price" type="number" inputmode="decimal" value="${val || ''}" placeholder="0"
+    onclick="event.stopPropagation()" onchange="setGroupPrice('${k}','${field}',this.value)" title="ใส่ราคาให้เท่ากันทุกใบในกลุ่ม">`;
+  return `<tr class="group-head" onclick="toggleGroup('${k}')">
     <td>${img}</td>
-    <td class="name"><span class="exp">${open ? '▾' : '▸'}</span> ${rep.topic ? `<div class="topic" style="display:inline-block">${esc(rep.topic)}</div> ` : ''}${esc(rep.name)}${rep.lang ? ` <span class="lang-badge">${esc(rep.lang)}</span>` : ''} <span class="qty-badge">${count} ใบ</span>${grades.length ? `<div class="cardset">PSA: ${grades.map(esc).join(', ')}</div>` : ''}</td>
+    <td class="name"><span class="exp">${open ? '▾' : '▸'}</span> ${rep.topic ? `<div class="topic" style="display:inline-block">${esc(rep.topic)}</div> ` : ''}${esc(rep.name)}${rep.lang ? ` <span class="lang-badge">${esc(rep.lang)}</span>` : ''} <span class="qty-badge">${count} ใบ</span>${rep.set ? `<div class="cardset">รุ่น: ${esc(rep.set)}</div>` : ''}</td>
     <td class="num">${money(totMedian)}</td>
-    <td class="num hide-sm">${money(rep.buy)}</td>
-    <td class="num hide-sm">${money(rep.sell)}</td>
+    <td class="num hide-sm">${priceInput('buy', rep.buy)}</td>
+    <td class="num hide-sm">${priceInput('sell', rep.sell)}</td>
     <td class="center muted" style="font-size:.74rem">${stSummary}</td>
     <td class="center">—</td>
     <td class="num"><span class="${pCls}">${totProfit > 0 ? '+' : ''}${money(totProfit)}</span></td>
     <td></td>
   </tr>`;
+}
+
+// ตั้งราคา (รับซื้อ/ขาย) ให้เท่ากันทุกใบในกลุ่ม
+function setGroupPrice(key, field, value) {
+  const v = parseFloat(value) || 0;
+  cards.forEach(c => { if (c.type !== 'collect' && groupKeyOf(c) === key) c[field] = v; });
+  save();
+  render();
 }
 
 // สร้างแถวตารางสต็อกแบบรวมกลุ่ม
