@@ -87,6 +87,10 @@
   .pay-tag { display: inline-block; padding: 3px 9px; border-radius: 999px; font-size: .74rem; font-weight: 600; background: var(--card2); color: var(--muted); }
   .pay-tag.cash { background: rgba(24,165,88,.15); color: var(--green); }
   .pay-tag.transfer { background: rgba(47,111,237,.14); color: var(--accent); }
+  .stat-pill { display: inline-block; padding: 3px 9px; border-radius: 999px; font-size: .72rem; font-weight: 700; margin: 1px 2px; }
+  .stat-pill.show { background: rgba(47,111,237,.16); color: #1d4ed8; }
+  .stat-pill.wait { background: rgba(192,138,0,.22); color: #92600a; }
+  .stat-pill.sold { background: rgba(24,165,88,.22); color: #0f7a3d; }
   .lock-btn { background: var(--card2); border: 1px solid var(--border); color: var(--muted); width: 30px; height: 30px; border-radius: 8px; cursor: pointer; font-size: .85rem; }
   .lock-btn:hover { border-color: var(--accent); color: var(--text); }
 
@@ -889,6 +893,14 @@ function toggleGroup(key) {
   if (expandedGroups.has(key)) expandedGroups.delete(key); else expandedGroups.add(key);
   render();
 }
+// สรุปสถานะเป็นป้ายสี (เหมือนป้ายชำระเงิน)
+function statPills(cnt) {
+  return [
+    cnt.show ? `<span class="stat-pill show">สะสม ${cnt.show}</span>` : '',
+    cnt.wait ? `<span class="stat-pill wait">รอขาย ${cnt.wait}</span>` : '',
+    cnt.sold ? `<span class="stat-pill sold">ขายแล้ว ${cnt.sold}</span>` : '',
+  ].filter(Boolean).join(' ');
+}
 
 // แถวการ์ดเดี่ยว (isChild = แถวย่อยในกลุ่ม)
 function stockRow(c, isChild) {
@@ -930,7 +942,7 @@ function groupRow(g) {
   const totProfit = items.reduce((s, c) => s + cardProfit(c), 0);
   const cnt = { show: 0, wait: 0, sold: 0 };
   items.forEach(c => { cnt[c.status] = (cnt[c.status] || 0) + 1; });
-  const stSummary = [cnt.show ? `สะสม ${cnt.show}` : '', cnt.wait ? `รอขาย ${cnt.wait}` : '', cnt.sold ? `ขายแล้ว ${cnt.sold}` : ''].filter(Boolean).join(' · ');
+  const stSummary = statPills(cnt);
   const img = rep.image
     ? `<img class="thumb" src="${rep.image}" onclick="event.stopPropagation();openLightbox('${rep.id}')" alt="">`
     : `<div class="thumb-empty">🃏</div>`;
@@ -942,7 +954,7 @@ function groupRow(g) {
     <td class="num">${money(totMedian)}</td>
     <td class="num hide-sm">${money(rep.buy)}</td>
     <td class="num hide-sm">${money(rep.sell)}</td>
-    <td class="center muted" style="font-size:.74rem">${stSummary}</td>
+    <td class="center">${stSummary}</td>
     <td class="center">—</td>
     ${canSeeProfit() ? `<td class="num"><span class="${pCls}">${totProfit > 0 ? '+' : ''}${money(totProfit)}</span></td>` : ''}
     <td></td>
@@ -1174,7 +1186,7 @@ function salesGroupRow(g) {
   const open = expandedSales.has(g.key);
   const cnt = { show: 0, wait: 0, sold: 0 };
   items.forEach(c => { cnt[c.status] = (cnt[c.status] || 0) + 1; });
-  const stSummary = [cnt.wait ? `รอขาย ${cnt.wait}` : '', cnt.sold ? `ขายแล้ว ${cnt.sold}` : ''].filter(Boolean).join(' · ');
+  const stSummary = statPills(cnt);
   const img = rep.image
     ? `<img class="thumb" src="${rep.image}" onclick="event.stopPropagation();openLightbox('${rep.id}')" alt="">`
     : `<div class="thumb-empty">🃏</div>`;
@@ -1184,7 +1196,7 @@ function salesGroupRow(g) {
     <td class="name"><span class="exp">${open ? '▾' : '▸'}</span> ${rep.topic ? `<div class="topic" style="display:inline-block">${esc(rep.topic)}</div> ` : ''}${esc(rep.name)}${rep.lang ? ` <span class="lang-badge">${esc(rep.lang)}</span>` : ''} <span class="qty-badge">${countLabel}</span>${rep.set ? `<div class="cardset">รุ่น: ${esc(rep.set)}</div>` : ''}</td>
     <td class="num">${money(rep.buy)}</td>
     <td class="num">${money(rep.sell)}</td>
-    <td class="num muted" style="font-size:.74rem;text-align:right">${stSummary}</td>
+    <td style="text-align:right">${stSummary}</td>
   </tr>`;
 }
 function buildSalesRows(list) {
