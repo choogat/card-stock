@@ -907,8 +907,8 @@ function render() {
       <th class="hide-sm num">รับซื้อ</th>
       <th class="hide-sm num">ขาย</th>
       <th class="center">สถานะ</th>
-      <th class="center">สินค้าขาย</th>
       ${canSeeProfit() ? '<th class="num">กำไร</th>' : ''}
+      <th class="center">สินค้าขาย</th>
       <th></th>
     </tr></thead>
     <tbody>${rows}</tbody>
@@ -966,11 +966,11 @@ function stockRow(c, isChild) {
     <td class="num hide-sm">${money(c.buy)}</td>
     <td class="num hide-sm">${money(c.sell)}</td>
     <td class="center"><span class="badge ${st.cls}">${st.label}</span></td>
+    ${canSeeProfit() ? `<td class="num">${profitCell}</td>` : ''}
     <td class="center">
       <input type="checkbox" class="sale-check" ${c.status !== 'show' ? 'checked' : ''} ${c.status === 'sold' ? 'disabled' : ''}
         onchange="toggleForSale('${c.id}')" title="${c.status === 'sold' ? 'ขายแล้ว (ล็อก)' : 'ติ๊กเพื่อย้ายไปแถบสินค้าขาย'}">
     </td>
-    ${canSeeProfit() ? `<td class="num">${profitCell}</td>` : ''}
     <td>
       <div class="row-actions">
         <button class="icon-btn" onclick="editCard('${c.id}')" title="แก้ไข">✏️</button>
@@ -1004,8 +1004,8 @@ function groupRow(g) {
     <td class="num hide-sm">${money(rep.buy)}</td>
     <td class="num hide-sm">${money(rep.sell)}</td>
     <td class="center">${stSummary}</td>
-    <td class="center">—</td>
     ${canSeeProfit() ? `<td class="num"><span class="${pCls}">${totProfit > 0 ? '+' : ''}${money(totProfit)}</span></td>` : ''}
+    <td class="center">—</td>
     <td></td>
   </tr>`;
 }
