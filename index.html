@@ -297,7 +297,7 @@
     <div class="brand">🃏 Cielcard <span class="pill">PSA</span></div>
     <nav class="nav">
       <button class="nav-item active" data-view="stock" onclick="switchView('stock')">📦 สต็อกการ์ด</button>
-      <button class="nav-item" data-view="sales" onclick="switchView('sales')">🏷️ สำหรับขาย</button>
+      <button class="nav-item" data-view="sales" onclick="switchView('sales')">🏷️ สินค้าขาย</button>
       <button class="nav-item" data-view="report" onclick="switchView('report')">📊 รายงานการขาย</button>
       <button class="nav-item" data-view="users" onclick="switchView('users')" style="display:none">👥 ผู้ใช้งาน</button>
     </nav>
@@ -359,7 +359,7 @@
 
   <div id="viewSales" style="display:none">
     <div class="sales-head">
-      <h2 class="view-title">🏷️ สำหรับขาย</h2>
+      <h2 class="view-title">🏷️ สินค้าขาย</h2>
     </div>
     <div class="daily-title">💰 ยอดขายต่อวัน · 📦 ของรอขาย</div>
     <div class="topic-breakdown" id="salesDaily"></div>
@@ -408,7 +408,7 @@
         <label>สิทธิ์เข้าแถบ</label>
         <div class="tab-perms">
           <label><input type="checkbox" id="u_tab_stock" value="stock"> 📦 สต็อกการ์ด</label>
-          <label><input type="checkbox" id="u_tab_sales" value="sales"> 🏷️ สำหรับขาย</label>
+          <label><input type="checkbox" id="u_tab_sales" value="sales"> 🏷️ สินค้าขาย</label>
           <label><input type="checkbox" id="u_tab_report" value="report"> 📊 รายงานการขาย</label>
         </div>
       </div>
@@ -874,7 +874,7 @@ function render() {
       <th class="hide-sm num">รับซื้อ</th>
       <th class="hide-sm num">ขาย</th>
       <th class="center">สถานะ</th>
-      <th class="center">สำหรับขาย</th>
+      <th class="center">สินค้าขาย</th>
       ${canSeeProfit() ? '<th class="num">กำไร</th>' : ''}
       <th></th>
     </tr></thead>
@@ -923,7 +923,7 @@ function stockRow(c, isChild) {
     <td class="center"><span class="badge ${st.cls}">${st.label}</span></td>
     <td class="center">
       <input type="checkbox" class="sale-check" ${c.status !== 'show' ? 'checked' : ''} ${c.status === 'sold' ? 'disabled' : ''}
-        onchange="toggleForSale('${c.id}')" title="${c.status === 'sold' ? 'ขายแล้ว (ล็อก)' : 'ติ๊กเพื่อย้ายไปแถบสำหรับขาย'}">
+        onchange="toggleForSale('${c.id}')" title="${c.status === 'sold' ? 'ขายแล้ว (ล็อก)' : 'ติ๊กเพื่อย้ายไปแถบสินค้าขาย'}">
     </td>
     ${canSeeProfit() ? `<td class="num">${profitCell}</td>` : ''}
     <td>
@@ -1068,7 +1068,7 @@ function renderReport() {
 
   const area = document.getElementById('reportTableArea');
   if (sold.length === 0) {
-    area.innerHTML = `<div class="empty"><div class="big">🗓️</div>วันนี้ยังไม่มีการขาย — เลือกวันอื่น หรือไปขายในแถบ “สำหรับขาย”</div>`;
+    area.innerHTML = `<div class="empty"><div class="big">🗓️</div>วันนี้ยังไม่มีการขาย — เลือกวันอื่น หรือไปขายในแถบ “สินค้าขาย”</div>`;
     return;
   }
   const reportSorters = {
@@ -2111,7 +2111,7 @@ async function syncOnStart() {
 // ---- จัดการผู้ใช้ (แอดมิน) ----
 let usersCache = [];
 function usersMsg(t, cls) { const e = document.getElementById('usersMsg'); e.textContent = t || ''; e.className = 'usersMsg ' + (cls || ''); }
-const TAB_NAME = { stock: 'สต็อก', sales: 'สำหรับขาย', report: 'รายงาน' };
+const TAB_NAME = { stock: 'สต็อก', sales: 'สินค้าขาย', report: 'รายงาน' };
 
 function renderUsersList() {
   const list = document.getElementById('usersList');
