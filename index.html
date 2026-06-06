@@ -357,7 +357,6 @@
   <div id="viewSales" style="display:none">
     <div class="sales-head">
       <h2 class="view-title">🏷️ สำหรับขาย</h2>
-      <div class="sales-summary" id="salesSummary"></div>
     </div>
     <div class="daily-title">💰 ยอดขายต่อวัน · 📦 ของรอขาย</div>
     <div class="topic-breakdown" id="salesDaily"></div>
@@ -1101,10 +1100,6 @@ function renderSales() {
   const base = sorters[sortBy] || sorters.newest;
   const rank = c => (c.status === 'wait' ? 0 : 1); // รอขายขึ้นก่อนเสมอ
   list = list.slice().sort((a, b) => (rank(a) - rank(b)) || base(a, b));
-
-  const nWait = cards.filter(c => c.status === 'wait').length;
-  const nSold = cards.filter(c => c.status === 'sold').length;
-  document.getElementById('salesSummary').textContent = `รอขาย ${nWait} ใบ · ขายแล้ว ${nSold} ใบ`;
 
   if (list.length === 0) {
     area.innerHTML = `<div class="empty"><div class="big">🏷️</div>ยังไม่มีการ์ดสำหรับขาย — ตั้งสถานะการ์ดเป็น “รอขาย” ในแถบสต็อก</div>`;
