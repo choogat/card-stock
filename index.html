@@ -1974,6 +1974,16 @@ let usersCache = [];
 function usersMsg(t, cls) { const e = document.getElementById('usersMsg'); e.textContent = t || ''; e.className = 'usersMsg ' + (cls || ''); }
 const TAB_NAME = { stock: 'สต็อก', sales: 'สำหรับขาย', report: 'รายงาน' };
 
+function renderUsersList() {
+  const list = document.getElementById('usersList');
+  list.innerHTML = usersCache.length ? usersCache.map(u => `
+    <div class="user-row">
+      <span class="uid">${esc(u.id)}</span>
+      <span class="utabs">${(u.tabs || []).map(t => TAB_NAME[t] || t).join(' · ') || '— ไม่มีสิทธิ์แถบใด'}${u.seeProfit === false ? ' · 🚫กำไร' : ' · 💰กำไร'}</span>
+      <button class="btn btn-ghost btn-sm" onclick="editUser('${esc(u.id).replace(/'/g, "\\'")}')">แก้ไข</button>
+      <button class="icon-btn del" onclick="deleteUser('${esc(u.id).replace(/'/g, "\\'")}')" title="ลบ">🗑️</button>
+    </div>`).join('') : '<div class="sales-summary">ยังไม่มีผู้ช่วย</div>';
+}
 async function renderUsers() {
   const list = document.getElementById('usersList');
   if (userRole !== 'admin') { list.innerHTML = ''; return; }
@@ -1983,13 +1993,7 @@ async function renderUsers() {
     if (!r.ok) { list.innerHTML = '<div class="usersMsg err">โหลดรายชื่อไม่ได้</div>'; return; }
     const data = await r.json();
     usersCache = data.users || [];
-    list.innerHTML = usersCache.length ? usersCache.map(u => `
-      <div class="user-row">
-        <span class="uid">${esc(u.id)}</span>
-        <span class="utabs">${(u.tabs || []).map(t => TAB_NAME[t] || t).join(' · ') || '— ไม่มีสิทธิ์แถบใด'}${u.seeProfit === false ? ' · 🚫กำไร' : ' · 💰กำไร'}</span>
-        <button class="btn btn-ghost btn-sm" onclick="editUser('${esc(u.id).replace(/'/g, "\\'")}')">แก้ไข</button>
-        <button class="icon-btn del" onclick="deleteUser('${esc(u.id).replace(/'/g, "\\'")}')" title="ลบ">🗑️</button>
-      </div>`).join('') : '<div class="sales-summary">ยังไม่มีผู้ช่วย</div>';
+    renderUsersList();
   } catch (e) { list.innerHTML = '<div class="usersMsg err">เชื่อมต่อไม่ได้</div>'; }
 }
 
@@ -2023,9 +2027,12 @@ async function saveUser() {
     const r = await fetch(USERS_API, { method: 'POST', headers: authHeaders({ 'Content-Type': 'application/json' }), body: JSON.stringify({ id, password: pass, tabs, seeProfit }) });
     const d = await r.json().catch(() => ({}));
     if (!r.ok) { usersMsg(d.error || 'บันทึกไม่สำเร็จ', 'err'); return; }
-    usersMsg('✓ บันทึกผู้ใช้แล้ว', 'ok');
+    usersMsg('✓ บันทึกผู้ใช้แล้ว (ผู้ใช้ใหม่อาจล็อกอินได้หลัง ~15 วินาที)', 'ok');
+    // อัปเดตรายการในเครื่องทันที (เซิร์ฟเวอร์มี cache หน่วงเล็กน้อย)
+    const ex = usersCache.find(u => u.id === id);
+    if (ex) { ex.tabs = tabs; ex.seeProfit = seeProfit; } else { usersCache.push({ id, tabs, seeProfit }); }
     clearUserForm();
-    renderUsers();
+    renderUsersList();
   } catch (e) { usersMsg('เชื่อมต่อไม่ได้', 'err'); }
 }
 
@@ -2034,7 +2041,8 @@ async function deleteUser(id) {
   try {
     const r = await fetch(USERS_API, { method: 'DELETE', headers: authHeaders({ 'Content-Type': 'application/json' }), body: JSON.stringify({ id }) });
     if (!r.ok) { const d = await r.json().catch(() => ({})); usersMsg(d.error || 'ลบไม่สำเร็จ', 'err'); return; }
-    renderUsers();
+    usersCache = usersCache.filter(u => u.id !== id);
+    renderUsersList();
   } catch (e) { usersMsg('เชื่อมต่อไม่ได้', 'err'); }
 }
 
