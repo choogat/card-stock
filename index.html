@@ -1216,20 +1216,19 @@ function renderSalesDaily() {
   if (!el.innerHTML) el.innerHTML = '<div class="sales-summary">ยังไม่มีข้อมูล</div>';
 }
 
-// ของรอขาย (status=wait) แยกตามหน่วย: ใบ(การ์ด) / Pack / Box / Carton / เล่ม → คืนเป็นชิป
+// ของรอขาย (status=wait) แยกตามหน่วย: การ์ด / Pack / Box / Carton / เล่ม → แสดงทุกหน่วยเสมอ (ไม่มี = 0)
 function unsoldChipsHTML() {
-  const order = ['ใบ', 'Pack', 'Box', 'Carton', 'เล่ม'];
+  const units = ['การ์ด', 'Pack', 'Box', 'Carton', 'เล่ม'];
   const buckets = {};
+  units.forEach(u => { buckets[u] = { qty: 0, value: 0 }; });
   for (const c of cards) {
     if (c.status !== 'wait') continue;
-    const unit = c.type === 'collect' ? (c.unit || 'อื่นๆ') : 'ใบ';
-    const b = buckets[unit] || { qty: 0, value: 0 };
-    b.qty += Number(c.qty) || 1;
-    b.value += Number(c.sell) || 0;
-    buckets[unit] = b;
+    const unit = c.type === 'collect' ? (c.unit || 'อื่นๆ') : 'การ์ด';
+    if (!buckets[unit]) buckets[unit] = { qty: 0, value: 0 };
+    buckets[unit].qty += Number(c.qty) || 1;
+    buckets[unit].value += Number(c.sell) || 0;
   }
-  const keys = Object.keys(buckets);
-  keys.sort((a, b) => (order.indexOf(a) < 0 ? 99 : order.indexOf(a)) - (order.indexOf(b) < 0 ? 99 : order.indexOf(b)));
+  const keys = units.concat(Object.keys(buckets).filter(u => !units.includes(u)));
   return keys.map(u => {
     const b = buckets[u];
     return `<div class="topic-chip unsold">
