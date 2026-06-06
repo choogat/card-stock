@@ -664,6 +664,8 @@ const API_BASE = CARDS_API.replace(/\/cards$/, '');
 const LOGIN_API = API_BASE + '/login';
 const USERS_API = API_BASE + '/users';
 const ONEPIECE_API = API_BASE + '/onepiece';
+const OPIMG_API = API_BASE + '/opimg';
+function opImgUrl(u) { return `${OPIMG_API}?url=${encodeURIComponent(u)}`; }
 const ALL_TABS = ['stock', 'sales', 'report'];
 let passcode = localStorage.getItem('app_pass') || '';
 let loginId = localStorage.getItem('app_id') || '';
@@ -1639,7 +1641,7 @@ async function fetchOnePiece() {
     opMsg(`พบ ${results.length} รายการ — เลือก 1 รายการ`, 'ok');
     document.getElementById('opResults').innerHTML = results.map((it, i) => `
       <button type="button" class="op-item" onclick="applyOpResult(${i})">
-        ${it.image ? `<img src="${it.image}" alt="">` : ''}
+        ${it.image ? `<img src="${opImgUrl(it.image)}" alt="">` : ''}
         <span class="nm">${esc(it.name)}</span>
       </button>`).join('');
   } catch (e) {
@@ -1648,13 +1650,24 @@ async function fetchOnePiece() {
     btn.disabled = false;
   }
 }
-function applyOpResult(i) {
+async function applyOpResult(i) {
   const it = opResultsCache[i];
   if (!it) return;
   if (!document.getElementById('f_topic').value.trim()) document.getElementById('f_topic').value = 'One Piece';
   document.getElementById('f_name').value = it.name;
-  if (it.image) setImage(it.image);
   document.getElementById('opResults').innerHTML = '';
+  if (it.image) {
+    opMsg('กำลังโหลดรูป...', 'load');
+    try {
+      // โหลดรูปผ่าน proxy แล้วฝังเป็น base64 (เก็บถาวร ไม่ต้องพึ่งเว็บต้นทาง)
+      const r = await fetch(opImgUrl(it.image));
+      if (r.ok) {
+        const blob = await r.blob();
+        const dataUrl = await new Promise((res2, rej) => { const fr = new FileReader(); fr.onload = () => res2(fr.result); fr.onerror = rej; fr.readAsDataURL(blob); });
+        setImage(dataUrl);
+      } else { setImage(it.image); }
+    } catch (e) { setImage(it.image); }
+  }
   opMsg('✓ เลือกแล้ว: ' + it.name, 'ok');
 }
 
