@@ -337,6 +337,11 @@
     <div class="stat">
       <div class="label">ยอดรวมราคารับซื้อ</div>
       <div class="value num" id="statBuy">฿0</div>
+      <div class="sub">เฉพาะสะสม + รอขาย (ไม่รวมที่ขายแล้ว)</div>
+    </div>
+    <div class="stat">
+      <div class="label">ยอดรวมราคาขาย</div>
+      <div class="value num" id="statSell">฿0</div>
       <div class="sub" id="statProfit">กำไรคาดการณ์ ฿0</div>
     </div>
   </div>
@@ -776,10 +781,11 @@ function uid() { return Date.now().toString(36) + Math.floor(Math.random()*1e6).
 // ---- Stats ----
 function updateStats() {
   const count = cards.length;
-  // ยอดรวมราคากลาง = เฉพาะของที่ยังอยู่ในสต็อก (สะสม + รอขาย) ไม่รวมที่ขายแล้ว
-  const totalMedian = cards.filter(c => c.status !== 'sold').reduce((s, c) => s + (Number(c.median) || 0), 0);
-  const totalBuy = cards.reduce((s, c) => s + (Number(c.buy) || 0), 0);
-  const totalSell = cards.reduce((s, c) => s + (Number(c.sell) || 0), 0);
+  // ยอดรวม ราคากลาง/รับซื้อ/ขาย = เฉพาะของที่ยังอยู่ในสต็อก (สะสม + รอขาย) ไม่รวมที่ขายแล้ว
+  const inStock = cards.filter(c => c.status !== 'sold');
+  const totalMedian = inStock.reduce((s, c) => s + (Number(c.median) || 0), 0);
+  const totalBuy = inStock.reduce((s, c) => s + (Number(c.buy) || 0), 0);
+  const totalSell = inStock.reduce((s, c) => s + (Number(c.sell) || 0), 0);
   const nShow = cards.filter(c => c.status === 'show').length;
   const nWait = cards.filter(c => c.status === 'wait').length;
   const nSold = cards.filter(c => c.status === 'sold').length;
@@ -792,6 +798,7 @@ function updateStats() {
   document.getElementById('statBreak').textContent = `สะสม ${nShow} · รอขาย ${nWait} · ขายแล้ว ${nSold}`;
   document.getElementById('statMedian').textContent = money(totalMedian);
   document.getElementById('statBuy').textContent = money(totalBuy);
+  document.getElementById('statSell').textContent = money(totalSell);
   const profitEl = document.getElementById('statProfit');
   profitEl.textContent = 'กำไรที่ขายได้จริง ' + money(realized);
   profitEl.className = 'sub ' + (realized > 0 ? 'profit-pos' : realized < 0 ? 'profit-neg' : '');
