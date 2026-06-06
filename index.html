@@ -60,6 +60,17 @@
   .report-controls label { color: var(--muted); font-size: .9rem; }
   .report-controls input[type=date] { background: var(--card); border: 1px solid var(--border); color: var(--text); padding: 10px 14px; border-radius: 11px; font-size: .95rem; font-family: inherit; }
   .report-controls input[type=date]:focus { outline: none; border-color: var(--accent); }
+  .user-form { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 20px; margin-bottom: 22px; max-width: 560px; }
+  .user-form .field input { width: 100%; background: var(--bg); border: 1px solid var(--border); color: var(--text); padding: 11px 14px; border-radius: 11px; font-size: .95rem; }
+  .user-form .field input:focus { outline: none; border-color: var(--accent); }
+  .tab-perms { display: flex; flex-direction: column; gap: 8px; }
+  .tab-perms label { display: flex; align-items: center; gap: 8px; font-size: .92rem; color: var(--text); cursor: pointer; }
+  .tab-perms input { width: 18px; height: 18px; accent-color: var(--accent); }
+  .usersMsg { font-size: .85rem; min-height: 1em; margin-bottom: 10px; }
+  .usersMsg.ok { color: var(--green); } .usersMsg.err { color: var(--danger); }
+  .user-row { display: flex; align-items: center; gap: 12px; background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 12px 16px; margin-bottom: 8px; }
+  .user-row .uid { font-weight: 700; }
+  .user-row .utabs { color: var(--muted); font-size: .82rem; flex: 1; }
   .topic-chip.today { border-color: var(--green); background: rgba(46,204,113,.12); }
   .topic-chip .t-name .t-dot.g { color: var(--green); }
   .sale-status-cell { display: inline-flex; align-items: center; gap: 8px; }
@@ -265,6 +276,7 @@
       <button class="nav-item active" data-view="stock" onclick="switchView('stock')">📦 สต็อกการ์ด</button>
       <button class="nav-item" data-view="sales" onclick="switchView('sales')">🏷️ สำหรับขาย</button>
       <button class="nav-item" data-view="report" onclick="switchView('report')">📊 รายงานการขาย</button>
+      <button class="nav-item" data-view="users" onclick="switchView('users')" style="display:none">👥 ผู้ใช้งาน</button>
     </nav>
     <div class="sidebar-foot">
       <span class="sync" id="syncStatus"></span>
@@ -361,6 +373,29 @@
     <div id="reportSummary"></div>
     <div id="reportTableArea"></div>
   </div><!-- /viewReport -->
+
+  <div id="viewUsers" style="display:none">
+    <h2 class="view-title">👥 จัดการผู้ใช้งาน</h2>
+    <p style="color:var(--muted);font-size:.9rem;margin-bottom:16px">สร้างผู้ช่วย กำหนด ID/รหัสผ่าน และเลือกแถบที่เข้าได้</p>
+    <div class="user-form">
+      <div class="grid2">
+        <div class="field"><label>ID ผู้ช่วย</label><input id="u_id" placeholder="เช่น staff1"></div>
+        <div class="field"><label>รหัสผ่าน</label><input id="u_pass" placeholder="รหัสผ่าน"></div>
+      </div>
+      <div class="field">
+        <label>สิทธิ์เข้าแถบ</label>
+        <div class="tab-perms">
+          <label><input type="checkbox" id="u_tab_stock" value="stock"> 📦 สต็อกการ์ด</label>
+          <label><input type="checkbox" id="u_tab_sales" value="sales"> 🏷️ สำหรับขาย</label>
+          <label><input type="checkbox" id="u_tab_report" value="report"> 📊 รายงานการขาย</label>
+        </div>
+      </div>
+      <div class="usersMsg" id="usersMsg"></div>
+      <button class="btn btn-primary" onclick="saveUser()">บันทึกผู้ใช้</button>
+      <button class="btn btn-ghost" onclick="clearUserForm()">ล้างฟอร์ม</button>
+    </div>
+    <div id="usersList"></div>
+  </div><!-- /viewUsers -->
   </main>
 </div><!-- /layout -->
 
@@ -594,7 +629,15 @@ const PSA_API_BASE = (location.hostname.endsWith('vercel.app') || location.hostn
 const CARDS_API = (location.hostname.endsWith('vercel.app') || location.hostname === 'localhost')
   ? '/api/cards'
   : (localStorage.getItem('cards_api_url') || 'https://card-stock-psa.vercel.app/api/cards');
+const API_BASE = CARDS_API.replace(/\/cards$/, '');
+const LOGIN_API = API_BASE + '/login';
+const USERS_API = API_BASE + '/users';
+const ALL_TABS = ['stock', 'sales', 'report'];
 let passcode = localStorage.getItem('app_pass') || '';
+let loginId = localStorage.getItem('app_id') || '';
+let userRole = localStorage.getItem('app_role') || '';
+let userTabs = (() => { try { return JSON.parse(localStorage.getItem('app_tabs')) || []; } catch (e) { return []; } })();
+function authHeaders(extra) { return Object.assign({ 'x-app-id': loginId, 'x-app-pass': passcode }, extra || {}); }
 let syncTimer = null;
 const STATUS = {
   show: { label: 'โชว์', cls: 'show' },
@@ -632,7 +675,7 @@ async function pushToServer() {
   try {
     const r = await fetch(CARDS_API, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-app-pass': passcode },
+      headers: authHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify(cards),
     });
     if (r.status === 401) { setSync('🔒 รหัสผ่านไม่ถูกต้อง', 'err'); return; }
@@ -647,7 +690,7 @@ async function pullFromServer() {
   if (!passcode) return { ok: false };
   setSync('⏳ กำลังโหลดจากเซิร์ฟเวอร์...', 'load');
   try {
-    const r = await fetch(CARDS_API, { headers: { 'x-app-pass': passcode }, cache: 'no-store' });
+    const r = await fetch(CARDS_API, { headers: authHeaders(), cache: 'no-store' });
     if (r.status === 401) { setSync('🔒 รหัสผ่านไม่ถูกต้อง', 'err'); return { ok: false, auth: false }; }
     if (!r.ok) { const d = await r.json().catch(() => ({})); setSync('⚠️ โหลดไม่สำเร็จ: ' + (d.error || r.status), 'err'); return { ok: false }; }
     const data = await r.json();
@@ -827,12 +870,32 @@ function render() {
 
 // ---- สลับแถบเมนู ----
 function switchView(view) {
+  if (!allowedTabs().includes(view)) view = allowedTabs()[0] || 'stock';
   document.querySelectorAll('.nav-item').forEach(b => b.classList.toggle('active', b.dataset.view === view));
   document.getElementById('viewStock').style.display = view === 'stock' ? '' : 'none';
   document.getElementById('viewSales').style.display = view === 'sales' ? '' : 'none';
   document.getElementById('viewReport').style.display = view === 'report' ? '' : 'none';
+  document.getElementById('viewUsers').style.display = view === 'users' ? '' : 'none';
   if (view === 'report') renderReport();
+  if (view === 'users') renderUsers();
   localStorage.setItem('app_view', view); // จำแถบล่าสุด ไว้คงหน้าตอน F5
+}
+
+// แถบที่ผู้ใช้ปัจจุบันเข้าได้ (ไม่ล็อกอิน=ทุกแถบ / แอดมิน=ทุกแถบ+users / ผู้ช่วย=ตามสิทธิ์)
+function allowedTabs() {
+  if (!passcode) return ALL_TABS.slice();
+  if (userRole === 'admin') return ALL_TABS.concat('users');
+  return (userTabs || []).slice();
+}
+
+// ซ่อน/แสดงเมนูตามสิทธิ์ + ย้ายไปแถบที่เข้าได้
+function applyPermissions() {
+  const allowed = allowedTabs();
+  document.querySelectorAll('.nav-item[data-view]').forEach(b => {
+    b.style.display = allowed.includes(b.dataset.view) ? '' : 'none';
+  });
+  const cur = localStorage.getItem('app_view') || 'stock';
+  switchView(allowed.includes(cur) ? cur : (allowed[0] || 'stock'));
 }
 
 function reportToday() {
@@ -1592,7 +1655,7 @@ function importJSON(e) {
 function updateAuthBtn() {
   const btn = document.getElementById('authBtn');
   if (passcode) {
-    btn.textContent = '🔓 ออกจากระบบ';
+    btn.textContent = `🔓 ออกจากระบบ (${loginId})`;
     btn.onclick = logout;
   } else {
     btn.textContent = '🔐 เข้าสู่ระบบ';
@@ -1600,7 +1663,6 @@ function updateAuthBtn() {
     setSync('');
   }
 }
-const LOGIN_ID = 'Cielcard';
 function openLogin() {
   document.getElementById('f_loginId').value = localStorage.getItem('app_id') || '';
   document.getElementById('f_pass').value = passcode || '';
@@ -1615,19 +1677,25 @@ async function doLogin() {
   const id = document.getElementById('f_loginId').value.trim();
   const val = document.getElementById('f_pass').value.trim();
   if (!id || !val) { loginMsg('กรุณากรอก ID และรหัสผ่าน', 'err'); return; }
-  if (id !== LOGIN_ID) { loginMsg('ID หรือรหัสผ่านไม่ถูกต้อง', 'err'); return; }
   const btn = document.getElementById('loginBtn');
   btn.disabled = true;
   loginMsg('กำลังตรวจสอบ...', '');
-  const prev = passcode;
-  passcode = val;
-  const res = await pullFromServer();
-  if (res.auth === false) { passcode = prev; loginMsg('ID หรือรหัสผ่านไม่ถูกต้อง', 'err'); btn.disabled = false; return; }
-  if (!res.ok) { passcode = prev; loginMsg('เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ ลองใหม่อีกครั้ง', 'err'); btn.disabled = false; return; }
-  // สำเร็จ — บันทึก ID/รหัส และตัดสินใจเรื่องข้อมูล
+  // ตรวจ id+รหัสกับเซิร์ฟเวอร์ → ได้สิทธิ์ (role/tabs)
+  let auth;
+  try {
+    const lr = await fetch(LOGIN_API, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, password: val }) });
+    if (lr.status === 401) { loginMsg('ID หรือรหัสผ่านไม่ถูกต้อง', 'err'); btn.disabled = false; return; }
+    if (!lr.ok) { loginMsg('เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ ลองใหม่อีกครั้ง', 'err'); btn.disabled = false; return; }
+    auth = await lr.json();
+  } catch (e) { loginMsg('เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ ลองใหม่อีกครั้ง', 'err'); btn.disabled = false; return; }
+  // บันทึกข้อมูลผู้ใช้
+  loginId = id; passcode = val; userRole = auth.role || 'assistant'; userTabs = auth.tabs || [];
   localStorage.setItem('app_pass', passcode);
   localStorage.setItem('app_id', id);
-  if (res.cards.length) {
+  localStorage.setItem('app_role', userRole);
+  localStorage.setItem('app_tabs', JSON.stringify(userTabs));
+  const res = await pullFromServer();
+  if (res.ok && res.cards.length) {
     // เซิร์ฟเวอร์มีข้อมูล
     if (cards.length && !confirm(`เซิร์ฟเวอร์มี ${res.cards.length} การ์ด\nในเครื่องนี้มี ${cards.length} การ์ด\n\nกด "OK" = ใช้ข้อมูลจากเซิร์ฟเวอร์ (แนะนำ)\nกด "Cancel" = อัปโหลดข้อมูลในเครื่องทับเซิร์ฟเวอร์`)) {
       await pushToServer();
@@ -1643,15 +1711,17 @@ async function doLogin() {
     setSync('✓ ซิงก์แล้ว', 'ok');
   }
   updateAuthBtn();
+  applyPermissions();
   render();
   closeLogin();
 }
 
 function logout() {
   if (!confirm('ออกจากระบบ? (ข้อมูลบนเซิร์ฟเวอร์ยังอยู่ครบ จะเหลือเฉพาะสำเนาในเครื่องนี้)')) return;
-  passcode = '';
-  localStorage.removeItem('app_pass');
+  passcode = ''; loginId = ''; userRole = ''; userTabs = [];
+  ['app_pass', 'app_id', 'app_role', 'app_tabs'].forEach(k => localStorage.removeItem(k));
   updateAuthBtn();
+  applyPermissions();
 }
 
 // ---- ซิงก์ตอนเปิดแอป ----
@@ -1659,7 +1729,11 @@ async function syncOnStart() {
   updateAuthBtn();
   if (!passcode) return;
   const res = await pullFromServer();
-  if (res.auth === false) { passcode = ''; localStorage.removeItem('app_pass'); updateAuthBtn(); openLogin(); return; }
+  if (res.auth === false) {
+    passcode = ''; loginId = ''; userRole = ''; userTabs = [];
+    ['app_pass', 'app_id', 'app_role', 'app_tabs'].forEach(k => localStorage.removeItem(k));
+    updateAuthBtn(); applyPermissions(); openLogin(); return;
+  }
   if (res.ok) {
     if (res.cards.length) {
       cards = res.cards;
@@ -1672,6 +1746,72 @@ async function syncOnStart() {
     }
     render();
   }
+}
+
+// ---- จัดการผู้ใช้ (แอดมิน) ----
+let usersCache = [];
+function usersMsg(t, cls) { const e = document.getElementById('usersMsg'); e.textContent = t || ''; e.className = 'usersMsg ' + (cls || ''); }
+const TAB_NAME = { stock: 'สต็อก', sales: 'สำหรับขาย', report: 'รายงาน' };
+
+async function renderUsers() {
+  const list = document.getElementById('usersList');
+  if (userRole !== 'admin') { list.innerHTML = ''; return; }
+  list.innerHTML = '<div class="sales-summary">กำลังโหลด...</div>';
+  try {
+    const r = await fetch(USERS_API, { headers: authHeaders() });
+    if (!r.ok) { list.innerHTML = '<div class="usersMsg err">โหลดรายชื่อไม่ได้</div>'; return; }
+    const data = await r.json();
+    usersCache = data.users || [];
+    list.innerHTML = usersCache.length ? usersCache.map(u => `
+      <div class="user-row">
+        <span class="uid">${esc(u.id)}</span>
+        <span class="utabs">${(u.tabs || []).map(t => TAB_NAME[t] || t).join(' · ') || '— ไม่มีสิทธิ์แถบใด'}</span>
+        <button class="btn btn-ghost btn-sm" onclick="editUser('${esc(u.id).replace(/'/g, "\\'")}')">แก้ไข</button>
+        <button class="icon-btn del" onclick="deleteUser('${esc(u.id).replace(/'/g, "\\'")}')" title="ลบ">🗑️</button>
+      </div>`).join('') : '<div class="sales-summary">ยังไม่มีผู้ช่วย</div>';
+  } catch (e) { list.innerHTML = '<div class="usersMsg err">เชื่อมต่อไม่ได้</div>'; }
+}
+
+function editUser(id) {
+  const u = usersCache.find(x => x.id === id);
+  if (!u) return;
+  document.getElementById('u_id').value = u.id;
+  document.getElementById('u_pass').value = '';
+  document.getElementById('u_pass').placeholder = 'เว้นว่าง = ไม่เปลี่ยนรหัส';
+  ALL_TABS.forEach(t => { document.getElementById('u_tab_' + t).checked = (u.tabs || []).includes(t); });
+  usersMsg('กำลังแก้ไข "' + u.id + '" — เว้นรหัสว่างถ้าไม่เปลี่ยน', '');
+}
+
+function clearUserForm() {
+  document.getElementById('u_id').value = '';
+  document.getElementById('u_pass').value = '';
+  document.getElementById('u_pass').placeholder = 'รหัสผ่าน';
+  ALL_TABS.forEach(t => { document.getElementById('u_tab_' + t).checked = false; });
+  usersMsg('');
+}
+
+async function saveUser() {
+  const id = document.getElementById('u_id').value.trim();
+  const pass = document.getElementById('u_pass').value;
+  const tabs = ALL_TABS.filter(t => document.getElementById('u_tab_' + t).checked);
+  if (!id) { usersMsg('กรุณาระบุ ID', 'err'); return; }
+  try {
+    const r = await fetch(USERS_API, { method: 'POST', headers: authHeaders({ 'Content-Type': 'application/json' }), body: JSON.stringify({ id, password: pass, tabs }) });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) { usersMsg(d.error || 'บันทึกไม่สำเร็จ', 'err'); return; }
+    usersMsg('✓ บันทึกผู้ใช้แล้ว', 'ok');
+    clearUserForm();
+    renderUsers();
+  } catch (e) { usersMsg('เชื่อมต่อไม่ได้', 'err'); }
+}
+
+async function deleteUser(id) {
+  if (!confirm('ลบผู้ใช้ "' + id + '" ?')) return;
+  try {
+    const r = await fetch(USERS_API, { method: 'DELETE', headers: authHeaders({ 'Content-Type': 'application/json' }), body: JSON.stringify({ id }) });
+    if (!r.ok) { const d = await r.json().catch(() => ({})); usersMsg(d.error || 'ลบไม่สำเร็จ', 'err'); return; }
+    renderUsers();
+  } catch (e) { usersMsg('เชื่อมต่อไม่ได้', 'err'); }
 }
 
 // close modal on overlay click / Esc
@@ -1691,8 +1831,8 @@ document.getElementById('splitOverlay').addEventListener('click', e => {
 document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeLogin(); closePSASearch(); closeSale(); closeSplit(); } });
 
 render();
+applyPermissions(); // ตั้งเมนู/แถบตามสิทธิ์ + คงแถบเดิมหลัง F5
 syncOnStart();
-switchView(localStorage.getItem('app_view') || 'stock'); // คงแถบเดิมหลัง F5
 
 // เปิดฟอร์ม "เพิ่มการ์ด" อัตโนมัติ ถ้า URL ลงท้ายด้วย #add หรือ ?add
 // แล้วลบ #add ออกจาก URL ทันที เพื่อไม่ให้เด้งซ้ำเวลา F5
