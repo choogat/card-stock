@@ -74,6 +74,8 @@
   .user-row .uid { font-weight: 700; }
   .user-row .utabs { color: var(--muted); font-size: .82rem; flex: 1; }
   .topic-chip.today { border-color: var(--green); background: rgba(46,204,113,.12); }
+  .topic-chip.unsold { border-color: var(--yellow); background: rgba(192,138,0,.1); }
+  .topic-chip.unsold .t-dot { color: var(--yellow); }
   .topic-chip .t-name .t-dot.g { color: var(--green); }
   .sale-status-cell { display: inline-flex; align-items: center; gap: 8px; }
   .sold-lock { justify-content: center; }
@@ -357,10 +359,8 @@
       <h2 class="view-title">🏷️ สำหรับขาย</h2>
       <div class="sales-summary" id="salesSummary"></div>
     </div>
-    <div class="daily-title">💰 ยอดขายต่อวัน</div>
+    <div class="daily-title">💰 ยอดขายต่อวัน · 📦 ของรอขาย</div>
     <div class="topic-breakdown" id="salesDaily"></div>
-    <div class="daily-title">📦 ของรอขาย (แยกตามหน่วย)</div>
-    <div class="topic-breakdown" id="salesUnsold"></div>
     <div class="toolbar">
       <input class="search" id="salesSearch" placeholder="ค้นหา เรื่อง / ชื่อ / รุ่น..." oninput="renderSales()">
       <select class="filter" id="salesSort" onchange="renderSales()">
@@ -1231,10 +1231,9 @@ function renderSalesDaily() {
     g.total += Number(c.sell) || 0;
     byDay.set(day, g);
   }
-  if (byDay.size === 0) { el.innerHTML = '<div class="sales-summary">ยังไม่มีการขาย</div>'; return; }
   const today = todayISO();
   const entries = [...byDay.entries()].sort((a, b) => b[0].localeCompare(a[0])); // ล่าสุดก่อน
-  el.innerHTML = entries.map(([day, g]) => {
+  const dailyHTML = entries.map(([day, g]) => {
     const isToday = day === today;
     const label = day === '__none__' ? 'ไม่ระบุวันที่' : fmtDate(day) + (isToday ? ' (วันนี้)' : '');
     return `<div class="topic-chip${isToday ? ' today' : ''}">
@@ -1242,13 +1241,13 @@ function renderSalesDaily() {
       <div class="t-meta">${g.count} ใบ · ${money(g.total)}</div>
     </div>`;
   }).join('');
-  renderSalesUnsold();
+  // ต่อด้วยชิป "ของรอขาย" ในแถวเดียวกัน
+  el.innerHTML = dailyHTML + unsoldChipsHTML();
+  if (!el.innerHTML) el.innerHTML = '<div class="sales-summary">ยังไม่มีข้อมูล</div>';
 }
 
-// ของรอขาย (status=wait) แยกตามหน่วย: ใบ(การ์ด) / Pack / Box / Carton / เล่ม
-function renderSalesUnsold() {
-  const el = document.getElementById('salesUnsold');
-  if (!el) return;
+// ของรอขาย (status=wait) แยกตามหน่วย: ใบ(การ์ด) / Pack / Box / Carton / เล่ม → คืนเป็นชิป
+function unsoldChipsHTML() {
   const order = ['ใบ', 'Pack', 'Box', 'Carton', 'เล่ม'];
   const buckets = {};
   for (const c of cards) {
@@ -1260,12 +1259,11 @@ function renderSalesUnsold() {
     buckets[unit] = b;
   }
   const keys = Object.keys(buckets);
-  if (!keys.length) { el.innerHTML = '<div class="sales-summary">ไม่มีของรอขาย</div>'; return; }
   keys.sort((a, b) => (order.indexOf(a) < 0 ? 99 : order.indexOf(a)) - (order.indexOf(b) < 0 ? 99 : order.indexOf(b)));
-  el.innerHTML = keys.map(u => {
+  return keys.map(u => {
     const b = buckets[u];
-    return `<div class="topic-chip">
-      <div class="t-name"><span class="t-dot">●</span> ${esc(u)}</div>
+    return `<div class="topic-chip unsold">
+      <div class="t-name"><span class="t-dot">●</span> รอขาย ${esc(u)}</div>
       <div class="t-meta">${b.qty} ${esc(u)} · ${money(b.value)}</div>
     </div>`;
   }).join('');
