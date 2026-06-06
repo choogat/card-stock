@@ -907,27 +907,17 @@ function groupRow(g) {
     : `<div class="thumb-empty">🃏</div>`;
   const pCls = totProfit > 0 ? 'profit-pos' : totProfit < 0 ? 'profit-neg' : 'muted';
   const k = g.key.replace(/'/g, "\\'");
-  const priceInput = (field, val) => `<input class="grp-price" type="number" inputmode="decimal" value="${val || ''}" placeholder="0"
-    onclick="event.stopPropagation()" onchange="setGroupPrice('${k}','${field}',this.value)" title="ใส่ราคาให้เท่ากันทุกใบในกลุ่ม">`;
   return `<tr class="group-head" onclick="toggleGroup('${k}')">
     <td>${img}</td>
     <td class="name"><span class="exp">${open ? '▾' : '▸'}</span> ${rep.topic ? `<div class="topic" style="display:inline-block">${esc(rep.topic)}</div> ` : ''}${esc(rep.name)}${rep.lang ? ` <span class="lang-badge">${esc(rep.lang)}</span>` : ''} <span class="qty-badge">${count} ใบ</span>${rep.set ? `<div class="cardset">รุ่น: ${esc(rep.set)}</div>` : ''}</td>
     <td class="num">${money(totMedian)}</td>
-    <td class="num hide-sm">${priceInput('buy', rep.buy)}</td>
-    <td class="num hide-sm">${priceInput('sell', rep.sell)}</td>
+    <td class="num hide-sm">${money(rep.buy)}</td>
+    <td class="num hide-sm">${money(rep.sell)}</td>
     <td class="center muted" style="font-size:.74rem">${stSummary}</td>
     <td class="center">—</td>
     <td class="num"><span class="${pCls}">${totProfit > 0 ? '+' : ''}${money(totProfit)}</span></td>
     <td></td>
   </tr>`;
-}
-
-// ตั้งราคา (รับซื้อ/ขาย) ให้เท่ากันทุกใบในกลุ่ม
-function setGroupPrice(key, field, value) {
-  const v = parseFloat(value) || 0;
-  cards.forEach(c => { if (c.type !== 'collect' && groupKeyOf(c) === key) c[field] = v; });
-  save();
-  render();
 }
 
 // สร้างแถวตารางสต็อกแบบรวมกลุ่ม
