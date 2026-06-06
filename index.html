@@ -1992,6 +1992,16 @@ function saveCard() {
   };
   const id = document.getElementById('f_id').value;
   const key = s => (s || '').trim().toLowerCase();
+  // กันเพิ่มการ์ดที่เลข cert PSA ซ้ำ (cert ไม่ซ้ำกัน) — ยกเว้นใบเดิม "ขายแล้ว" จึงเพิ่มใหม่ได้
+  if (!isCollect && !isSet && data.cert) {
+    const dup = cards.find(x => x.id !== id && x.type !== 'collect' && x.type !== 'set'
+      && (x.cert || '') === data.cert && x.status !== 'sold');
+    if (dup) {
+      const stLabel = (STATUS[dup.status] || {}).label || dup.status;
+      alert(`เลข cert PSA ${data.cert} นี้มีอยู่แล้ว — "${dup.name}" (สถานะ ${stLabel})\nเพิ่มซ้ำไม่ได้ ยกเว้นใบเดิมขายแล้ว`);
+      return;
+    }
+  }
   if (id) {
     const c = cards.find(x => x.id === id);
     if (c) Object.assign(c, data);
