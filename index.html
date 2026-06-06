@@ -332,7 +332,7 @@
     <div class="stat">
       <div class="label">ยอดรวมราคากลาง</div>
       <div class="value num" id="statMedian">฿0</div>
-      <div class="sub">รวมราคากลางของการ์ดทั้งหมด</div>
+      <div class="sub">เฉพาะสะสม + รอขาย (ไม่รวมที่ขายแล้ว)</div>
     </div>
     <div class="stat">
       <div class="label">ยอดรวมราคารับซื้อ</div>
@@ -776,7 +776,8 @@ function uid() { return Date.now().toString(36) + Math.floor(Math.random()*1e6).
 // ---- Stats ----
 function updateStats() {
   const count = cards.length;
-  const totalMedian = cards.reduce((s, c) => s + (Number(c.median) || 0), 0);
+  // ยอดรวมราคากลาง = เฉพาะของที่ยังอยู่ในสต็อก (สะสม + รอขาย) ไม่รวมที่ขายแล้ว
+  const totalMedian = cards.filter(c => c.status !== 'sold').reduce((s, c) => s + (Number(c.median) || 0), 0);
   const totalBuy = cards.reduce((s, c) => s + (Number(c.buy) || 0), 0);
   const totalSell = cards.reduce((s, c) => s + (Number(c.sell) || 0), 0);
   const nShow = cards.filter(c => c.status === 'show').length;
