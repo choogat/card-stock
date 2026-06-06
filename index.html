@@ -856,8 +856,10 @@ function render() {
 // ---- รวมกลุ่มการ์ดชื่อเดียวกัน (เกรด PSA ต่างได้) ----
 const expandedGroups = new Set();
 function groupKeyOf(c) {
-  if (c.type === 'collect') return 'c:' + c.id; // ของสะสมไม่รวมกลุ่มแบบนี้
-  return 'g:' + (c.name || '').trim().toLowerCase() + '|' + (c.topic || '').trim().toLowerCase() + '|' + (c.lang || '');
+  const base = (c.name || '').trim().toLowerCase() + '|' + (c.topic || '').trim().toLowerCase() + '|' + (c.lang || '');
+  // ของสะสม: รวมตามชื่อ+เรื่อง+ภาษา+หน่วย (ขายแล้วจะแยกใบของตัวเองในกลุ่ม)
+  if (c.type === 'collect') return 'col:' + base + '|' + (c.unit || '');
+  return 'card:' + base;
 }
 function toggleGroup(key) {
   if (expandedGroups.has(key)) expandedGroups.delete(key); else expandedGroups.add(key);
@@ -895,7 +897,10 @@ function stockRow(c, isChild) {
 
 // แถวหัวกลุ่ม (มีหลายใบ) — กดเพื่อแตกดูใบย่อย
 function groupRow(g) {
-  const items = g.items, rep = items[0], count = items.length;
+  const items = g.items, rep = items[0];
+  const isCol = rep.type === 'collect';
+  const count = isCol ? items.reduce((s, c) => s + (Number(c.qty) || 1), 0) : items.length;
+  const countLabel = isCol ? (count + ' ' + (rep.unit || '')) : (count + ' ใบ');
   const open = expandedGroups.has(g.key);
   const totMedian = items.reduce((s, c) => s + (Number(c.median) || 0), 0);
   const totProfit = items.reduce((s, c) => s + cardProfit(c), 0);
@@ -909,7 +914,7 @@ function groupRow(g) {
   const k = g.key.replace(/'/g, "\\'");
   return `<tr class="group-head" onclick="toggleGroup('${k}')">
     <td>${img}</td>
-    <td class="name"><span class="exp">${open ? '▾' : '▸'}</span> ${rep.topic ? `<div class="topic" style="display:inline-block">${esc(rep.topic)}</div> ` : ''}${esc(rep.name)}${rep.lang ? ` <span class="lang-badge">${esc(rep.lang)}</span>` : ''} <span class="qty-badge">${count} ใบ</span>${rep.set ? `<div class="cardset">รุ่น: ${esc(rep.set)}</div>` : ''}</td>
+    <td class="name"><span class="exp">${open ? '▾' : '▸'}</span> ${rep.topic ? `<div class="topic" style="display:inline-block">${esc(rep.topic)}</div> ` : ''}${esc(rep.name)}${rep.lang ? ` <span class="lang-badge">${esc(rep.lang)}</span>` : ''} <span class="qty-badge">${countLabel}</span>${rep.set ? `<div class="cardset">รุ่น: ${esc(rep.set)}</div>` : ''}</td>
     <td class="num">${money(totMedian)}</td>
     <td class="num hide-sm">${money(rep.buy)}</td>
     <td class="num hide-sm">${money(rep.sell)}</td>
@@ -1138,7 +1143,10 @@ function salesRow(c, isChild) {
   </tr>`;
 }
 function salesGroupRow(g) {
-  const items = g.items, rep = items[0], count = items.length;
+  const items = g.items, rep = items[0];
+  const isCol = rep.type === 'collect';
+  const count = isCol ? items.reduce((s, c) => s + (Number(c.qty) || 1), 0) : items.length;
+  const countLabel = isCol ? (count + ' ' + (rep.unit || '')) : (count + ' ใบ');
   const open = expandedSales.has(g.key);
   const cnt = { show: 0, wait: 0, sold: 0 };
   items.forEach(c => { cnt[c.status] = (cnt[c.status] || 0) + 1; });
@@ -1149,7 +1157,7 @@ function salesGroupRow(g) {
   const k = g.key.replace(/'/g, "\\'");
   return `<tr class="group-head" onclick="toggleSalesGroup('${k}')">
     <td>${img}</td>
-    <td class="name"><span class="exp">${open ? '▾' : '▸'}</span> ${rep.topic ? `<div class="topic" style="display:inline-block">${esc(rep.topic)}</div> ` : ''}${esc(rep.name)}${rep.lang ? ` <span class="lang-badge">${esc(rep.lang)}</span>` : ''} <span class="qty-badge">${count} ใบ</span>${rep.set ? `<div class="cardset">รุ่น: ${esc(rep.set)}</div>` : ''}</td>
+    <td class="name"><span class="exp">${open ? '▾' : '▸'}</span> ${rep.topic ? `<div class="topic" style="display:inline-block">${esc(rep.topic)}</div> ` : ''}${esc(rep.name)}${rep.lang ? ` <span class="lang-badge">${esc(rep.lang)}</span>` : ''} <span class="qty-badge">${countLabel}</span>${rep.set ? `<div class="cardset">รุ่น: ${esc(rep.set)}</div>` : ''}</td>
     <td class="num">${money(rep.buy)}</td>
     <td class="num">${money(rep.sell)}</td>
     <td class="num muted" style="font-size:.74rem;text-align:right">${stSummary}</td>
