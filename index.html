@@ -1926,6 +1926,10 @@ async function fetchPSA() {
         : b.includes('dragon ball') ? 'Dragon Ball' : '';
       if (guess) document.getElementById('f_topic').value = guess;
     }
+    // เดา "ภาษา" จากข้อความ PSA (brand/variety/category/subject) — กันช่องภาษาว่าง
+    const ltxt = [data.brand, data.variety, data.category, data.subject].join(' ').toUpperCase();
+    const langGuess = /JAPAN/.test(ltxt) ? 'JP' : /CHIN/.test(ltxt) ? 'CN' : /ENGLISH/.test(ltxt) ? 'EN' : '';
+    if (langGuess) document.getElementById('f_lang').value = langGuess;
     setIfEmpty('f_name', data.subject);
     setIfEmpty('f_set', [data.year, data.brand].filter(Boolean).join(' '));
     setIfEmpty('f_psa', data.gradeNumber || data.grade);
