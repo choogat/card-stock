@@ -253,6 +253,15 @@
   .field input:focus, .field select:focus, .field textarea:focus { outline: none; border-color: var(--accent); }
   .field input[readonly] { background: var(--card2); color: var(--accent); font-weight: 600; }
   .qty-totals { background: rgba(79,140,255,.1); border: 1px solid var(--border); border-radius: 12px; padding: 11px 14px; font-size: .85rem; margin-bottom: 15px; line-height: 1.7; }
+  .stock-sum { background: rgba(192,138,0,.1); border: 1px solid var(--yellow); border-radius: 12px; padding: 10px 14px; font-size: .88rem; font-weight: 700; margin-bottom: 14px; }
+  .stock-body { max-height: 60vh; overflow-y: auto; margin: 0 -4px; padding: 0 4px; }
+  .stock-item { display: flex; align-items: center; gap: 12px; padding: 9px 0; border-bottom: 1px solid var(--border); }
+  .stock-item:last-child { border-bottom: none; }
+  .stock-item .si-info { flex: 1; min-width: 0; }
+  .stock-item .si-name { font-size: .9rem; font-weight: 600; }
+  .stock-item .si-name .topic { font-weight: 600; color: var(--accent); font-size: .72rem; text-transform: uppercase; letter-spacing: .5px; margin-right: 4px; }
+  .stock-item .detail { font-size: .78rem; color: var(--muted); margin-top: 2px; }
+  .stock-item .si-price { font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
   .qty-totals b { color: var(--text); }
   .qty-badge { display: inline-block; background: var(--accent2); color: #fff; padding: 1px 8px; border-radius: 999px; font-size: .72rem; font-weight: 700; }
   .lang-badge { display: inline-block; background: var(--card2); border: 1px solid var(--border); color: var(--muted); padding: 1px 7px; border-radius: 6px; font-size: .68rem; font-weight: 700; }
@@ -388,6 +397,8 @@
       </select>
     </div>
     <div id="reportSummary"></div>
+    <div class="daily-title">📚 ยอดขายแยกตามเรื่อง</div>
+    <div class="topic-breakdown" id="reportTopics"></div>
     <div id="reportTableArea"></div>
   </div><!-- /viewReport -->
 
@@ -497,6 +508,17 @@
     <div class="modal-actions">
       <button class="btn btn-ghost" onclick="closeSplit()">ยกเลิก</button>
       <button class="btn btn-primary" onclick="confirmSplit()">ส่งไปขาย</button>
+    </div>
+  </div>
+</div>
+
+<!-- รายการของที่เหลือ (คลิกจากชิปรอขาย) -->
+<div class="overlay" id="stockListOverlay">
+  <div class="modal" style="max-width:480px">
+    <h2 id="stockListTitle">📦 ของที่เหลือ</h2>
+    <div class="stock-body" id="stockListBody"></div>
+    <div class="modal-actions">
+      <button class="btn btn-primary" onclick="closeStockList()">ปิด</button>
     </div>
   </div>
 </div>
@@ -1216,6 +1238,11 @@ function renderSalesDaily() {
   if (!el.innerHTML) el.innerHTML = '<div class="sales-summary">ยังไม่มีข้อมูล</div>';
 }
 
+// หน่วยของของชิ้นหนึ่ง (ใช้จัดกลุ่ม "รอขาย")
+function stockUnitOf(c) {
+  return c.type === 'collect' ? (c.unit || 'อื่นๆ') : 'การ์ด';
+}
+
 // ของรอขาย (status=wait) แยกตามหน่วย: การ์ด / Pack / Box / Carton / เล่ม → แสดงทุกหน่วยเสมอ (ไม่มี = 0)
 function unsoldChipsHTML() {
   const units = ['การ์ด', 'Pack', 'Box', 'Carton', 'เล่ม'];
@@ -1223,7 +1250,7 @@ function unsoldChipsHTML() {
   units.forEach(u => { buckets[u] = { qty: 0, value: 0 }; });
   for (const c of cards) {
     if (c.status !== 'wait') continue;
-    const unit = c.type === 'collect' ? (c.unit || 'อื่นๆ') : 'การ์ด';
+    const unit = stockUnitOf(c);
     if (!buckets[unit]) buckets[unit] = { qty: 0, value: 0 };
     buckets[unit].qty += Number(c.qty) || 1;
     buckets[unit].value += Number(c.sell) || 0;
@@ -1231,12 +1258,43 @@ function unsoldChipsHTML() {
   const keys = units.concat(Object.keys(buckets).filter(u => !units.includes(u)));
   return keys.map(u => {
     const b = buckets[u];
-    return `<div class="topic-chip unsold">
+    const arg = u.replace(/'/g, "\\'");
+    return `<div class="topic-chip unsold" onclick="openStockList('${arg}')">
       <div class="t-name"><span class="t-dot">●</span> รอขาย ${esc(u)}</div>
       <div class="t-meta">${b.qty} ${esc(u)} · ${money(b.value)}</div>
     </div>`;
   }).join('');
 }
+
+// คลิกชิปรอขาย → โชว์รายการของที่เหลือ (status=wait) ของหน่วยนั้น; ไม่มี = "สินค้าหมด"
+function openStockList(unit) {
+  const items = cards.filter(c => c.status === 'wait' && stockUnitOf(c) === unit);
+  document.getElementById('stockListTitle').textContent = `📦 รอขาย ${unit}`;
+  const body = document.getElementById('stockListBody');
+  if (items.length === 0) {
+    body.innerHTML = `<div class="empty"><div class="big">📭</div>สินค้าหมด</div>`;
+  } else {
+    let totalQty = 0, totalVal = 0;
+    items.forEach(c => { totalQty += Number(c.qty) || 1; totalVal += Number(c.sell) || 0; });
+    const rows = items.map(c => {
+      const qty = Number(c.qty) || 1;
+      const img = c.image
+        ? `<img class="thumb" src="${c.image}" onclick="openLightbox('${c.id}')" alt="">`
+        : `<div class="thumb-empty">🃏</div>`;
+      return `<div class="stock-item">
+        ${img}
+        <div class="si-info">
+          <div class="si-name">${c.topic ? `<span class="topic">${esc(c.topic)}</span>` : ''}${esc(c.name)}${c.lang ? ` <span class="lang-badge">${esc(c.lang)}</span>` : ''}${c.psa ? ` <span class="muted">(PSA ${esc(c.psa)})</span>` : ''}${qty > 1 ? ` <span class="qty-badge">×${qty}${c.unit ? ' ' + esc(c.unit) : ''}</span>` : ''}</div>
+          ${c.detail ? `<div class="detail">${esc(c.detail)}</div>` : ''}
+        </div>
+        <div class="si-price">${money(c.sell)}</div>
+      </div>`;
+    }).join('');
+    body.innerHTML = `<div class="stock-sum">รวม ${totalQty} ${esc(unit)} · ${money(totalVal)}</div>${rows}`;
+  }
+  document.getElementById('stockListOverlay').classList.add('open');
+}
+function closeStockList() { document.getElementById('stockListOverlay').classList.remove('open'); }
 
 const EDIT_LOCK_PASS = 'Tumzamag01';
 function todayISO() {
@@ -2137,10 +2195,13 @@ document.getElementById('psaSearchOverlay').addEventListener('click', e => {
 document.getElementById('saleOverlay').addEventListener('click', e => {
   if (e.target.id === 'saleOverlay') closeSale();
 });
+document.getElementById('stockListOverlay').addEventListener('click', e => {
+  if (e.target.id === 'stockListOverlay') closeStockList();
+});
 document.getElementById('splitOverlay').addEventListener('click', e => {
   if (e.target.id === 'splitOverlay') closeSplit();
 });
-document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeLogin(); closePSASearch(); closeSale(); closeSplit(); } });
+document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeLogin(); closePSASearch(); closeSale(); closeSplit(); closeStockList(); } });
 
 render();
 applyPermissions(); // ตั้งเมนู/แถบตามสิทธิ์ + คงแถบเดิมหลัง F5
