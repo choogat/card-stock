@@ -1727,7 +1727,7 @@ function logout() {
 // ---- ซิงก์ตอนเปิดแอป ----
 async function syncOnStart() {
   updateAuthBtn();
-  if (!passcode || !loginId) { applyPermissions(); return; }
+  if (!passcode || !loginId) { applyPermissions(); openLogin(); return; }
   // รีเฟรชสิทธิ์ (role/tabs) จากเซิร์ฟเวอร์ เผื่อแอดมินเปลี่ยนสิทธิ์
   try {
     const lr = await fetch(LOGIN_API, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: loginId, password: passcode }) });
