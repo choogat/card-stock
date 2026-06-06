@@ -77,15 +77,17 @@
   .topic-chip.unsold { border-color: var(--yellow); background: rgba(192,138,0,.1); }
   .topic-chip.unsold .t-dot { color: var(--yellow); }
   .topic-chip .t-name .t-dot.g { color: var(--green); }
-  .sale-status-cell { display: inline-flex; align-items: center; gap: 8px; }
-  .sold-lock { justify-content: center; }
+  .sale-status-cell { display: inline-flex; flex-direction: column; align-items: stretch; gap: 5px; width: 116px; }
   .btn-sm { padding: 7px 12px; font-size: .8rem; }
-  .btn-sold { padding: 3px 11px; font-size: .72rem; border-radius: 8px; line-height: 1.4; }
+  .btn-sold { padding: 5px 11px; font-size: .72rem; border-radius: 8px; line-height: 1.4; }
+  /* ป้าย/ปุ่มสถานะในแถบสินค้าขาย → กรอบกว้างเท่ากันทุกอัน ดูสมส่วน */
+  .sale-status-cell .badge, .sale-status-cell .btn-sold,
+  .sold-lock .badge, .sold-lock .pay-tag { width: 100%; box-sizing: border-box; text-align: center; }
   .sale-check { width: 20px; height: 20px; accent-color: var(--accent); cursor: pointer; }
   .sale-check:disabled { cursor: not-allowed; opacity: .6; }
-  .sold-lock { display: inline-flex; align-items: center; gap: 5px; flex-wrap: wrap; justify-content: center; }
-  .sold-lock .pay-tag { padding: 2px 7px; font-size: .66rem; }
-  .sold-lock .lock-btn { width: 24px; height: 24px; font-size: .72rem; }
+  .sold-lock { display: inline-flex; flex-direction: column; align-items: stretch; gap: 5px; width: 116px; }
+  .sold-lock .pay-tag { padding: 3px 7px; font-size: .7rem; }
+  .sold-lock .lock-btn { width: 26px; height: 26px; font-size: .74rem; align-self: center; }
   .pay-tag { display: inline-block; padding: 3px 9px; border-radius: 999px; font-size: .74rem; font-weight: 600; background: var(--card2); color: var(--muted); }
   .pay-tag.cash { background: rgba(24,165,88,.15); color: var(--green); }
   .pay-tag.transfer { background: rgba(47,111,237,.14); color: var(--accent); }
