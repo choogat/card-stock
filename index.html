@@ -440,19 +440,9 @@
 
   <div id="viewProduct" style="display:none">
     <h2 class="view-title">📋 ข้อมูลสินค้า</h2>
-    <div class="product-section">
-      <div class="daily-title">➕ การเพิ่มการ์ด</div>
-      <div class="toolbar">
-        <button class="btn btn-primary" onclick="openForm('card')">+ เพิ่มการ์ด</button>
-        <button class="btn btn-primary" onclick="openForm('collect')">+ เพิ่มของสะสม</button>
-        <button class="btn btn-ghost" onclick="openPSASearch()">🔍 ค้นหาการ์ด PSA</button>
-      </div>
-    </div>
-    <div class="product-section">
-      <div class="daily-title">🔎 ค้นหาการ์ด</div>
-      <input class="search" id="productSearch" placeholder="ค้นหา เรื่อง / ชื่อ / รุ่น / PSA / cert..." oninput="renderProductSearch()" style="width:100%">
-      <div id="productSearchArea"></div>
-    </div>
+    <p style="color:var(--muted);font-size:.9rem;margin-bottom:14px">แสดงรายละเอียดสินค้าจากสต็อกการ์ด พร้อมราคารับซื้อและราคาขาย (อ่านอย่างเดียว)</p>
+    <input class="search" id="productSearch" placeholder="ค้นหา/กรอง เรื่อง / ชื่อ / รุ่น / PSA / cert..." oninput="renderProductSearch()" style="width:100%;margin-bottom:14px">
+    <div id="productSearchArea"></div>
   </div><!-- /viewProduct -->
 
   <div id="viewUsers" style="display:none">
@@ -1133,10 +1123,41 @@ function cardSearchResultsHTML(q) {
       <tbody>${rows}</tbody>
     </table>`;
 }
+// แถบ "ข้อมูลสินค้า" — ดึงจากสต็อกการ์ดเสมอ แสดงแค่ รายละเอียด + ราคารับซื้อ + ราคาขาย (อ่านอย่างเดียว)
 function renderProductSearch() {
   const area = document.getElementById('productSearchArea');
   if (!area) return;
-  area.innerHTML = cardSearchResultsHTML((document.getElementById('productSearch').value || '').trim().toLowerCase());
+  const q = (document.getElementById('productSearch').value || '').trim().toLowerCase();
+  let list = cards.slice();
+  if (q) {
+    const terms = q.split(/\s+/).filter(Boolean);
+    list = list.filter(c => {
+      const hay = [c.topic, c.name, c.set, c.psa, c.cert, c.detail, c.lang].filter(Boolean).join(' ').toLowerCase();
+      return terms.every(t => hay.includes(t));
+    });
+  }
+  if (!list.length) {
+    area.innerHTML = q
+      ? `<div class="empty"><div class="big">🃏</div>ไม่พบการ์ดที่ตรงกับ “${esc(q)}”</div>`
+      : `<div class="empty"><div class="big">📦</div>ยังไม่มีการ์ดในสต็อก</div>`;
+    return;
+  }
+  const rows = list.map(c => {
+    const img = c.image
+      ? `<img class="thumb" src="${c.image}" onclick="openLightbox('${c.id}')" alt="">`
+      : `<div class="thumb-empty">🃏</div>`;
+    return `<tr>
+      <td>${img}</td>
+      <td class="name">${c.topic ? `<div class="topic">${esc(c.topic)}</div>` : ''}${esc(c.name)}${c.lang ? ` <span class="lang-badge">${esc(c.lang)}</span>` : ''}${c.psa ? ` <span class="muted">(PSA ${esc(c.psa)})</span>` : ''}${c.cert ? ` <span class="muted">cert ${esc(c.cert)}</span>` : ''}${(c.qty && c.qty > 1) ? ` <span class="qty-badge">×${c.qty}${c.unit ? ' ' + esc(c.unit) : ''}</span>` : ''}${setMetaHTML(c)}${c.set ? `<div class="cardset">รุ่น: ${esc(c.set)}</div>` : ''}${c.detail ? `<div class="detail">${esc(c.detail)}</div>` : ''}</td>
+      <td class="num">${money(c.buy)}</td>
+      <td class="num">${money(c.sell)}</td>
+    </tr>`;
+  }).join('');
+  area.innerHTML = `<div class="sales-summary" style="margin:10px 0">ทั้งหมด ${list.length} รายการ</div>
+    <table>
+      <thead><tr><th>รูป</th><th>ชื่อการ์ด / รายละเอียด</th><th class="num">ราคารับซื้อ</th><th class="num">ราคาขาย</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`;
 }
 function renderBuySearch() {
   const area = document.getElementById('buySearchArea');
