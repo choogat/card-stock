@@ -1953,7 +1953,7 @@ function openProductAdd(mode) {
   openForm(mode);
   productMode = true;
   document.getElementById('modalTitle').textContent = mode === 'collect' ? 'เพิ่มข้อมูลของสะสม' : 'เพิ่มข้อมูลสินค้า';
-  ['row_psaLookup', 'fld_median', 'fld_status', 'fld_buyDate', 'row_snkr'].forEach(id => {
+  ['fld_median', 'fld_status', 'fld_buyDate', 'row_snkr'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.style.display = 'none';
   });
