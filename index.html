@@ -1039,7 +1039,8 @@ function groupKeyOf(c) {
   if (c.type === 'set') return 'set:' + c.id;
   // ของสะสม: รวมตามชื่อ+เรื่อง+ภาษา+หน่วย (ขายแล้วจะแยกใบของตัวเองในกลุ่ม)
   if (c.type === 'collect') return 'col:' + base + '|' + (c.unit || '');
-  return 'card:' + base;
+  // การ์ด: รวมตามชื่อ+เรื่อง+ภาษา + "รุ่น (set/OP)" ด้วย — คนละรุ่นถือเป็นคนละใบ ไม่รวมกัน
+  return 'card:' + base + '|' + (c.set || '').trim().toLowerCase();
 }
 function toggleGroup(key) {
   if (expandedGroups.has(key)) expandedGroups.delete(key); else expandedGroups.add(key);
