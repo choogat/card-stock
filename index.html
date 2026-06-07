@@ -79,7 +79,7 @@
   .topic-chip.unsold .t-dot { color: var(--yellow); }
   .topic-chip .t-name .t-dot.g { color: var(--green); }
   .btn-sm { padding: 7px 12px; font-size: .8rem; }
-  .btn-sold { padding: 5px 11px; font-size: .72rem; border-radius: 8px; line-height: 1.4; }
+  .btn-sold { padding: 4px 10px; font-size: .72rem; border-radius: 7px; line-height: 1.3; min-width: 46px; }
   .sale-check { width: 20px; height: 20px; accent-color: var(--accent); cursor: pointer; }
   .sale-check:disabled { cursor: not-allowed; opacity: .6; }
   .pay-tag { display: inline-block; padding: 3px 9px; border-radius: 999px; font-size: .74rem; font-weight: 600; background: var(--card2); color: var(--muted); }
@@ -1400,7 +1400,7 @@ function salesRow(c, isChild) {
     : `<span class="badge wait">รอขาย</span>`;
   const actionCell = c.status === 'sold'
     ? `<button class="lock-btn" onclick="unlockSold('${c.id}')" title="แก้ไข (ต้องใส่รหัส)">🔒</button>`
-    : `<button class="btn btn-primary btn-sold" onclick="markSold('${c.id}')">✓ ขายแล้ว</button>`;
+    : `<button class="btn btn-primary btn-sold" onclick="markSold('${c.id}')">ขาย</button>`;
   return `<tr class="${isChild ? 'child-row' : ''}">
     <td>${img}</td>
     <td class="name">${c.topic ? `<div class="topic">${esc(c.topic)}</div>` : ''}${esc(c.name)}${c.lang ? ` <span class="lang-badge">${esc(c.lang)}</span>` : ''}${c.psa ? ` <span class="muted">(PSA ${esc(c.psa)})</span>` : ''}${(c.qty && c.qty > 1) ? ` <span class="qty-badge">×${c.qty}${c.unit ? ' ' + esc(c.unit) : ''}</span>` : ''}${setMetaHTML(c)}${c.detail ? `<div class="detail">${esc(c.detail)}</div>` : ''}</td>
