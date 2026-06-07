@@ -1477,6 +1477,7 @@ function renderSales() {
     <thead><tr>
       <th>รูป</th>
       <th>ชื่อการ์ด</th>
+      <th class="center">จำนวน</th>
       <th class="num">ราคารับซื้อ</th>
       <th class="num">ราคาขาย</th>
       <th class="center">สถานะ</th>
@@ -1503,9 +1504,11 @@ function salesRow(c, isChild) {
   const actionCell = c.status === 'sold'
     ? `<button class="lock-btn" onclick="unlockSold('${c.id}')" title="แก้ไข (ต้องใส่รหัส)">🔒</button>`
     : `<button class="btn btn-primary btn-sold" onclick="markSold('${c.id}')">ขาย</button>`;
+  const qtyText = `${Number(c.qty) || 1}${c.unit ? ' ' + esc(c.unit) : ''}`;
   return `<tr class="${isChild ? 'child-row' : ''}">
     <td>${img}</td>
-    <td class="name">${c.topic ? `<div class="topic">${esc(c.topic)}</div>` : ''}${esc(c.name)}${c.lang ? ` <span class="lang-badge">${esc(c.lang)}</span>` : ''}${c.psa ? ` <span class="muted">(PSA ${esc(c.psa)})</span>` : ''}${(c.qty && c.qty > 1) ? ` <span class="qty-badge">×${c.qty}${c.unit ? ' ' + esc(c.unit) : ''}</span>` : ''}${setMetaHTML(c)}${c.detail ? `<div class="detail">${esc(c.detail)}</div>` : ''}</td>
+    <td class="name">${c.topic ? `<div class="topic">${esc(c.topic)}</div>` : ''}${esc(c.name)}${c.lang ? ` <span class="lang-badge">${esc(c.lang)}</span>` : ''}${c.psa ? ` <span class="muted">(PSA ${esc(c.psa)})</span>` : ''}${setMetaHTML(c)}${c.detail ? `<div class="detail">${esc(c.detail)}</div>` : ''}</td>
+    <td class="center"><span class="qty-badge">${qtyText}</span></td>
     <td class="num">${money(c.buy)}</td>
     <td class="num">${money(c.sell)}</td>
     <td class="center">${statusCell}</td>
@@ -1527,7 +1530,8 @@ function salesGroupRow(g) {
   const k = g.key.replace(/'/g, "\\'");
   return `<tr class="group-head" onclick="toggleSalesGroup('${k}')">
     <td>${img}</td>
-    <td class="name"><span class="exp">${open ? '▾' : '▸'}</span> ${rep.topic ? `<div class="topic" style="display:inline-block">${esc(rep.topic)}</div> ` : ''}${esc(rep.name)}${rep.lang ? ` <span class="lang-badge">${esc(rep.lang)}</span>` : ''} <span class="qty-badge">${countLabel}</span>${rep.set ? `<div class="cardset">รุ่น: ${esc(rep.set)}</div>` : ''}</td>
+    <td class="name"><span class="exp">${open ? '▾' : '▸'}</span> ${rep.topic ? `<div class="topic" style="display:inline-block">${esc(rep.topic)}</div> ` : ''}${esc(rep.name)}${rep.lang ? ` <span class="lang-badge">${esc(rep.lang)}</span>` : ''}${rep.set ? `<div class="cardset">รุ่น: ${esc(rep.set)}</div>` : ''}</td>
+    <td class="center"><span class="qty-badge">${countLabel}</span></td>
     <td class="num">${money(rep.buy)}</td>
     <td class="num">${money(rep.sell)}</td>
     <td class="center">${stSummary}</td>
