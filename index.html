@@ -1396,7 +1396,7 @@ function salesRow(c, isChild) {
     ? `<img class="thumb" src="${c.image}" onclick="openLightbox('${c.id}')" alt="">`
     : `<div class="thumb-empty">🃏</div>`;
   const statusCell = c.status === 'sold'
-    ? `<span class="badge sold">ขายแล้ว${(c.sellDate || c.sellTime) ? `<br><span class="sold-when">${c.sellDate ? fmtDate(c.sellDate) : ''}${c.sellTime ? ' ' + c.sellTime : ''}</span>` : ''}</span>`
+    ? `<span class="badge sold">ขายแล้ว</span>`
     : `<span class="badge wait">รอขาย</span>`;
   const actionCell = c.status === 'sold'
     ? `<button class="lock-btn" onclick="unlockSold('${c.id}')" title="แก้ไข (ต้องใส่รหัส)">🔒</button>`
