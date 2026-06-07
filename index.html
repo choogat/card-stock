@@ -1395,9 +1395,8 @@ function salesRow(c, isChild) {
   const img = c.image
     ? `<img class="thumb" src="${c.image}" onclick="openLightbox('${c.id}')" alt="">`
     : `<div class="thumb-empty">🃏</div>`;
-  const statusCell = c.status === 'sold'
-    ? `<span class="badge sold">ขายแล้ว</span>`
-    : `<span class="badge wait">รอขาย</span>`;
+  // สถานะ: โชว์แค่ "รอขาย" — ใบที่ขายแล้วเว้นว่าง
+  const statusCell = c.status === 'sold' ? '' : `<span class="badge wait">รอขาย</span>`;
   const actionCell = c.status === 'sold'
     ? `<button class="lock-btn" onclick="unlockSold('${c.id}')" title="แก้ไข (ต้องใส่รหัส)">🔒</button>`
     : `<button class="btn btn-primary btn-sold" onclick="markSold('${c.id}')">ขาย</button>`;
@@ -1416,9 +1415,9 @@ function salesGroupRow(g) {
   const count = isCol ? items.reduce((s, c) => s + (Number(c.qty) || 1), 0) : items.length;
   const countLabel = isCol ? (count + ' ' + (rep.unit || '')) : (count + ' ใบ');
   const open = expandedSales.has(g.key);
-  const cnt = { show: 0, wait: 0, sold: 0 };
-  items.forEach(c => { cnt[c.status] = (cnt[c.status] || 0) + 1; });
-  const stSummary = statPills(cnt);
+  // สรุปกลุ่ม: โชว์แค่จำนวน "รอขาย" (ตัดขายแล้วออก)
+  const waitN = items.filter(c => c.status === 'wait').length;
+  const stSummary = waitN ? `<span class="stat-pill wait">รอขาย ${waitN}</span>` : '';
   const img = rep.image
     ? `<img class="thumb" src="${rep.image}" onclick="event.stopPropagation();openLightbox('${rep.id}')" alt="">`
     : `<div class="thumb-empty">🃏</div>`;
