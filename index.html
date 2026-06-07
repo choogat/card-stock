@@ -66,6 +66,8 @@
   .status-select.sold { border-color: var(--green); color: var(--green); }
   .daily-title { font-weight: 600; font-size: .95rem; margin-bottom: 10px; }
   .product-section { margin-bottom: 26px; }
+  /* แท็บรับซื้อสินค้า: ขยับคอลัมน์ราคาซื้อมาทางซ้าย ~20% และทำตัวหนา */
+  th.buy-price, td.buy-price { padding-right: 20%; font-weight: 800; }
   .report-controls { display: flex; align-items: center; gap: 10px; margin-bottom: 18px; flex-wrap: wrap; }
   .report-controls label { color: var(--muted); font-size: .9rem; }
   .report-controls input[type=date] { background: var(--card); border: 1px solid var(--border); color: var(--text); padding: 10px 14px; border-radius: 11px; font-size: .95rem; font-family: inherit; }
@@ -1253,12 +1255,12 @@ function renderBuySearch() {
     return `<tr>
       <td>${img}</td>
       <td class="name">${productNameCellHTML(c, g.lang)}</td>
-      <td class="num">${money(c.buy)}</td>
+      <td class="num buy-price">${money(c.buy)}</td>
     </tr>`;
   }).join('');
   area.innerHTML = `<div class="sales-summary" style="margin:10px 0">ทั้งหมด ${groups.length} รายการ</div>
     <table>
-      <thead><tr><th>รูป</th><th>ชื่อการ์ด</th><th class="num">ราคาซื้อ</th></tr></thead>
+      <thead><tr><th>รูป</th><th>ชื่อการ์ด</th><th class="num buy-price">ราคาซื้อ</th></tr></thead>
       <tbody>${rows}</tbody>
     </table>`;
 }
