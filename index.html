@@ -726,7 +726,7 @@
         </select>
       </div>
     </div>
-    <div class="grid2">
+    <div class="grid2" id="grid_price1">
       <div class="field" id="fld_median">
         <label id="lblMedian">ราคากลาง (฿)</label>
         <input id="f_median" type="number" inputmode="decimal" placeholder="0" oninput="updateQtyTotals()">
@@ -736,7 +736,7 @@
         <input id="f_buy" type="number" inputmode="decimal" placeholder="0" oninput="updateQtyTotals()">
       </div>
     </div>
-    <div class="grid2">
+    <div class="grid2" id="grid_price2">
       <div class="field" id="fld_sell">
         <label id="lblSell">ราคาขาย (฿)</label>
         <input id="f_sell" type="number" inputmode="decimal" placeholder="0" oninput="updateQtyTotals()">
@@ -1925,6 +1925,9 @@ function applyFormMode(mode) {
   productMode = false; // เปิดฟอร์มปกติ = เพิ่มเข้าสต็อกตามปกติ
   document.getElementById('fld_status').style.display = '';   // คืนช่องสถานะ/วันที่ซื้อ
   document.getElementById('fld_buyDate').style.display = '';
+  // คืน "ราคาขาย" กลับแถวเดิม (คู่กับสถานะ)
+  const g2 = document.getElementById('grid_price2');
+  g2.insertBefore(document.getElementById('fld_sell'), g2.firstChild);
   updateQtyTotals();
 }
 function toggleSetMode(checked) { applyFormMode(checked ? 'set' : 'card'); }
@@ -1940,6 +1943,8 @@ function openProductAdd(mode) {
     const el = document.getElementById(id);
     if (el) el.style.display = 'none';
   });
+  // ราคารับซื้อ + ราคาขาย ให้อยู่แถวเดียวกัน
+  document.getElementById('grid_price1').appendChild(document.getElementById('fld_sell'));
 }
 
 // โหมด "รับซื้อจาก PSA" — ซ่อน ราคากลาง / ราคาขาย / last sold (เหลือแค่ราคารับซื้อ)
