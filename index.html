@@ -499,6 +499,24 @@
   </div>
 </div>
 
+<!-- แก้ไขราคาสินค้า (จากหน้าข้อมูลสินค้า) -->
+<div class="overlay" id="productEditOverlay">
+  <div class="modal" style="max-width:380px">
+    <h2>✏️ แก้ไขราคา</h2>
+    <p id="productEditName" style="color:var(--muted);font-size:.9rem;margin-bottom:16px"></p>
+    <input type="hidden" id="productEditIdx">
+    <div class="grid2">
+      <div class="field"><label>ราคารับซื้อ (฿)</label><input id="pe_buy" type="number" inputmode="decimal" placeholder="0"></div>
+      <div class="field"><label>ราคาขาย (฿)</label><input id="pe_sell" type="number" inputmode="decimal" placeholder="0"></div>
+    </div>
+    <p style="color:var(--muted);font-size:.78rem;margin-bottom:4px">* มีผลกับทุกใบของสินค้านี้ และทุกหน้า (ยกเว้นใบที่ขายแล้ว)</p>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeProductEdit()">ยกเลิก</button>
+      <button class="btn btn-primary" onclick="saveProductEdit()">บันทึก</button>
+    </div>
+  </div>
+</div>
+
 <!-- Sale dialog -->
 <div class="overlay" id="saleOverlay">
   <div class="modal" style="max-width:430px">
@@ -1158,14 +1176,19 @@ function renderProductSearch() {
       ? (arr.find(x => x.lang === lang) || arr.find(x => !x.lang))   // มีภาษา → กลุ่มภาษาตรง หรือกลุ่มที่ยังไม่ระบุภาษา
       : arr[0];                                                       // ไม่มีภาษา → กลุ่มแรกของชื่อนั้น
     if (!g) {
-      g = { rep: c, qty: 0, img: '', lang };
+      g = { rep: c, repLive: null, qty: 0, img: '', lang, ids: [] };
       groups.push(g); arr.push(g); byName.set(name, arr);
     }
     if (!g.lang && lang) g.lang = lang; // กลุ่มยังไม่ระบุภาษา แล้วเจอใบที่มีภาษา → ใช้ภาษานั้น
+    if (!g.repLive && c.status !== 'sold') g.repLive = c; // ใบที่ยังไม่ขาย → ใช้โชว์ราคา/ใช้แก้
     g.qty += Number(c.qty) || 1;
+    g.ids.push(c.id);
     if (!g.img && c.image) g.img = c.image;
   }
-  const rows = groups.map(({ rep: c, img: gImg, lang: gLang }) => {
+  productGroups = groups; // เก็บไว้อ้างอิงตอนกดแก้ไข
+  const rows = groups.map((g, i) => {
+    const c = g.repLive || g.rep; // โชว์ราคาจากใบที่ยังไม่ขายก่อน
+    const gImg = g.img, gLang = g.lang;
     const img = gImg
       ? `<img class="thumb" src="${gImg}" onclick="openLightbox('${c.id}')" alt="">`
       : `<div class="thumb-empty">🃏</div>`;
@@ -1174,13 +1197,45 @@ function renderProductSearch() {
       <td class="name">${c.topic ? `<div class="topic">${esc(c.topic)}</div>` : ''}${esc(c.name)}${gLang ? ` <span class="lang-badge">${esc(gLang)}</span>` : ''}${setMetaHTML(c)}${c.set ? `<div class="cardset">รุ่น: ${esc(c.set)}</div>` : ''}${c.detail ? `<div class="detail">${esc(c.detail)}</div>` : ''}</td>
       <td class="num">${money(c.buy)}</td>
       <td class="num">${money(c.sell)}</td>
+      <td><button class="icon-btn" onclick="openProductEdit(${i})" title="แก้ไขราคารับซื้อ/ราคาขาย">✏️</button></td>
     </tr>`;
   }).join('');
   area.innerHTML = `<div class="sales-summary" style="margin:10px 0">ทั้งหมด ${groups.length} รายการ</div>
     <table>
-      <thead><tr><th>รูป</th><th>ชื่อการ์ด / รายละเอียด</th><th class="num">ราคารับซื้อ</th><th class="num">ราคาขาย</th></tr></thead>
+      <thead><tr><th>รูป</th><th>ชื่อการ์ด / รายละเอียด</th><th class="num">ราคารับซื้อ</th><th class="num">ราคาขาย</th><th></th></tr></thead>
       <tbody>${rows}</tbody>
     </table>`;
+}
+
+// แก้ไขราคารับซื้อ/ราคาขายของสินค้า (กลุ่มที่ยุบรวมแล้ว) — มีผลทุกใบในกลุ่ม + ทุกหน้า
+let productGroups = [];
+function openProductEdit(i) {
+  const g = productGroups[i];
+  if (!g) return;
+  const c = g.repLive || g.rep;
+  document.getElementById('productEditIdx').value = i;
+  document.getElementById('productEditName').textContent =
+    (c.topic ? c.topic + ' · ' : '') + c.name + (g.lang ? ' (' + g.lang + ')' : '');
+  document.getElementById('pe_buy').value = c.buy ?? '';
+  document.getElementById('pe_sell').value = c.sell ?? '';
+  document.getElementById('productEditOverlay').classList.add('open');
+}
+function closeProductEdit() { document.getElementById('productEditOverlay').classList.remove('open'); }
+function saveProductEdit() {
+  const g = productGroups[document.getElementById('productEditIdx').value];
+  if (!g) return;
+  const buy = parseFloat(document.getElementById('pe_buy').value) || 0;
+  const sell = parseFloat(document.getElementById('pe_sell').value) || 0;
+  let n = 0;
+  g.ids.forEach(id => {
+    const c = cards.find(x => x.id === id);
+    if (c && c.status !== 'sold') { c.buy = buy; c.sell = sell; n++; } // ข้ามใบที่ขายแล้ว (ล็อกราคาที่ขายไปแล้ว)
+  });
+  if (!n) { alert('ทุกใบของสินค้านี้ขายแล้ว — แก้ราคาไม่ได้ (ราคาที่ขายไปแล้วถูกล็อกไว้)'); return; }
+  save();              // บันทึกขึ้นเซิร์ฟเวอร์
+  closeProductEdit();
+  render();            // อัปเดตหน้าสต็อก/สถิติ
+  renderProductSearch(); // อัปเดตหน้าข้อมูลสินค้า
 }
 function renderBuySearch() {
   const area = document.getElementById('buySearchArea');
@@ -2483,7 +2538,10 @@ document.getElementById('saleOverlay').addEventListener('click', e => {
 document.getElementById('splitOverlay').addEventListener('click', e => {
   if (e.target.id === 'splitOverlay') closeSplit();
 });
-document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeLogin(); closePSASearch(); closeSale(); closeSplit(); } });
+document.getElementById('productEditOverlay').addEventListener('click', e => {
+  if (e.target.id === 'productEditOverlay') closeProductEdit();
+});
+document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeLogin(); closePSASearch(); closeSale(); closeSplit(); closeProductEdit(); } });
 
 render();
 applyPermissions(); // ตั้งเมนู/แถบตามสิทธิ์ + คงแถบเดิมหลัง F5
