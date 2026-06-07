@@ -464,12 +464,12 @@
   <div id="viewProduct" style="display:none">
     <h2 class="view-title">📋 ข้อมูลสินค้า</h2>
     <div class="product-section">
-      <div class="daily-title">➕ การเพิ่มการ์ด</div>
+      <div class="daily-title">➕ เพิ่มข้อมูลสินค้า</div>
       <div class="toolbar">
-        <button class="btn btn-primary" onclick="openForm('card')">+ เพิ่มการ์ด</button>
-        <button class="btn btn-primary" onclick="openForm('collect')">+ เพิ่มของสะสม</button>
-        <button class="btn btn-ghost" onclick="openPSASearch()">🔍 ค้นหาการ์ด PSA</button>
+        <button class="btn btn-primary" onclick="openProductAdd('card')">+ เพิ่มสินค้า</button>
+        <button class="btn btn-primary" onclick="openProductAdd('collect')">+ เพิ่มของสะสม</button>
       </div>
+      <p style="color:var(--muted);font-size:.82rem;margin-top:8px">* เพิ่มที่นี่ = บันทึกเป็นข้อมูลสินค้าอย่างเดียว ไม่เข้าสต็อกการ์ด</p>
     </div>
     <div class="product-section">
       <div class="daily-title">📦 ข้อมูลสินค้าจากสต็อก</div>
@@ -881,18 +881,20 @@ function uid() { return Date.now().toString(36) + Math.floor(Math.random()*1e6).
 
 // ---- Stats ----
 function updateStats() {
-  const count = cards.length;
+  // นับเฉพาะการ์ดจริง (ไม่รวม "ข้อมูลสินค้าอย่างเดียว")
+  const real = cards.filter(c => !c.productOnly);
+  const count = real.length;
   // ยอดรวม ราคากลาง/รับซื้อ/ขาย = เฉพาะของที่ยังอยู่ในสต็อก (สะสม + รอขาย) ไม่รวมที่ขายแล้ว
-  const inStock = cards.filter(c => c.status !== 'sold');
+  const inStock = real.filter(c => c.status !== 'sold');
   const totalMedian = inStock.reduce((s, c) => s + (Number(c.median) || 0), 0);
   const totalBuy = inStock.reduce((s, c) => s + (Number(c.buy) || 0), 0);
   const totalSell = inStock.reduce((s, c) => s + (Number(c.sell) || 0), 0);
-  const nShow = cards.filter(c => c.status === 'show').length;
-  const nWait = cards.filter(c => c.status === 'wait').length;
-  const nSold = cards.filter(c => c.status === 'sold' && !c.cancelled).length;
+  const nShow = real.filter(c => c.status === 'show').length;
+  const nWait = real.filter(c => c.status === 'wait').length;
+  const nSold = real.filter(c => c.status === 'sold' && !c.cancelled).length;
 
   // กำไรที่ทำได้จริง = เฉพาะใบที่ขายแล้ว (ไม่นับที่ยกเลิก) (ราคาขาย − ราคารับซื้อ)
-  const realized = cards.filter(c => c.status === 'sold' && !c.cancelled)
+  const realized = real.filter(c => c.status === 'sold' && !c.cancelled)
     .reduce((s, c) => s + ((Number(c.sell) || 0) - (Number(c.buy) || 0)), 0);
 
   document.getElementById('statCount').textContent = count.toLocaleString('th-TH');
@@ -927,7 +929,7 @@ function renderTopicBreakdown() {
   const el = document.getElementById('topicBreakdown');
   const map = new Map();
   for (const c of cards) {
-    if (c.status === 'sold') continue; // หน้าสต็อกไม่รวมที่ขายแล้ว
+    if (c.status === 'sold' || c.productOnly) continue; // หน้าสต็อกไม่รวมที่ขายแล้ว/ข้อมูลสินค้าอย่างเดียว
     const key = (c.topic && c.topic.trim()) ? c.topic.trim() : '__none__';
     const g = map.get(key) || { count: 0, value: 0 };
     g.count++;
@@ -967,8 +969,8 @@ function render() {
   const sortBy = document.getElementById('sortBy').value;
   const area = document.getElementById('tableArea');
 
-  // หน้าสต็อกการ์ด: ไม่รวมใบที่ขายแล้ว (ดูได้ที่เมนูย่อย "สต็อกการ์ดขายแล้ว")
-  let list = cards.map((c, i) => ({ ...c, _i: i })).filter(c => c.status !== 'sold');
+  // หน้าสต็อกการ์ด: ไม่รวมใบที่ขายแล้ว + ไม่รวม "ข้อมูลสินค้าอย่างเดียว"
+  let list = cards.map((c, i) => ({ ...c, _i: i })).filter(c => c.status !== 'sold' && !c.productOnly);
   if (sf) list = list.filter(c => c.status === sf);
   if (tf) list = list.filter(c => (c.topic || '') === tf);
   if (q) {
@@ -1334,7 +1336,7 @@ function confirmBuy() {
   // สร้างการ์ดใหม่ 1 ใบเข้าสต็อก (สถานะ "สะสม") — ราคารับซื้อ = ยอดที่กรอก
   const newCard = { ...rep, id: uid(), status: 'show', qty: 1, buy: amount, buyDate: todayISO(), viaBuy: true, discount: 0 };
   if (rep.type === 'collect') { newCard.unitBuy = amount; newCard.median = Number(rep.unitMedian) || 0; newCard.sell = Number(rep.unitSell) || 0; }
-  delete newCard.sellDate; delete newCard.sellTime; delete newCard.payment; delete newCard.cancelled; delete newCard._i;
+  delete newCard.sellDate; delete newCard.sellTime; delete newCard.payment; delete newCard.cancelled; delete newCard._i; delete newCard.productOnly;
   cards.push(newCard);
   save();
   closeBuyConfirm();
@@ -1495,7 +1497,7 @@ function renderSoldStock() {
   const area = document.getElementById('soldStockArea');
   if (!area) return;
   const q = (document.getElementById('soldStockSearch').value || '').trim().toLowerCase();
-  let list = cards.filter(c => c.status === 'sold' && !c.cancelled); // ไม่รวมที่ยกเลิก
+  let list = cards.filter(c => c.status === 'sold' && !c.cancelled && !c.productOnly); // ไม่รวมที่ยกเลิก/ข้อมูลสินค้าอย่างเดียว
   if (q) {
     const terms = q.split(/\s+/).filter(Boolean);
     list = list.filter(c => {
@@ -1534,7 +1536,7 @@ function renderSales() {
   const area = document.getElementById('salesTableArea');
   if (!area) return;
   const q = (document.getElementById('salesSearch').value || '').trim().toLowerCase();
-  let list = cards.filter(c => c.status === 'wait');
+  let list = cards.filter(c => c.status === 'wait' && !c.productOnly);
   // กรองตามหน่วยที่คลิกจากชิป "รอขาย" → เหลือเฉพาะของที่รอขายของหน่วยนั้น
   if (salesUnitFilter) {
     list = list.filter(c => c.status === 'wait' && stockUnitOf(c) === salesUnitFilter);
@@ -1920,9 +1922,18 @@ function applyFormMode(mode) {
   document.getElementById('lblSell').textContent = `ราคาขาย${sfx} (฿)`;
   if (isSet) ensureSetItemRows();
   setBuyMode(false); // เปิดฟอร์มปกติ = ไม่ใช่โหมดรับซื้อ (โชว์ช่องราคากลาง/ขาย/last sold)
+  productMode = false; // เปิดฟอร์มปกติ = เพิ่มเข้าสต็อกตามปกติ
   updateQtyTotals();
 }
 function toggleSetMode(checked) { applyFormMode(checked ? 'set' : 'card'); }
+
+// โหมด "เพิ่มข้อมูลสินค้า" (จากหน้าข้อมูลสินค้า) → บันทึกเป็นข้อมูลสินค้าอย่างเดียว ไม่เข้าสต็อก
+let productMode = false;
+function openProductAdd(mode) {
+  openForm(mode);
+  productMode = true;
+  document.getElementById('modalTitle').textContent = mode === 'collect' ? 'เพิ่มข้อมูลของสะสม' : 'เพิ่มข้อมูลสินค้า';
+}
 
 // โหมด "รับซื้อจาก PSA" — ซ่อน ราคากลาง / ราคาขาย / last sold (เหลือแค่ราคารับซื้อ)
 let buyMode = false;
@@ -2375,9 +2386,10 @@ function saveCard() {
   const id = document.getElementById('f_id').value;
   const key = s => (s || '').trim().toLowerCase();
   if (buyMode && !id) data.viaBuy = true; // เพิ่มผ่านโหมดรับซื้อ → โชว์ในรายการรับซื้อ
-  // กันเพิ่มการ์ดที่เลข cert PSA ซ้ำ (cert ไม่ซ้ำกัน) — ยกเว้นใบเดิม "ขายแล้ว" จึงเพิ่มใหม่ได้
-  if (!isCollect && !isSet && data.cert) {
-    const dup = cards.find(x => x.id !== id && x.type !== 'collect' && x.type !== 'set'
+  if (productMode && !id) data.productOnly = true; // เพิ่มผ่านหน้าข้อมูลสินค้า → ไม่เข้าสต็อก
+  // กันเพิ่มการ์ดที่เลข cert PSA ซ้ำ (cert ไม่ซ้ำกัน) — ยกเว้นใบเดิม "ขายแล้ว"/ข้อมูลสินค้าอย่างเดียว
+  if (!isCollect && !isSet && !productMode && data.cert) {
+    const dup = cards.find(x => x.id !== id && x.type !== 'collect' && x.type !== 'set' && !x.productOnly
       && (x.cert || '') === data.cert && x.status !== 'sold');
     if (dup) {
       const stLabel = (STATUS[dup.status] || {}).label || dup.status;
@@ -2415,7 +2427,7 @@ function saveCard() {
   }
   // การ์ดเดี่ยว: ราคารับซื้อ/ขาย ให้เท่ากันทุกใบในกลุ่มชื่อเดียวกัน (ชุด/ของสะสม ไม่ซิงก์)
   // แต่ "ข้ามใบที่ขายแล้ว" — ราคาที่ขายไปแล้วล็อกไว้ ไม่โดนแก้ตาม
-  if (!isCollect && !isSet && !buyMode) {
+  if (!isCollect && !isSet && !buyMode && !productMode) {
     const target = id ? cards.find(x => x.id === id) : cards[cards.length - 1];
     if (target && target.status !== 'sold') {
       const gk = groupKeyOf(target);
@@ -2429,8 +2441,10 @@ function saveCard() {
   save();
   closeForm();
   render();
-  renderBuyList(); // อัปเดตรายการรับซื้อ (ถ้าเพิ่มผ่านโหมดรับซื้อ)
+  renderBuyList();       // อัปเดตรายการรับซื้อ (ถ้าเพิ่มผ่านโหมดรับซื้อ)
+  renderProductSearch(); // อัปเดตหน้าข้อมูลสินค้า
   buyMode = false;
+  productMode = false;
 }
 
 function delCard(id) {
