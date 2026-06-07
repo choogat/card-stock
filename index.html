@@ -425,13 +425,6 @@
   <div id="viewBuy" style="display:none">
     <h2 class="view-title">🛒 รับซื้อสินค้า</h2>
     <div class="product-section">
-      <div class="daily-title">⚡ PSA — เพิ่มการ์ดด้วยเลข cert</div>
-      <div class="toolbar">
-        <button class="btn btn-primary" onclick="openForm('card')">⚡ เพิ่มการ์ด (ดึง PSA)</button>
-        <button class="btn btn-ghost" onclick="openPSASearch()">🔍 ค้นหาการ์ด PSA</button>
-      </div>
-    </div>
-    <div class="product-section">
       <div class="daily-title">🔎 ค้นหาการ์ดในสต็อก</div>
       <input class="search" id="buySearch" placeholder="ค้นหา เรื่อง / ชื่อ / รุ่น / PSA / cert..." oninput="renderBuySearch()" style="width:100%">
       <div id="buySearchArea"></div>
@@ -440,9 +433,20 @@
 
   <div id="viewProduct" style="display:none">
     <h2 class="view-title">📋 ข้อมูลสินค้า</h2>
-    <p style="color:var(--muted);font-size:.9rem;margin-bottom:14px">แสดงรายละเอียดสินค้าจากสต็อกการ์ด พร้อมราคารับซื้อและราคาขาย (อ่านอย่างเดียว)</p>
-    <input class="search" id="productSearch" placeholder="ค้นหา/กรอง เรื่อง / ชื่อ / รุ่น / PSA / cert..." oninput="renderProductSearch()" style="width:100%;margin-bottom:14px">
-    <div id="productSearchArea"></div>
+    <div class="product-section">
+      <div class="daily-title">➕ การเพิ่มการ์ด</div>
+      <div class="toolbar">
+        <button class="btn btn-primary" onclick="openForm('card')">+ เพิ่มการ์ด</button>
+        <button class="btn btn-primary" onclick="openForm('collect')">+ เพิ่มของสะสม</button>
+        <button class="btn btn-ghost" onclick="openPSASearch()">🔍 ค้นหาการ์ด PSA</button>
+      </div>
+    </div>
+    <div class="product-section">
+      <div class="daily-title">📦 ข้อมูลสินค้าจากสต็อก</div>
+      <p style="color:var(--muted);font-size:.88rem;margin-bottom:10px">แสดงรายละเอียดสินค้าจากสต็อกการ์ด พร้อมราคารับซื้อและราคาขาย</p>
+      <input class="search" id="productSearch" placeholder="ค้นหา/กรอง เรื่อง / ชื่อ / รุ่น / PSA / cert..." oninput="renderProductSearch()" style="width:100%;margin-bottom:14px">
+      <div id="productSearchArea"></div>
+    </div>
   </div><!-- /viewProduct -->
 
   <div id="viewUsers" style="display:none">
