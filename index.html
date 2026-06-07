@@ -303,6 +303,7 @@
   .grp-price { width: 84px; background: var(--bg); border: 1px solid var(--border); color: var(--text); padding: 6px 8px; border-radius: 8px; font-size: .85rem; text-align: right; font-variant-numeric: tabular-nums; }
   .grp-price:focus { outline: none; border-color: var(--accent); }
   .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .grid-topic-lang { display: grid; grid-template-columns: 3fr 1fr; gap: 12px; }
   .psa-lookup { background: rgba(108,92,231,.12); border: 1px solid var(--accent2); border-radius: 14px; padding: 14px; }
   .psa-row { display: flex; gap: 8px; }
   .psa-row input { flex: 1; }
@@ -680,9 +681,19 @@
     <div class="field" id="row_setToggle">
       <label class="set-toggle"><input type="checkbox" id="f_isSet" onchange="toggleSetMode(this.checked)"> 📦 เพิ่มเป็นชุด (หลายใบ · ใส่ราคารวมทั้งชุด)</label>
     </div>
-    <div class="field">
-      <label>เรื่อง</label>
-      <input id="f_topic" placeholder="เช่น Pokemon, One Piece, Dragon Ball...">
+    <div class="grid-topic-lang">
+      <div class="field">
+        <label>เรื่อง</label>
+        <input id="f_topic" placeholder="เช่น Pokemon, One Piece...">
+      </div>
+      <div class="field">
+        <label>ภาษา</label>
+        <select id="f_lang">
+          <option value="JP">JP</option>
+          <option value="EN">EN</option>
+          <option value="CN">CN</option>
+        </select>
+      </div>
     </div>
     <div class="field">
       <label id="nameLabel">ชื่อการ์ด *</label>
@@ -692,14 +703,6 @@
       <label>รายชื่อการ์ดในชุด (สูงสุด 15 ใบ) · ใส่เลข cert แล้วกด ⚡ เพื่อดึงชื่อจาก PSA</label>
       <div id="setItemsList"></div>
       <button type="button" class="btn btn-ghost btn-sm" id="setAddBtn" onclick="addSetItem()">+ เพิ่มใบ</button>
-    </div>
-    <div class="field">
-      <label>ภาษา</label>
-      <select id="f_lang">
-        <option value="JP">JP</option>
-        <option value="EN">EN</option>
-        <option value="CN">CN</option>
-      </select>
     </div>
     <div class="grid2" id="row_setPsa">
       <div class="field">
