@@ -1299,6 +1299,7 @@ function renderReport() {
     name: (a, b) => (a.name || '').localeCompare(b.name || '', 'th'),
   };
   const rsort = document.getElementById('reportSort').value;
+  const isToday = day === todayISO(); // ยกเลิกการขายได้เฉพาะของวันนี้
   const rows = sold.slice().sort(reportSorters[rsort] || reportSorters.time_desc).map(c => {
     const img = c.image ? `<img class="thumb" src="${c.image}" onclick="openLightbox('${c.id}')" alt="">` : `<div class="thumb-empty">🃏</div>`;
     const disc = Number(c.discount) || 0;
@@ -1315,12 +1316,30 @@ function renderReport() {
       <td class="num">${disc > 0 ? money(disc) : '-'}</td>
       <td class="num">${money(net)}</td>
       ${canSeeProfit() ? `<td class="num"><span class="${p > 0 ? 'profit-pos' : p < 0 ? 'profit-neg' : 'muted'}">${p > 0 ? '+' : ''}${money(p)}</span></td>` : ''}
+      ${isToday ? `<td class="center"><button class="btn btn-danger btn-sm" onclick="cancelSale('${c.id}')" title="ยกเลิกการขาย → กลับเป็นรอขาย">ยกเลิก</button></td>` : ''}
     </tr>`;
   }).join('');
   area.innerHTML = `<table>
-    <thead><tr><th>รูป</th><th>ชื่อการ์ด</th><th class="center">เวลา</th><th class="center">ชำระเงิน</th><th class="num">รับซื้อ</th><th class="num">ขาย</th><th class="num">ส่วนลด</th><th class="num">ยอดขายสุทธิ</th>${canSeeProfit() ? '<th class="num">กำไร</th>' : ''}</tr></thead>
+    <thead><tr><th>รูป</th><th>ชื่อการ์ด</th><th class="center">เวลา</th><th class="center">ชำระเงิน</th><th class="num">รับซื้อ</th><th class="num">ขาย</th><th class="num">ส่วนลด</th><th class="num">ยอดขายสุทธิ</th>${canSeeProfit() ? '<th class="num">กำไร</th>' : ''}${isToday ? '<th class="center">ยกเลิก</th>' : ''}</tr></thead>
     <tbody>${rows}</tbody>
   </table>`;
+}
+
+// ยกเลิกการขาย (เฉพาะรายการที่ขาย "วันนี้") → คืนสถานะเป็น "รอขาย" กลับไปหน้าสินค้าขาย
+function cancelSale(id) {
+  const c = cards.find(x => x.id === id);
+  if (!c || c.status !== 'sold') return;
+  if ((c.sellDate || '') !== todayISO()) { alert('ยกเลิกได้เฉพาะรายการที่ขายวันนี้เท่านั้น'); return; }
+  if (!confirm(`ยกเลิกการขาย "${c.name}" ?\nใบนี้จะกลับไปเป็น "รอขาย" ในหน้าสินค้าขาย`)) return;
+  c.sell = (Number(c.sell) || 0) + (Number(c.discount) || 0); // คืนราคาขายเป็นยอดก่อนหักส่วนลด
+  c.discount = 0;
+  delete c.payment;
+  delete c.sellDate;
+  delete c.sellTime;
+  c.status = 'wait';
+  save();
+  render();
+  renderReport();
 }
 
 // ---- แถบ "สินค้าขาย" ----
