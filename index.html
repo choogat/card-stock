@@ -445,6 +445,7 @@
     <div id="reportSummary"></div>
     <div class="daily-title">📚 ยอดขายแยกตามเรื่อง</div>
     <div class="topic-breakdown" id="reportTopics"></div>
+    <input class="search" id="reportSearch" placeholder="ค้นหา/กรองสินค้าในรายงาน — ชื่อ / เรื่อง / รุ่น / PSA / cert..." oninput="renderReport()" style="width:100%;margin-bottom:12px">
     <div id="reportTableArea"></div>
   </div><!-- /viewReport -->
 
@@ -1455,7 +1456,21 @@ function renderReport() {
   };
   const rsort = document.getElementById('reportSort').value;
   const isToday = day === todayISO(); // ยกเลิกการขายได้เฉพาะของวันนี้
-  const rows = sold.slice().sort(reportSorters[rsort] || reportSorters.time_desc).map(c => {
+  // ค้นหา/กรองสินค้าในรายงาน (กรองเฉพาะรายการในตาราง — สรุปยอดด้านบนยังเป็นของทั้งวัน)
+  const rq = (document.getElementById('reportSearch').value || '').trim().toLowerCase();
+  let rowItems = sold.slice();
+  if (rq) {
+    const terms = rq.split(/\s+/).filter(Boolean);
+    rowItems = rowItems.filter(c => {
+      const hay = [c.topic, c.name, c.set, c.psa, c.cert, c.lang, c.detail].filter(Boolean).join(' ').toLowerCase();
+      return terms.every(t => hay.includes(t));
+    });
+  }
+  if (!rowItems.length) {
+    area.innerHTML = `<div class="empty"><div class="big">🔎</div>ไม่พบสินค้าที่ตรงกับ “${esc(rq)}” ในวันนี้</div>`;
+    return;
+  }
+  const rows = rowItems.sort(reportSorters[rsort] || reportSorters.time_desc).map(c => {
     const img = c.image ? `<img class="thumb" src="${c.image}" onclick="openLightbox('${c.id}')" alt="">` : `<div class="thumb-empty">🃏</div>`;
     const disc = Number(c.discount) || 0;
     const net = Number(c.sell) || 0;
