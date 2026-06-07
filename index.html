@@ -727,7 +727,7 @@
       </div>
     </div>
     <div class="grid2">
-      <div class="field">
+      <div class="field" id="fld_median">
         <label id="lblMedian">ราคากลาง (฿)</label>
         <input id="f_median" type="number" inputmode="decimal" placeholder="0" oninput="updateQtyTotals()">
       </div>
@@ -737,7 +737,7 @@
       </div>
     </div>
     <div class="grid2">
-      <div class="field">
+      <div class="field" id="fld_sell">
         <label id="lblSell">ราคาขาย (฿)</label>
         <input id="f_sell" type="number" inputmode="decimal" placeholder="0" oninput="updateQtyTotals()">
       </div>
@@ -1284,11 +1284,17 @@ function openBuyPopup() {
   if (!q) { pop.style.display = 'none'; pop.innerHTML = ''; return; }
   const groups = buildProductGroups(filterCardsByQuery(q));
   buyPopupGroups = groups;
-  if (!groups.length) {
-    pop.innerHTML = `<div class="bp-empty">ไม่พบการ์ดที่ตรงกับ “${esc(q)}”</div>`;
-    pop.style.display = ''; return;
+  let html = '';
+  // ค้นหาจาก PSA — เมื่อพิมพ์เป็นเลข cert (อย่างน้อย 5 หลัก)
+  const cert = q.replace(/\D/g, '');
+  if (/^\d{5,}$/.test(cert)) {
+    html += `<div class="bp-item">
+      <div class="thumb-empty">⚡</div>
+      <div class="bp-info"><div class="bp-name">ดึงข้อมูลจาก PSA</div><div class="bp-price">เลข cert: ${esc(cert)}</div></div>
+      <button class="btn btn-primary btn-sm" onclick="buyFromPSA('${esc(cert)}')">ค้นหา PSA</button>
+    </div>`;
   }
-  pop.innerHTML = groups.map((g, i) => {
+  html += groups.map((g, i) => {
     const c = g.repLive || g.rep;
     const img = g.img ? `<img class="thumb" src="${g.img}" alt="">` : `<div class="thumb-empty">🃏</div>`;
     return `<div class="bp-item">
@@ -1300,6 +1306,8 @@ function openBuyPopup() {
       <button class="btn btn-primary btn-sm" onclick="startBuy(${i})">รับซื้อ</button>
     </div>`;
   }).join('');
+  if (!html) html = `<div class="bp-empty">ไม่พบการ์ดที่ตรงกับ “${esc(q)}”</div>`;
+  pop.innerHTML = html;
   pop.style.display = '';
 }
 function closeBuyPopup() {
@@ -1932,9 +1940,28 @@ function applyFormMode(mode) {
   document.getElementById('lblBuy').textContent = `ราคารับซื้อ${sfx} (฿)`;
   document.getElementById('lblSell').textContent = `ราคาขาย${sfx} (฿)`;
   if (isSet) ensureSetItemRows();
+  setBuyMode(false); // เปิดฟอร์มปกติ = ไม่ใช่โหมดรับซื้อ (โชว์ช่องราคากลาง/ขาย/last sold)
   updateQtyTotals();
 }
 function toggleSetMode(checked) { applyFormMode(checked ? 'set' : 'card'); }
+
+// โหมด "รับซื้อจาก PSA" — ซ่อน ราคากลาง / ราคาขาย / last sold (เหลือแค่ราคารับซื้อ)
+let buyMode = false;
+function setBuyMode(on) {
+  buyMode = on;
+  document.getElementById('fld_median').style.display = on ? 'none' : '';
+  document.getElementById('fld_sell').style.display = on ? 'none' : '';
+  if (on) document.getElementById('row_snkr').style.display = 'none';
+  document.getElementById('modalTitle').textContent = on ? '📥 รับซื้อจาก PSA' : document.getElementById('modalTitle').textContent;
+}
+// ค้นหาจาก PSA ในแท็บรับซื้อ → เปิดฟอร์มแบบเพิ่มการ์ด (ซ่อนราคากลาง/ขาย/last sold)
+async function buyFromPSA(cert) {
+  closeBuyPopup();
+  openForm('card');
+  document.getElementById('f_cert').value = cert;
+  await fetchPSA();
+  setBuyMode(true);
+}
 
 // ---- รายชื่อการ์ดในชุด (สูงสุด 15 ใบ) ----
 const SET_MAX = 15;
@@ -2368,6 +2395,7 @@ function saveCard() {
   };
   const id = document.getElementById('f_id').value;
   const key = s => (s || '').trim().toLowerCase();
+  if (buyMode && !id) data.viaBuy = true; // เพิ่มผ่านโหมดรับซื้อ → โชว์ในรายการรับซื้อ
   // กันเพิ่มการ์ดที่เลข cert PSA ซ้ำ (cert ไม่ซ้ำกัน) — ยกเว้นใบเดิม "ขายแล้ว" จึงเพิ่มใหม่ได้
   if (!isCollect && !isSet && data.cert) {
     const dup = cards.find(x => x.id !== id && x.type !== 'collect' && x.type !== 'set'
@@ -2408,7 +2436,7 @@ function saveCard() {
   }
   // การ์ดเดี่ยว: ราคารับซื้อ/ขาย ให้เท่ากันทุกใบในกลุ่มชื่อเดียวกัน (ชุด/ของสะสม ไม่ซิงก์)
   // แต่ "ข้ามใบที่ขายแล้ว" — ราคาที่ขายไปแล้วล็อกไว้ ไม่โดนแก้ตาม
-  if (!isCollect && !isSet) {
+  if (!isCollect && !isSet && !buyMode) {
     const target = id ? cards.find(x => x.id === id) : cards[cards.length - 1];
     if (target && target.status !== 'sold') {
       const gk = groupKeyOf(target);
@@ -2422,6 +2450,8 @@ function saveCard() {
   save();
   closeForm();
   render();
+  renderBuyList(); // อัปเดตรายการรับซื้อ (ถ้าเพิ่มผ่านโหมดรับซื้อ)
+  buyMode = false;
 }
 
 function delCard(id) {
