@@ -304,6 +304,7 @@
   .grp-price:focus { outline: none; border-color: var(--accent); }
   .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
   .grid-topic-lang { display: grid; grid-template-columns: 3fr 1fr; gap: 12px; }
+  .danger-zone { margin-top: 26px; padding: 16px; border: 1px solid var(--danger); border-radius: 14px; background: rgba(226,59,78,.06); max-width: 560px; }
   .psa-lookup { background: rgba(108,92,231,.12); border: 1px solid var(--accent2); border-radius: 14px; padding: 14px; }
   .psa-row { display: flex; gap: 8px; }
   .psa-row input { flex: 1; }
@@ -509,6 +510,11 @@
       <button class="btn btn-ghost" onclick="clearUserForm()">ล้างฟอร์ม</button>
     </div>
     <div id="usersList"></div>
+    <div class="danger-zone">
+      <div class="daily-title" style="color:var(--danger)">⚠️ ล้างข้อมูล</div>
+      <p style="color:var(--muted);font-size:.85rem;margin-bottom:10px">ลบข้อมูลการ์ด/สินค้าทั้งหมด (สต็อก · สินค้าขาย · รายงาน · ข้อมูลสินค้า · รับซื้อ) ออกจากเครื่องนี้และเซิร์ฟเวอร์ — กู้ไม่ได้ · ผู้ใช้งานไม่โดนลบ</p>
+      <button class="btn btn-danger" onclick="clearAllCards()">🗑️ ล้างข้อมูลการ์ดทั้งหมด</button>
+    </div>
   </div><!-- /viewUsers -->
   </main>
 </div><!-- /layout -->
@@ -2743,6 +2749,19 @@ async function saveUser() {
     clearUserForm();
     renderUsersList();
   } catch (e) { usersMsg('เชื่อมต่อไม่ได้', 'err'); }
+}
+
+// ล้างข้อมูลการ์ดทั้งหมด (เฉพาะแอดมิน) — ล้าง localStorage + ดันค่าว่างขึ้นเซิร์ฟเวอร์พร้อมกัน
+async function clearAllCards() {
+  if (userRole && userRole !== 'admin') { alert('เฉพาะแอดมินเท่านั้น'); return; }
+  if (!confirm('⚠️ ล้างข้อมูลการ์ด/สินค้าทั้งหมด?\n\nลบทั้งสต็อก/สินค้าขาย/รายงาน/ข้อมูลสินค้า/รับซื้อ ออกหมด (กู้ไม่ได้)\nผู้ใช้งานไม่โดนลบ')) return;
+  const p = prompt('พิมพ์  CLEAR  เพื่อยืนยันการล้างข้อมูล:');
+  if (p !== 'CLEAR') { alert('ยกเลิก — ไม่ได้ล้างข้อมูล'); return; }
+  cards = [];
+  try { localStorage.setItem(KEY, JSON.stringify(cards)); } catch (e) {}
+  await pushToServer(); // ดันค่าว่างขึ้นเซิร์ฟเวอร์ทันที (ไม่รอ debounce)
+  render();
+  alert('✓ ล้างข้อมูลการ์ดทั้งหมดแล้ว');
 }
 
 async function deleteUser(id) {
