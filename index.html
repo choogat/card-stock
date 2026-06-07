@@ -77,11 +77,11 @@
   .report-controls input[type=date] { background: var(--card); border: 1px solid var(--border); color: var(--text); padding: 10px 14px; border-radius: 11px; font-size: .95rem; font-family: inherit; }
   .report-controls input[type=date]:focus { outline: none; border-color: var(--accent); }
   .user-form { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 20px; margin-bottom: 22px; max-width: 560px; }
-  .user-form .field input { width: 100%; background: var(--bg); border: 1px solid var(--border); color: var(--text); padding: 11px 14px; border-radius: 11px; font-size: .95rem; }
-  .user-form .field input:focus { outline: none; border-color: var(--accent); }
+  .user-form .field input:not([type=checkbox]) { width: 100%; background: var(--bg); border: 1px solid var(--border); color: var(--text); padding: 11px 14px; border-radius: 11px; font-size: .95rem; }
+  .user-form .field input:not([type=checkbox]):focus { outline: none; border-color: var(--accent); }
   .tab-perms { display: flex; flex-direction: column; gap: 8px; }
   .tab-perms label { display: flex; align-items: center; gap: 8px; font-size: .92rem; color: var(--text); cursor: pointer; }
-  .tab-perms input { width: 18px; height: 18px; accent-color: var(--accent); }
+  .tab-perms input { width: 18px; height: 18px; flex: none; margin: 0; padding: 0; accent-color: var(--accent); }
   .usersMsg { font-size: .85rem; min-height: 1em; margin-bottom: 10px; }
   .usersMsg.ok { color: var(--green); } .usersMsg.err { color: var(--danger); }
   .user-row { display: flex; align-items: center; gap: 12px; background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 12px 16px; margin-bottom: 8px; }
