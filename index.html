@@ -46,6 +46,13 @@
   }
   .nav-item:hover { background: var(--card2); color: var(--text); }
   .nav-item.active { background: linear-gradient(135deg, var(--accent), var(--accent2)); color: #fff; }
+  .nav-sub {
+    text-align: left; background: transparent; border: 1px solid transparent; color: var(--muted);
+    padding: 9px 12px 9px 30px; border-radius: 11px; cursor: pointer; font-size: .85rem; font-weight: 600; font-family: inherit;
+    transition: background .15s, color .15s;
+  }
+  .nav-sub:hover { background: var(--card2); color: var(--text); }
+  .nav-sub.active { background: linear-gradient(135deg, var(--accent), var(--accent2)); color: #fff; }
   .sidebar-foot { margin-top: 12px; padding-top: 14px; border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 10px; align-items: flex-start; }
   .main { flex: 1; min-width: 0; }
   .view-title { font-size: 1.4rem; margin-bottom: 6px; }
@@ -308,6 +315,7 @@
     <div class="brand">🃏 Cielcard <span class="pill">PSA</span></div>
     <nav class="nav">
       <button class="nav-item active" data-view="stock" onclick="switchView('stock')">📦 สต็อกการ์ด</button>
+      <button class="nav-sub" id="navSoldStock" onclick="switchView('soldstock')" style="display:none">↳ สต็อกการ์ดขายแล้ว</button>
       <button class="nav-item" data-view="sales" onclick="switchView('sales')">🏷️ สินค้าขาย</button>
       <button class="nav-item" data-view="report" onclick="switchView('report')">📊 รายงานการขาย</button>
       <button class="nav-item" data-view="buy" onclick="switchView('buy')">🛒 รับซื้อสินค้า</button>
@@ -375,6 +383,14 @@
 
   <div id="tableArea"></div>
   </div><!-- /viewStock -->
+
+  <div id="viewSoldStock" style="display:none">
+    <h2 class="view-title">🗂️ สต็อกการ์ดขายแล้ว</h2>
+    <div class="toolbar">
+      <input class="search" id="soldStockSearch" placeholder="ค้นหา เรื่อง / ชื่อ / รุ่น / PSA / cert..." oninput="renderSoldStock()" style="width:100%">
+    </div>
+    <div id="soldStockArea"></div>
+  </div><!-- /viewSoldStock -->
 
   <div id="viewSales" style="display:none">
     <div class="sales-head">
@@ -1074,16 +1090,31 @@ function buildStockRows(list) {
 }
 
 // ---- สลับแถบเมนู ----
+// "soldstock" (สต็อกการ์ดขายแล้ว) เป็นเมนูย่อยของ stock — ใครเข้า stock ได้ก็เข้าได้
+function canViewTab(v) {
+  const allowed = allowedTabs();
+  return allowed.includes(v) || (v === 'soldstock' && allowed.includes('stock'));
+}
 function switchView(view) {
-  if (!allowedTabs().includes(view)) view = allowedTabs()[0] || 'stock';
+  if (!canViewTab(view)) view = allowedTabs()[0] || 'stock';
   document.querySelectorAll('.nav-item').forEach(b => b.classList.toggle('active', b.dataset.view === view));
   document.getElementById('viewStock').style.display = view === 'stock' ? '' : 'none';
+  document.getElementById('viewSoldStock').style.display = view === 'soldstock' ? '' : 'none';
   document.getElementById('viewSales').style.display = view === 'sales' ? '' : 'none';
   document.getElementById('viewReport').style.display = view === 'report' ? '' : 'none';
   document.getElementById('viewBuy').style.display = view === 'buy' ? '' : 'none';
   document.getElementById('viewProduct').style.display = view === 'product' ? '' : 'none';
   document.getElementById('viewUsers').style.display = view === 'users' ? '' : 'none';
+  // เมนูย่อย "สต็อกการ์ดขายแล้ว" → โผล่เมื่ออยู่ในกลุ่มสต็อก (กดสต็อกการ์ดก่อน)
+  const navSold = document.getElementById('navSoldStock');
+  if (navSold) {
+    const inStockSection = (view === 'stock' || view === 'soldstock');
+    navSold.style.display = inStockSection ? '' : 'none';
+    navSold.classList.toggle('active', view === 'soldstock');
+    if (view === 'soldstock') document.querySelector('.nav-item[data-view="stock"]').classList.add('active');
+  }
   if (view === 'report') renderReport();
+  if (view === 'soldstock') renderSoldStock();
   if (view === 'buy') renderBuySearch();
   if (view === 'product') renderProductSearch();
   if (view === 'users') renderUsers();
@@ -1104,7 +1135,7 @@ function applyPermissions() {
     b.style.display = allowed.includes(b.dataset.view) ? '' : 'none';
   });
   const cur = localStorage.getItem('app_view') || 'stock';
-  switchView(allowed.includes(cur) ? cur : (allowed[0] || 'stock'));
+  switchView(canViewTab(cur) ? cur : (allowed[0] || 'stock'));
 }
 
 // กรองการ์ดตามคำค้น (ว่าง = ทุกใบ)
@@ -1340,6 +1371,44 @@ function cancelSale(id) {
   save();
   render();
   renderReport();
+}
+
+// ---- เมนูย่อย "สต็อกการ์ดขายแล้ว" — รายการที่ขายแล้วทั้งหมด (อ่านอย่างเดียว) ----
+function renderSoldStock() {
+  const area = document.getElementById('soldStockArea');
+  if (!area) return;
+  const q = (document.getElementById('soldStockSearch').value || '').trim().toLowerCase();
+  let list = cards.filter(c => c.status === 'sold');
+  if (q) {
+    const terms = q.split(/\s+/).filter(Boolean);
+    list = list.filter(c => {
+      const hay = [c.topic, c.name, c.set, c.psa, c.cert, c.detail, c.lang].filter(Boolean).join(' ').toLowerCase();
+      return terms.every(t => hay.includes(t));
+    });
+  }
+  if (!list.length) {
+    area.innerHTML = `<div class="empty"><div class="big">🗂️</div>${q ? 'ไม่พบการ์ดที่ตรงกับ “' + esc(q) + '”' : 'ยังไม่มีการ์ดที่ขายแล้ว'}</div>`;
+    return;
+  }
+  list = list.slice().sort((a, b) => (b.sellDate || '').localeCompare(a.sellDate || '') || (b.sellTime || '').localeCompare(a.sellTime || ''));
+  const totalSell = list.reduce((s, c) => s + (Number(c.sell) || 0), 0);
+  const rows = list.map(c => {
+    const img = c.image ? `<img class="thumb" src="${c.image}" onclick="openLightbox('${c.id}')" alt="">` : `<div class="thumb-empty">🃏</div>`;
+    const p = (Number(c.sell) || 0) - (Number(c.buy) || 0);
+    return `<tr>
+      <td>${img}</td>
+      <td class="name">${c.topic ? `<div class="topic">${esc(c.topic)}</div>` : ''}${esc(c.name)}${c.lang ? ` <span class="lang-badge">${esc(c.lang)}</span>` : ''}${c.psa ? ` <span class="muted">(PSA ${esc(c.psa)})</span>` : ''}${c.cert ? ` <span class="muted">cert ${esc(c.cert)}</span>` : ''}${(c.qty && c.qty > 1) ? ` <span class="qty-badge">×${c.qty}${c.unit ? ' ' + esc(c.unit) : ''}</span>` : ''}${setMetaHTML(c)}</td>
+      <td class="center muted">${c.sellDate ? fmtDate(c.sellDate) : '-'}${c.sellTime ? '<br>' + c.sellTime : ''}</td>
+      <td class="num hide-sm">${money(c.buy)}</td>
+      <td class="num">${money(c.sell)}</td>
+      ${canSeeProfit() ? `<td class="num"><span class="${p > 0 ? 'profit-pos' : p < 0 ? 'profit-neg' : 'muted'}">${p > 0 ? '+' : ''}${money(p)}</span></td>` : ''}
+    </tr>`;
+  }).join('');
+  area.innerHTML = `<div class="sales-summary" style="margin:10px 0">ขายแล้ว ${list.length} ใบ · รวม ${money(totalSell)}</div>
+    <table>
+      <thead><tr><th>รูป</th><th>ชื่อการ์ด</th><th class="center">วันที่ขาย</th><th class="num hide-sm">รับซื้อ</th><th class="num">ราคาขาย</th>${canSeeProfit() ? '<th class="num">กำไร</th>' : ''}</tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`;
 }
 
 // ---- แถบ "สินค้าขาย" ----
