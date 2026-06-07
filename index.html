@@ -66,6 +66,15 @@
   .status-select.sold { border-color: var(--green); color: var(--green); }
   .daily-title { font-weight: 600; font-size: .95rem; margin-bottom: 10px; }
   .product-section { margin-bottom: 26px; }
+  /* รับซื้อสินค้า: popup ผลค้นหา (ลอยใต้ช่องค้นหา) */
+  .buy-search-wrap { position: relative; }
+  .buy-popup { position: absolute; top: calc(100% + 6px); left: 0; right: 0; z-index: 60; background: var(--card); border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 12px 32px rgba(0,0,0,.35); max-height: 60vh; overflow-y: auto; padding: 6px; }
+  .buy-popup .bp-item { display: flex; align-items: center; gap: 10px; padding: 8px; border-radius: 9px; }
+  .buy-popup .bp-item:hover { background: var(--card2); }
+  .buy-popup .bp-info { flex: 1; min-width: 0; }
+  .buy-popup .bp-name { font-size: .9rem; font-weight: 600; }
+  .buy-popup .bp-price { font-size: .82rem; color: var(--muted); margin-top: 2px; }
+  .buy-popup .bp-empty { padding: 16px; color: var(--muted); font-size: .88rem; text-align: center; }
   /* แท็บรับซื้อสินค้า: ขยับคอลัมน์ราคาซื้อมาทางซ้าย ~20% และทำตัวหนา */
   th.buy-price, td.buy-price { padding-right: 20%; font-weight: 800; }
   /* รายงาน: แถวที่ยกเลิก — โชว์อยู่แต่จางลง + ป้ายยกเลิก (ไม่นับยอด) */
@@ -440,9 +449,15 @@
   <div id="viewBuy" style="display:none">
     <h2 class="view-title">🛒 รับซื้อสินค้า</h2>
     <div class="product-section">
-      <div class="daily-title">🔎 ค้นหาการ์ดในสต็อก</div>
-      <input class="search" id="buySearch" placeholder="ค้นหา เรื่อง / ชื่อ / รุ่น / PSA / cert..." oninput="renderBuySearch()" style="width:100%">
-      <div id="buySearchArea"></div>
+      <div class="daily-title">🔎 ค้นหาเพื่อรับซื้อ</div>
+      <div class="buy-search-wrap">
+        <input class="search" id="buySearch" placeholder="พิมพ์ชื่อ / เรื่อง / รุ่น แล้วเลือกการ์ดเพื่อรับซื้อ..." oninput="openBuyPopup()" autocomplete="off" style="width:100%">
+        <div id="buyPopup" class="buy-popup" style="display:none"></div>
+      </div>
+    </div>
+    <div class="product-section">
+      <div class="daily-title">📥 รายการรับซื้อล่าสุด</div>
+      <div id="buyListArea"></div>
     </div>
   </div><!-- /viewBuy -->
 
@@ -510,6 +525,23 @@
     <div id="psResult"></div>
     <div class="modal-actions">
       <button class="btn btn-ghost" onclick="closePSASearch()">ปิด</button>
+    </div>
+  </div>
+</div>
+
+<!-- รับซื้อสินค้า: ใส่ยอดเงิน -->
+<div class="overlay" id="buyConfirmOverlay">
+  <div class="modal" style="max-width:360px">
+    <h2>📥 รับซื้อสินค้า</h2>
+    <p id="buyConfirmName" style="color:var(--muted);font-size:.9rem;margin-bottom:16px"></p>
+    <div class="field">
+      <label>ยอดเงินรับซื้อ (฿)</label>
+      <input id="bc_amount" type="number" inputmode="decimal" placeholder="0" onkeydown="if(event.key==='Enter')confirmBuy()">
+    </div>
+    <p style="color:var(--muted);font-size:.78rem;margin-bottom:4px">* ตั้งต้นจากราคารับซื้อในข้อมูลสินค้า · กดตกลงแล้วการ์ดจะเข้าสต็อก 1 ใบ</p>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeBuyConfirm()">ยกเลิก</button>
+      <button class="btn btn-primary" onclick="confirmBuy()">ตกลง</button>
     </div>
   </div>
 </div>
@@ -1123,7 +1155,7 @@ function switchView(view) {
   if (view === 'sales') renderSales();
   if (view === 'report') renderReport();
   if (view === 'soldstock') renderSoldStock();
-  if (view === 'buy') renderBuySearch();
+  if (view === 'buy') { closeBuyPopup(); renderBuyList(); }
   if (view === 'product') renderProductSearch();
   if (view === 'users') renderUsers();
   localStorage.setItem('app_view', view); // จำแถบล่าสุด ไว้คงหน้าตอน F5
@@ -1241,33 +1273,90 @@ function saveProductEdit() {
   render();            // อัปเดตหน้าสต็อก/สถิติ
   renderProductSearch(); // อัปเดตหน้าข้อมูลสินค้า
 }
-// แถบ "รับซื้อสินค้า" — ใช้ข้อมูลแบบยุบรวมเหมือนหน้าข้อมูลสินค้า แสดงแค่ "ราคาซื้อ" (ไม่มีสถานะ/ราคาขาย)
-function renderBuySearch() {
-  const area = document.getElementById('buySearchArea');
-  if (!area) return;
+// ---- แถบ "รับซื้อสินค้า" ----
+// ค้นหา → popup รายการการ์ด (ราคารับซื้อจากข้อมูลสินค้า) → กดรับซื้อ → ใส่ยอดเงิน → เข้าสต็อกจริง 1 ใบ
+let buyPopupGroups = [];
+let buyPendingIdx = null;
+function openBuyPopup() {
   const q = (document.getElementById('buySearch').value || '').trim().toLowerCase();
-  const list = filterCardsByQuery(q);
+  const pop = document.getElementById('buyPopup');
+  if (!pop) return;
+  if (!q) { pop.style.display = 'none'; pop.innerHTML = ''; return; }
+  const groups = buildProductGroups(filterCardsByQuery(q));
+  buyPopupGroups = groups;
+  if (!groups.length) {
+    pop.innerHTML = `<div class="bp-empty">ไม่พบการ์ดที่ตรงกับ “${esc(q)}”</div>`;
+    pop.style.display = ''; return;
+  }
+  pop.innerHTML = groups.map((g, i) => {
+    const c = g.repLive || g.rep;
+    const img = g.img ? `<img class="thumb" src="${g.img}" alt="">` : `<div class="thumb-empty">🃏</div>`;
+    return `<div class="bp-item">
+      ${img}
+      <div class="bp-info">
+        <div class="bp-name">${c.topic ? `<span class="topic">${esc(c.topic)}</span> ` : ''}${esc(c.name)}${g.lang ? ` <span class="lang-badge">${esc(g.lang)}</span>` : ''}</div>
+        <div class="bp-price">ราคารับซื้อ: <b>${money(c.buy)}</b></div>
+      </div>
+      <button class="btn btn-primary btn-sm" onclick="startBuy(${i})">รับซื้อ</button>
+    </div>`;
+  }).join('');
+  pop.style.display = '';
+}
+function closeBuyPopup() {
+  const pop = document.getElementById('buyPopup');
+  if (pop) pop.style.display = 'none';
+}
+function startBuy(i) {
+  const g = buyPopupGroups[i];
+  if (!g) return;
+  const c = g.repLive || g.rep;
+  buyPendingIdx = i;
+  document.getElementById('buyConfirmName').textContent = (c.topic ? c.topic + ' · ' : '') + c.name + (g.lang ? ' (' + g.lang + ')' : '');
+  document.getElementById('bc_amount').value = c.buy ?? '';
+  document.getElementById('buyConfirmOverlay').classList.add('open');
+  setTimeout(() => document.getElementById('bc_amount').focus(), 30);
+}
+function closeBuyConfirm() { document.getElementById('buyConfirmOverlay').classList.remove('open'); }
+function confirmBuy() {
+  const g = buyPopupGroups[buyPendingIdx];
+  if (!g) return;
+  const rep = g.repLive || g.rep;
+  const amount = parseFloat(document.getElementById('bc_amount').value) || 0;
+  // สร้างการ์ดใหม่ 1 ใบเข้าสต็อก (สถานะ "สะสม") — ราคารับซื้อ = ยอดที่กรอก
+  const newCard = { ...rep, id: uid(), status: 'show', qty: 1, buy: amount, buyDate: todayISO(), viaBuy: true, discount: 0 };
+  if (rep.type === 'collect') { newCard.unitBuy = amount; newCard.median = Number(rep.unitMedian) || 0; newCard.sell = Number(rep.unitSell) || 0; }
+  delete newCard.sellDate; delete newCard.sellTime; delete newCard.payment; delete newCard.cancelled; delete newCard._i;
+  cards.push(newCard);
+  save();
+  closeBuyConfirm();
+  closeBuyPopup();
+  document.getElementById('buySearch').value = '';
+  render();
+  renderBuyList();
+  alert(`รับซื้อ "${rep.name}" เข้าสต็อกแล้ว · ${money(amount)}`);
+}
+// รายการที่รับซื้อผ่านแถบนี้ (ใหม่สุดก่อน)
+function renderBuyList() {
+  const area = document.getElementById('buyListArea');
+  if (!area) return;
+  const idx = new Map(cards.map((c, i) => [c.id, i]));
+  const list = cards.filter(c => c.viaBuy).sort((a, b) => idx.get(b.id) - idx.get(a.id));
   if (!list.length) {
-    area.innerHTML = q
-      ? `<div class="empty"><div class="big">🃏</div>ไม่พบการ์ดที่ตรงกับ “${esc(q)}”</div>`
-      : `<div class="empty"><div class="big">📦</div>ยังไม่มีการ์ดในสต็อก</div>`;
+    area.innerHTML = `<div class="empty"><div class="big">📥</div>ยังไม่มีรายการรับซื้อ — ค้นหาการ์ดด้านบนเพื่อเริ่มรับซื้อ</div>`;
     return;
   }
-  const groups = buildProductGroups(list);
-  const rows = groups.map(g => {
-    const c = g.repLive || g.rep;
-    const img = g.img
-      ? `<img class="thumb" src="${g.img}" onclick="openLightbox('${c.id}')" alt="">`
-      : `<div class="thumb-empty">🃏</div>`;
+  const rows = list.map(c => {
+    const img = c.image ? `<img class="thumb" src="${c.image}" onclick="openLightbox('${c.id}')" alt="">` : `<div class="thumb-empty">🃏</div>`;
     return `<tr>
       <td>${img}</td>
-      <td class="name">${productNameCellHTML(c, g.lang)}</td>
-      <td class="num buy-price">${money(c.buy)}</td>
+      <td class="name">${c.topic ? `<div class="topic">${esc(c.topic)}</div>` : ''}${esc(c.name)}${c.lang ? ` <span class="lang-badge">${esc(c.lang)}</span>` : ''}</td>
+      <td class="center muted">${c.buyDate ? fmtDate(c.buyDate) : '-'}</td>
+      <td class="num">${money(c.buy)}</td>
     </tr>`;
   }).join('');
-  area.innerHTML = `<div class="sales-summary" style="margin:10px 0">ทั้งหมด ${groups.length} รายการ</div>
+  area.innerHTML = `<div class="sales-summary" style="margin:10px 0">รับซื้อแล้ว ${list.length} รายการ · รวม ${money(list.reduce((s, c) => s + (Number(c.buy) || 0), 0))}</div>
     <table>
-      <thead><tr><th>รูป</th><th>ชื่อการ์ด</th><th class="num buy-price">ราคาซื้อ</th></tr></thead>
+      <thead><tr><th>รูป</th><th>ชื่อการ์ด</th><th class="center">วันที่</th><th class="num">ราคารับซื้อ</th></tr></thead>
       <tbody>${rows}</tbody>
     </table>`;
 }
@@ -2640,7 +2729,14 @@ document.getElementById('splitOverlay').addEventListener('click', e => {
 document.getElementById('productEditOverlay').addEventListener('click', e => {
   if (e.target.id === 'productEditOverlay') closeProductEdit();
 });
-document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeLogin(); closePSASearch(); closeSale(); closeSplit(); closeProductEdit(); } });
+document.getElementById('buyConfirmOverlay').addEventListener('click', e => {
+  if (e.target.id === 'buyConfirmOverlay') closeBuyConfirm();
+});
+// ปิด popup รับซื้อเมื่อคลิกนอกกล่องค้นหา
+document.addEventListener('click', e => {
+  if (!e.target.closest('.buy-search-wrap')) closeBuyPopup();
+});
+document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeLogin(); closePSASearch(); closeSale(); closeSplit(); closeProductEdit(); closeBuyConfirm(); closeBuyPopup(); } });
 
 render();
 applyPermissions(); // ตั้งเมนู/แถบตามสิทธิ์ + คงแถบเดิมหลัง F5
