@@ -1161,7 +1161,7 @@ function switchView(view) {
   if (view === 'report') renderReport();
   if (view === 'soldstock') renderSoldStock();
   if (view === 'buy') { closeBuyPopup(); renderBuyList(); }
-  if (view === 'product') renderProductSearch();
+  if (view === 'product') { const ps = document.getElementById('productSearch'); if (ps) ps.value = ''; renderProductSearch(); }
   if (view === 'users') renderUsers();
   localStorage.setItem('app_view', view); // จำแถบล่าสุด ไว้คงหน้าตอน F5
 }
@@ -1204,7 +1204,10 @@ function buildProductGroups(list) {
     let g = lang ? (arr.find(x => x.lang === lang) || arr.find(x => !x.lang)) : arr[0];
     if (!g) { g = { rep: c, repLive: null, qty: 0, img: '', lang, ids: [] }; groups.push(g); arr.push(g); byName.set(name, arr); }
     if (!g.lang && lang) g.lang = lang;
-    if (!g.repLive && c.status !== 'sold') g.repLive = c;
+    // ตัวแทนกลุ่ม (ใช้โชว์ราคา): การ์ดจริงในสต็อกสำคัญกว่า "ข้อมูลสินค้าอย่างเดียว"
+    if (c.status !== 'sold') {
+      if (!g.repLive || (g.repLive.productOnly && !c.productOnly)) g.repLive = c;
+    }
     g.qty += Number(c.qty) || 1;
     g.ids.push(c.id);
     if (!g.img && c.image) g.img = c.image;
@@ -2433,6 +2436,7 @@ function saveCard() {
       save();
       closeForm();
       render();
+      renderProductSearch();
       alert(`รวมกับของเดิมแล้ว — "${match.name}" รวมเป็น ${newQty} ชิ้น`);
       return;
     }
