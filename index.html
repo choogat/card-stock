@@ -68,6 +68,10 @@
   .product-section { margin-bottom: 26px; }
   /* แท็บรับซื้อสินค้า: ขยับคอลัมน์ราคาซื้อมาทางซ้าย ~20% และทำตัวหนา */
   th.buy-price, td.buy-price { padding-right: 20%; font-weight: 800; }
+  /* รายงาน: แถวที่ยกเลิก — โชว์อยู่แต่จางลง + ป้ายยกเลิก (ไม่นับยอด) */
+  tr.cancelled-row td { opacity: .5; }
+  tr.cancelled-row td .badge-cancelled { opacity: 1; }
+  .badge-cancelled { display: inline-block; background: rgba(226,59,78,.18); color: var(--danger); padding: 1px 8px; border-radius: 999px; font-size: .72rem; font-weight: 700; }
   .report-controls { display: flex; align-items: center; gap: 10px; margin-bottom: 18px; flex-wrap: wrap; }
   .report-controls label { color: var(--muted); font-size: .9rem; }
   .report-controls input[type=date] { background: var(--card); border: 1px solid var(--border); color: var(--text); padding: 10px 14px; border-radius: 11px; font-size: .95rem; font-family: inherit; }
@@ -851,10 +855,10 @@ function updateStats() {
   const totalSell = inStock.reduce((s, c) => s + (Number(c.sell) || 0), 0);
   const nShow = cards.filter(c => c.status === 'show').length;
   const nWait = cards.filter(c => c.status === 'wait').length;
-  const nSold = cards.filter(c => c.status === 'sold').length;
+  const nSold = cards.filter(c => c.status === 'sold' && !c.cancelled).length;
 
-  // กำไรที่ทำได้จริง = เฉพาะใบที่ขายแล้ว (ราคาขาย − ราคารับซื้อ)
-  const realized = cards.filter(c => c.status === 'sold')
+  // กำไรที่ทำได้จริง = เฉพาะใบที่ขายแล้ว (ไม่นับที่ยกเลิก) (ราคาขาย − ราคารับซื้อ)
+  const realized = cards.filter(c => c.status === 'sold' && !c.cancelled)
     .reduce((s, c) => s + ((Number(c.sell) || 0) - (Number(c.buy) || 0)), 0);
 
   document.getElementById('statCount').textContent = count.toLocaleString('th-TH');
@@ -1277,17 +1281,19 @@ function renderReport() {
   if (!dateEl.value) dateEl.value = todayISO();
   const day = dateEl.value;
 
-  // รายการที่ขายในวันนั้น
+  // รายการที่ขายในวันนั้น (sold = ทั้งหมดไว้แสดง, counted = ที่นำมาคิดยอด — ตัดที่ "ยกเลิก" ออก)
   const sold = cards.filter(c => c.status === 'sold' && (c.sellDate || '') === day);
-  const revenue = sold.reduce((s, c) => s + (Number(c.sell) || 0), 0);
-  const cost = sold.reduce((s, c) => s + (Number(c.buy) || 0), 0);
+  const counted = sold.filter(c => !c.cancelled);
+  const cancelledN = sold.length - counted.length;
+  const revenue = counted.reduce((s, c) => s + (Number(c.sell) || 0), 0);
+  const cost = counted.reduce((s, c) => s + (Number(c.buy) || 0), 0);
   const profit = revenue - cost;
-  const cashTotal = sold.filter(c => c.payment === 'cash').reduce((s, c) => s + (Number(c.sell) || 0), 0);
-  const transferTotal = sold.filter(c => c.payment === 'transfer').reduce((s, c) => s + (Number(c.sell) || 0), 0);
+  const cashTotal = counted.filter(c => c.payment === 'cash').reduce((s, c) => s + (Number(c.sell) || 0), 0);
+  const transferTotal = counted.filter(c => c.payment === 'transfer').reduce((s, c) => s + (Number(c.sell) || 0), 0);
 
   document.getElementById('reportSummary').innerHTML = `
     <div class="stats" style="margin:6px 0 18px">
-      <div class="stat"><div class="label">ขายได้ (${fmtDate(day)})</div><div class="value num">${sold.length} ใบ</div></div>
+      <div class="stat"><div class="label">ขายได้ (${fmtDate(day)})</div><div class="value num">${counted.length} ใบ</div>${cancelledN ? `<div class="sub" style="color:var(--danger)">ยกเลิก ${cancelledN} ใบ (ไม่นับยอด)</div>` : ''}</div>
       <div class="stat"><div class="label">ยอดขายรวม (สุทธิ)</div><div class="value num">${money(revenue)}</div></div>
       <div class="stat"><div class="label">💵 ยอดขายเงินสด</div><div class="value num profit-pos">${money(cashTotal)}</div></div>
       <div class="stat"><div class="label">🏦 ยอดขายเงินโอน</div><div class="value num" style="color:var(--accent)">${money(transferTotal)}</div></div>
@@ -1296,7 +1302,7 @@ function renderReport() {
 
   // 📚 ยอดขายแยกตามเรื่อง (One Piece / Pokémon / ...) ของวันที่เลือก — กี่ใบ + ยอดเงินสุทธิ
   const topicMap = new Map();
-  for (const c of sold) {
+  for (const c of counted) {
     const key = (c.topic && c.topic.trim()) ? c.topic.trim() : '__none__';
     const g = topicMap.get(key) || { count: 0, value: 0 };
     g.count += 1;
@@ -1338,17 +1344,18 @@ function renderReport() {
     const net = Number(c.sell) || 0;
     const gross = net + disc;
     const p = net - (Number(c.buy) || 0);
-    return `<tr>
+    const cx = !!c.cancelled; // ยกเลิกแล้ว = แสดงอยู่แต่ไม่นับยอด
+    return `<tr class="${cx ? 'cancelled-row' : ''}">
       <td>${img}</td>
-      <td class="name">${c.topic ? `<div class="topic">${esc(c.topic)}</div>` : ''}${esc(c.name)}${c.lang ? ` <span class="lang-badge">${esc(c.lang)}</span>` : ''}${c.psa ? ` <span class="muted">(PSA ${esc(c.psa)})</span>` : ''}${(c.qty && c.qty > 1) ? ` <span class="qty-badge">×${c.qty}${c.unit ? ' ' + esc(c.unit) : ''}</span>` : ''}${setMetaHTML(c)}</td>
+      <td class="name">${c.topic ? `<div class="topic">${esc(c.topic)}</div>` : ''}${esc(c.name)}${c.lang ? ` <span class="lang-badge">${esc(c.lang)}</span>` : ''}${c.psa ? ` <span class="muted">(PSA ${esc(c.psa)})</span>` : ''}${(c.qty && c.qty > 1) ? ` <span class="qty-badge">×${c.qty}${c.unit ? ' ' + esc(c.unit) : ''}</span>` : ''}${setMetaHTML(c)}${cx ? ' <span class="badge-cancelled">ยกเลิก</span>' : ''}</td>
       <td class="center muted">${c.sellTime || '-'}</td>
       <td class="center"><span class="pay-tag ${c.payment || ''}">${PAYMENT[c.payment] || '-'}</span></td>
       <td class="num">${money(c.buy)}</td>
       <td class="num">${money(gross)}</td>
       <td class="num">${disc > 0 ? money(disc) : '-'}</td>
       <td class="num">${money(net)}</td>
-      ${canSeeProfit() ? `<td class="num"><span class="${p > 0 ? 'profit-pos' : p < 0 ? 'profit-neg' : 'muted'}">${p > 0 ? '+' : ''}${money(p)}</span></td>` : ''}
-      ${isToday ? `<td class="center"><button class="btn btn-danger btn-sm" onclick="cancelSale('${c.id}')" title="ยกเลิกการขาย → กลับเป็นรอขาย">ยกเลิก</button></td>` : ''}
+      ${canSeeProfit() ? `<td class="num">${cx ? '<span class="muted">—</span>' : `<span class="${p > 0 ? 'profit-pos' : p < 0 ? 'profit-neg' : 'muted'}">${p > 0 ? '+' : ''}${money(p)}</span>`}</td>` : ''}
+      ${isToday ? `<td class="center">${cx ? '<span class="muted" style="font-size:.76rem">ยกเลิกแล้ว</span>' : `<button class="btn btn-danger btn-sm" onclick="cancelSale('${c.id}')" title="ยกเลิกการขาย (ต้องใส่รหัส)">ยกเลิก</button>`}</td>` : ''}
     </tr>`;
   }).join('');
   area.innerHTML = `<table>
@@ -1357,18 +1364,16 @@ function renderReport() {
   </table>`;
 }
 
-// ยกเลิกการขาย (เฉพาะรายการที่ขาย "วันนี้") → คืนสถานะเป็น "รอขาย" กลับไปหน้าสินค้าขาย
+// ยกเลิกการขาย (เฉพาะรายการที่ขาย "วันนี้" + ต้องใส่รหัส) → ติดป้าย "ยกเลิก" คงไว้ในรายงาน แต่ไม่นำยอดมาคิด
+const CANCEL_SALE_PASS = '25cardshopvip';
 function cancelSale(id) {
   const c = cards.find(x => x.id === id);
-  if (!c || c.status !== 'sold') return;
+  if (!c || c.status !== 'sold' || c.cancelled) return;
   if ((c.sellDate || '') !== todayISO()) { alert('ยกเลิกได้เฉพาะรายการที่ขายวันนี้เท่านั้น'); return; }
-  if (!confirm(`ยกเลิกการขาย "${c.name}" ?\nใบนี้จะกลับไปเป็น "รอขาย" ในหน้าสินค้าขาย`)) return;
-  c.sell = (Number(c.sell) || 0) + (Number(c.discount) || 0); // คืนราคาขายเป็นยอดก่อนหักส่วนลด
-  c.discount = 0;
-  delete c.payment;
-  delete c.sellDate;
-  delete c.sellTime;
-  c.status = 'wait';
+  const p = prompt(`ยกเลิกการขาย "${c.name}"\nใส่รหัสเพื่อยืนยัน:`);
+  if (p === null) return;
+  if (p !== CANCEL_SALE_PASS) { alert('รหัสไม่ถูกต้อง'); return; }
+  c.cancelled = true; // คงรายการไว้ในรายงาน (โชว์ว่ายกเลิก) แต่ไม่นับยอด
   save();
   render();
   renderReport();
@@ -1379,7 +1384,7 @@ function renderSoldStock() {
   const area = document.getElementById('soldStockArea');
   if (!area) return;
   const q = (document.getElementById('soldStockSearch').value || '').trim().toLowerCase();
-  let list = cards.filter(c => c.status === 'sold');
+  let list = cards.filter(c => c.status === 'sold' && !c.cancelled); // ไม่รวมที่ยกเลิก
   if (q) {
     const terms = q.split(/\s+/).filter(Boolean);
     list = list.filter(c => {
@@ -1543,7 +1548,7 @@ function renderSalesDaily() {
   if (!el) return;
   const byDay = new Map();
   for (const c of cards) {
-    if (c.status !== 'sold') continue;
+    if (c.status !== 'sold' || c.cancelled) continue; // ไม่นับที่ยกเลิก
     const day = c.sellDate || '__none__';
     const g = byDay.get(day) || { count: 0, total: 0 };
     g.count++;
