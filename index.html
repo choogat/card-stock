@@ -1118,6 +1118,7 @@ function switchView(view) {
     navSold.classList.toggle('active', view === 'soldstock');
     if (view === 'soldstock') document.querySelector('.nav-item[data-view="stock"]').classList.add('active');
   }
+  if (view === 'sales') renderSales();
   if (view === 'report') renderReport();
   if (view === 'soldstock') renderSoldStock();
   if (view === 'buy') renderBuySearch();
@@ -1382,7 +1383,9 @@ function cancelSale(id) {
   cards.push(revived);
   save();
   render();
+  renderSales();   // ให้ใบที่คืนกลับมาโผล่ในหน้าสินค้าขายแน่นอน
   renderReport();
+  alert(`ยกเลิกการขาย "${c.name}" แล้ว — ใบนี้กลับไปเป็น "รอขาย" ในหน้าสินค้าขาย`);
 }
 
 // ---- เมนูย่อย "สต็อกการ์ดขายแล้ว" — รายการที่ขายแล้วทั้งหมด (อ่านอย่างเดียว) ----
