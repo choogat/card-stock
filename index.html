@@ -741,7 +741,7 @@
         <label id="lblSell">ราคาขาย (฿)</label>
         <input id="f_sell" type="number" inputmode="decimal" placeholder="0" oninput="updateQtyTotals()">
       </div>
-      <div class="field">
+      <div class="field" id="fld_status">
         <label>สถานะ</label>
         <select id="f_status">
           <option value="show">สะสม</option>
@@ -751,7 +751,7 @@
       </div>
     </div>
     <div class="qty-totals" id="qtyTotals" style="display:none"></div>
-    <div class="field">
+    <div class="field" id="fld_buyDate">
       <label>วันที่ซื้อ</label>
       <input id="f_buyDate" type="date">
     </div>
@@ -1923,16 +1923,23 @@ function applyFormMode(mode) {
   if (isSet) ensureSetItemRows();
   setBuyMode(false); // เปิดฟอร์มปกติ = ไม่ใช่โหมดรับซื้อ (โชว์ช่องราคากลาง/ขาย/last sold)
   productMode = false; // เปิดฟอร์มปกติ = เพิ่มเข้าสต็อกตามปกติ
+  document.getElementById('fld_status').style.display = '';   // คืนช่องสถานะ/วันที่ซื้อ
+  document.getElementById('fld_buyDate').style.display = '';
   updateQtyTotals();
 }
 function toggleSetMode(checked) { applyFormMode(checked ? 'set' : 'card'); }
 
 // โหมด "เพิ่มข้อมูลสินค้า" (จากหน้าข้อมูลสินค้า) → บันทึกเป็นข้อมูลสินค้าอย่างเดียว ไม่เข้าสต็อก
+// ซ่อน: ดึง PSA / ราคากลาง / สถานะ / วันที่ซื้อ / last sold (เหลือชื่อ-เรื่อง-ภาษา-รุ่น-เกรด-ราคารับซื้อ-ราคาขาย-รายละเอียด-รูป)
 let productMode = false;
 function openProductAdd(mode) {
   openForm(mode);
   productMode = true;
   document.getElementById('modalTitle').textContent = mode === 'collect' ? 'เพิ่มข้อมูลของสะสม' : 'เพิ่มข้อมูลสินค้า';
+  ['row_psaLookup', 'fld_median', 'fld_status', 'fld_buyDate', 'row_snkr'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = 'none';
+  });
 }
 
 // โหมด "รับซื้อจาก PSA" — ซ่อน ราคากลาง / ราคาขาย / last sold (เหลือแค่ราคารับซื้อ)
