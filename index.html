@@ -1098,7 +1098,9 @@ function groupRow(g) {
   const count = isCol ? items.reduce((s, c) => s + (Number(c.qty) || 1), 0) : items.length;
   const countLabel = isCol ? (count + ' ' + (rep.unit || '')) : (count + ' ใบ');
   const open = expandedGroups.has(g.key);
+  // ราคากลางหัวกลุ่ม = เฉลี่ย (รวมราคากลางทุกใบ ÷ จำนวนใบ)
   const totMedian = items.reduce((s, c) => s + (Number(c.median) || 0), 0);
+  const avgMedian = count ? totMedian / count : 0;
   const totProfit = items.reduce((s, c) => s + cardProfit(c), 0);
   const cnt = { show: 0, wait: 0, sold: 0 };
   items.forEach(c => { cnt[c.status] = (cnt[c.status] || 0) + 1; });
@@ -1111,7 +1113,7 @@ function groupRow(g) {
   return `<tr class="group-head" onclick="toggleGroup('${k}')">
     <td>${img}</td>
     <td class="name"><span class="exp">${open ? '▾' : '▸'}</span> ${rep.topic ? `<div class="topic" style="display:inline-block">${esc(rep.topic)}</div> ` : ''}${esc(rep.name)}${rep.lang ? ` <span class="lang-badge">${esc(rep.lang)}</span>` : ''} <span class="qty-badge">${countLabel}</span>${rep.set ? `<div class="cardset">รุ่น: ${esc(rep.set)}</div>` : ''}</td>
-    <td class="num">${money(totMedian)}</td>
+    <td class="num">${money(avgMedian)}</td>
     <td class="num hide-sm">${money(rep.buy)}</td>
     <td class="num hide-sm">${money(rep.sell)}</td>
     ${canSeeProfit() ? `<td class="num"><span class="${pCls}">${totProfit > 0 ? '+' : ''}${money(totProfit)}</span></td>` : ''}
