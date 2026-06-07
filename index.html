@@ -1364,7 +1364,8 @@ function renderReport() {
   </table>`;
 }
 
-// ยกเลิกการขาย (เฉพาะรายการที่ขาย "วันนี้" + ต้องใส่รหัส) → ติดป้าย "ยกเลิก" คงไว้ในรายงาน แต่ไม่นำยอดมาคิด
+// ยกเลิกการขาย (เฉพาะรายการที่ขาย "วันนี้" + ต้องใส่รหัส)
+// → คงบรรทัดเดิมไว้ในรายงานเป็น "ยกเลิก" (ไม่นับยอด) + สร้างใบใหม่คืนเป็น "รอขาย" กลับเข้าหน้าสินค้าขาย
 const CANCEL_SALE_PASS = '25cardshopvip';
 function cancelSale(id) {
   const c = cards.find(x => x.id === id);
@@ -1373,7 +1374,12 @@ function cancelSale(id) {
   const p = prompt(`ยกเลิกการขาย "${c.name}"\nใส่รหัสเพื่อยืนยัน:`);
   if (p === null) return;
   if (p !== CANCEL_SALE_PASS) { alert('รหัสไม่ถูกต้อง'); return; }
-  c.cancelled = true; // คงรายการไว้ในรายงาน (โชว์ว่ายกเลิก) แต่ไม่นับยอด
+  c.cancelled = true; // บรรทัดเดิมคงไว้ในรายงาน (โชว์ว่ายกเลิก) แต่ไม่นับยอด
+  // สร้างใบใหม่ "รอขาย" คืนกลับเข้าหน้าสินค้าขาย
+  const revived = { ...c, id: uid(), status: 'wait', discount: 0 };
+  revived.sell = (Number(c.sell) || 0) + (Number(c.discount) || 0); // คืนราคาขายเป็นยอดก่อนหักส่วนลด
+  delete revived.payment; delete revived.sellDate; delete revived.sellTime; delete revived.cancelled;
+  cards.push(revived);
   save();
   render();
   renderReport();
