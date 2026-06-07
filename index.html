@@ -1323,13 +1323,13 @@ function renderReport() {
   </table>`;
 }
 
-// ---- แถบ "สำหรับขาย" ----
-// โชว์เฉพาะการ์ดที่กำลังขาย (รอขาย / ขายแล้ว) — ไม่มีราคากลาง / ไม่มีแก้ไข-ลบ
+// ---- แถบ "สินค้าขาย" ----
+// โชว์เฉพาะการ์ดที่ "รอขาย" (ใบที่ขายแล้วไม่แสดงในหน้านี้ — ดูได้ที่รายงานการขาย)
 function renderSales() {
   const area = document.getElementById('salesTableArea');
   if (!area) return;
   const q = (document.getElementById('salesSearch').value || '').trim().toLowerCase();
-  let list = cards.filter(c => c.status === 'wait' || c.status === 'sold');
+  let list = cards.filter(c => c.status === 'wait');
   // กรองตามหน่วยที่คลิกจากชิป "รอขาย" → เหลือเฉพาะของที่รอขายของหน่วยนั้น
   if (salesUnitFilter) {
     list = list.filter(c => c.status === 'wait' && stockUnitOf(c) === salesUnitFilter);
