@@ -411,7 +411,7 @@
     <div class="sales-head">
       <h2 class="view-title">🏷️ สินค้าขาย</h2>
     </div>
-    <div class="daily-title">💰 ยอดขายต่อวัน · 📦 ของรอขาย</div>
+    <div class="daily-title">📦 ของรอขาย</div>
     <div class="topic-breakdown" id="salesDaily"></div>
     <div class="toolbar">
       <input class="search" id="salesSearch" placeholder="ค้นหา เรื่อง / ชื่อ / รุ่น..." oninput="renderSales()">
@@ -1657,32 +1657,11 @@ function buildSalesRows(list) {
   }).join('');
 }
 
-// ยอดขายต่อวัน — รวมราคาขายของใบที่ขายแล้ว จัดกลุ่มตามวันที่ขาย
+// ชิป "ของรอขาย" (ตัดสรุปยอดขายรายวันออกแล้ว)
 function renderSalesDaily() {
   const el = document.getElementById('salesDaily');
   if (!el) return;
-  const byDay = new Map();
-  for (const c of cards) {
-    if (c.status !== 'sold' || c.cancelled) continue; // ไม่นับที่ยกเลิก
-    const day = c.sellDate || '__none__';
-    const g = byDay.get(day) || { count: 0, total: 0 };
-    g.count++;
-    g.total += Number(c.sell) || 0;
-    byDay.set(day, g);
-  }
-  const today = todayISO();
-  const entries = [...byDay.entries()].sort((a, b) => b[0].localeCompare(a[0])); // ล่าสุดก่อน
-  const dailyHTML = entries.map(([day, g]) => {
-    const isToday = day === today;
-    const label = day === '__none__' ? 'ไม่ระบุวันที่' : fmtDate(day) + (isToday ? ' (วันนี้)' : '');
-    return `<div class="topic-chip${isToday ? ' today' : ''}">
-      <div class="t-name"><span class="t-dot${isToday ? ' g' : ''}">●</span> ${label}</div>
-      <div class="t-meta">${g.count} ใบ · ${money(g.total)}</div>
-    </div>`;
-  }).join('');
-  // ต่อด้วยชิป "ของรอขาย" ในแถวเดียวกัน
-  el.innerHTML = dailyHTML + unsoldChipsHTML();
-  if (!el.innerHTML) el.innerHTML = '<div class="sales-summary">ยังไม่มีข้อมูล</div>';
+  el.innerHTML = unsoldChipsHTML() || '<div class="sales-summary">ยังไม่มีข้อมูล</div>';
 }
 
 // หน่วยของของชิ้นหนึ่ง (ใช้จัดกลุ่ม "รอขาย")
