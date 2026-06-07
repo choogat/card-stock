@@ -78,17 +78,10 @@
   .topic-chip.unsold { border-color: var(--yellow); background: rgba(192,138,0,.1); }
   .topic-chip.unsold .t-dot { color: var(--yellow); }
   .topic-chip .t-name .t-dot.g { color: var(--green); }
-  .sale-status-cell { display: inline-flex; flex-direction: column; align-items: stretch; gap: 5px; width: 116px; }
   .btn-sm { padding: 7px 12px; font-size: .8rem; }
   .btn-sold { padding: 5px 11px; font-size: .72rem; border-radius: 8px; line-height: 1.4; }
-  /* ป้าย/ปุ่มสถานะในแถบสินค้าขาย → กรอบกว้างเท่ากันทุกอัน ดูสมส่วน */
-  .sale-status-cell .badge, .sale-status-cell .btn-sold,
-  .sold-lock .badge, .sold-lock .pay-tag { width: 100%; box-sizing: border-box; text-align: center; }
   .sale-check { width: 20px; height: 20px; accent-color: var(--accent); cursor: pointer; }
   .sale-check:disabled { cursor: not-allowed; opacity: .6; }
-  .sold-lock { display: inline-flex; flex-direction: column; align-items: stretch; gap: 5px; width: 116px; }
-  .sold-lock .pay-tag { padding: 3px 7px; font-size: .7rem; }
-  .sold-lock .lock-btn { width: 26px; height: 26px; font-size: .74rem; align-self: center; }
   .pay-tag { display: inline-block; padding: 3px 9px; border-radius: 999px; font-size: .74rem; font-weight: 600; background: var(--card2); color: var(--muted); }
   .pay-tag.cash { background: rgba(24,165,88,.15); color: var(--green); }
   .pay-tag.transfer { background: rgba(47,111,237,.14); color: var(--accent); }
@@ -1383,7 +1376,8 @@ function renderSales() {
       <th>ชื่อการ์ด</th>
       <th class="num">ราคารับซื้อ</th>
       <th class="num">ราคาขาย</th>
-      <th class="num">สถานะ</th>
+      <th class="center">สถานะ</th>
+      <th class="center">กระทำ</th>
     </tr></thead>
     <tbody>${rows}</tbody>
   </table>`;
@@ -1402,21 +1396,18 @@ function salesRow(c, isChild) {
     ? `<img class="thumb" src="${c.image}" onclick="openLightbox('${c.id}')" alt="">`
     : `<div class="thumb-empty">🃏</div>`;
   const statusCell = c.status === 'sold'
-    ? `<div class="sold-lock">
-         <span class="badge sold">ขายแล้ว${(c.sellDate || c.sellTime) ? `<br><span class="sold-when">${c.sellDate ? fmtDate(c.sellDate) : ''}${c.sellTime ? ' ' + c.sellTime : ''}</span>` : ''}</span>
-         ${c.payment ? `<span class="pay-tag ${c.payment}">${PAYMENT[c.payment]}</span>` : ''}
-         <button class="lock-btn" onclick="unlockSold('${c.id}')" title="แก้ไข (ต้องใส่รหัส)">🔒</button>
-       </div>`
-    : `<div class="sale-status-cell">
-         <span class="badge wait">รอขาย</span>
-         <button class="btn btn-primary btn-sold" onclick="markSold('${c.id}')">✓ ขายแล้ว</button>
-       </div>`;
+    ? `<span class="badge sold">ขายแล้ว${(c.sellDate || c.sellTime) ? `<br><span class="sold-when">${c.sellDate ? fmtDate(c.sellDate) : ''}${c.sellTime ? ' ' + c.sellTime : ''}</span>` : ''}</span>`
+    : `<span class="badge wait">รอขาย</span>`;
+  const actionCell = c.status === 'sold'
+    ? `<button class="lock-btn" onclick="unlockSold('${c.id}')" title="แก้ไข (ต้องใส่รหัส)">🔒</button>`
+    : `<button class="btn btn-primary btn-sold" onclick="markSold('${c.id}')">✓ ขายแล้ว</button>`;
   return `<tr class="${isChild ? 'child-row' : ''}">
     <td>${img}</td>
     <td class="name">${c.topic ? `<div class="topic">${esc(c.topic)}</div>` : ''}${esc(c.name)}${c.lang ? ` <span class="lang-badge">${esc(c.lang)}</span>` : ''}${c.psa ? ` <span class="muted">(PSA ${esc(c.psa)})</span>` : ''}${(c.qty && c.qty > 1) ? ` <span class="qty-badge">×${c.qty}${c.unit ? ' ' + esc(c.unit) : ''}</span>` : ''}${setMetaHTML(c)}${c.detail ? `<div class="detail">${esc(c.detail)}</div>` : ''}</td>
     <td class="num">${money(c.buy)}</td>
     <td class="num">${money(c.sell)}</td>
-    <td style="text-align:right">${statusCell}</td>
+    <td class="center">${statusCell}</td>
+    <td class="center">${actionCell}</td>
   </tr>`;
 }
 function salesGroupRow(g) {
@@ -1437,7 +1428,8 @@ function salesGroupRow(g) {
     <td class="name"><span class="exp">${open ? '▾' : '▸'}</span> ${rep.topic ? `<div class="topic" style="display:inline-block">${esc(rep.topic)}</div> ` : ''}${esc(rep.name)}${rep.lang ? ` <span class="lang-badge">${esc(rep.lang)}</span>` : ''} <span class="qty-badge">${countLabel}</span>${rep.set ? `<div class="cardset">รุ่น: ${esc(rep.set)}</div>` : ''}</td>
     <td class="num">${money(rep.buy)}</td>
     <td class="num">${money(rep.sell)}</td>
-    <td style="text-align:right">${stSummary}</td>
+    <td class="center">${stSummary}</td>
+    <td></td>
   </tr>`;
 }
 function buildSalesRows(list) {
