@@ -1114,87 +1114,59 @@ function applyPermissions() {
   switchView(allowed.includes(cur) ? cur : (allowed[0] || 'stock'));
 }
 
-// ค้นหาการ์ดในสต็อก (ใช้ร่วมกันทั้งแถบ "ข้อมูลสินค้า" และ "รับซื้อสินค้า") — อ่านอย่างเดียว
-function cardSearchResultsHTML(q) {
-  if (!q) {
-    return `<div class="empty"><div class="big">🔎</div>พิมพ์เพื่อค้นหาการ์ดจาก ชื่อ / เรื่อง / รุ่น / PSA / cert</div>`;
-  }
+// กรองการ์ดตามคำค้น (ว่าง = ทุกใบ)
+function filterCardsByQuery(q) {
+  if (!q) return cards.slice();
   const terms = q.split(/\s+/).filter(Boolean);
-  const list = cards.filter(c => {
+  return cards.filter(c => {
     const hay = [c.topic, c.name, c.set, c.psa, c.cert, c.detail, c.lang].filter(Boolean).join(' ').toLowerCase();
     return terms.every(t => hay.includes(t));
   });
-  if (!list.length) {
-    return `<div class="empty"><div class="big">🃏</div>ไม่พบการ์ดที่ตรงกับ “${esc(q)}”</div>`;
-  }
-  const rows = list.map(c => {
-    const st = STATUS[c.status] || STATUS.show;
-    const img = c.image
-      ? `<img class="thumb" src="${c.image}" onclick="openLightbox('${c.id}')" alt="">`
-      : `<div class="thumb-empty">🃏</div>`;
-    return `<tr>
-      <td>${img}</td>
-      <td class="name">${c.topic ? `<div class="topic">${esc(c.topic)}</div>` : ''}${esc(c.name)}${c.lang ? ` <span class="lang-badge">${esc(c.lang)}</span>` : ''}${c.psa ? ` <span class="muted">(PSA ${esc(c.psa)})</span>` : ''}${c.cert ? ` <span class="muted">cert ${esc(c.cert)}</span>` : ''}${(c.qty && c.qty > 1) ? ` <span class="qty-badge">×${c.qty}${c.unit ? ' ' + esc(c.unit) : ''}</span>` : ''}${setMetaHTML(c)}${c.set ? `<div class="cardset">รุ่น: ${esc(c.set)}</div>` : ''}${c.detail ? `<div class="detail">${esc(c.detail)}</div>` : ''}</td>
-      <td class="center"><span class="badge ${st.cls}">${st.label}</span></td>
-      <td class="num">${money(c.sell)}</td>
-    </tr>`;
-  }).join('');
-  return `<div class="sales-summary" style="margin:10px 0">พบ ${list.length} รายการ</div>
-    <table>
-      <thead><tr><th>รูป</th><th>ชื่อการ์ด</th><th class="center">สถานะ</th><th class="num">ราคาขาย</th></tr></thead>
-      <tbody>${rows}</tbody>
-    </table>`;
 }
-// แถบ "ข้อมูลสินค้า" — ดึงจากสต็อกการ์ดเสมอ แสดงแค่ รายละเอียด + ราคารับซื้อ + ราคาขาย (อ่านอย่างเดียว)
+// ยุบใบที่เป็น "ชิ้นเดียวกัน" → ชื่อเดียวกัน + ภาษาเดียวกัน (ใบไม่ระบุภาษา ยุบเข้ากลุ่มชื่อเดียวกันได้ทุกภาษา)
+// ใช้ร่วมกันทั้งแถบ "ข้อมูลสินค้า" และ "รับซื้อสินค้า"
+function buildProductGroups(list) {
+  const groups = [];
+  const byName = new Map();
+  for (const c of list) {
+    const name = (c.name || '').trim().toLowerCase();
+    const lang = c.lang || '';
+    const arr = byName.get(name) || [];
+    let g = lang ? (arr.find(x => x.lang === lang) || arr.find(x => !x.lang)) : arr[0];
+    if (!g) { g = { rep: c, repLive: null, qty: 0, img: '', lang, ids: [] }; groups.push(g); arr.push(g); byName.set(name, arr); }
+    if (!g.lang && lang) g.lang = lang;
+    if (!g.repLive && c.status !== 'sold') g.repLive = c;
+    g.qty += Number(c.qty) || 1;
+    g.ids.push(c.id);
+    if (!g.img && c.image) g.img = c.image;
+  }
+  return groups;
+}
+function productNameCellHTML(c, gLang) {
+  return `${c.topic ? `<div class="topic">${esc(c.topic)}</div>` : ''}${esc(c.name)}${gLang ? ` <span class="lang-badge">${esc(gLang)}</span>` : ''}${setMetaHTML(c)}${c.set ? `<div class="cardset">รุ่น: ${esc(c.set)}</div>` : ''}${c.detail ? `<div class="detail">${esc(c.detail)}</div>` : ''}`;
+}
+// แถบ "ข้อมูลสินค้า" — ดึงจากสต็อกการ์ดเสมอ แสดง รายละเอียด + ราคารับซื้อ + ราคาขาย + แก้ไข
 function renderProductSearch() {
   const area = document.getElementById('productSearchArea');
   if (!area) return;
   const q = (document.getElementById('productSearch').value || '').trim().toLowerCase();
-  let list = cards.slice();
-  if (q) {
-    const terms = q.split(/\s+/).filter(Boolean);
-    list = list.filter(c => {
-      const hay = [c.topic, c.name, c.set, c.psa, c.cert, c.detail, c.lang].filter(Boolean).join(' ').toLowerCase();
-      return terms.every(t => hay.includes(t));
-    });
-  }
+  let list = filterCardsByQuery(q);
   if (!list.length) {
     area.innerHTML = q
       ? `<div class="empty"><div class="big">🃏</div>ไม่พบการ์ดที่ตรงกับ “${esc(q)}”</div>`
       : `<div class="empty"><div class="big">📦</div>ยังไม่มีการ์ดในสต็อก</div>`;
     return;
   }
-  // ยุบใบที่เป็น "ชิ้นเดียวกัน" → ชื่อเดียวกัน + ภาษาเดียวกัน ถือเป็นชิ้นเดียว (เหลือใบเดียว + รวมจำนวน)
-  // ใบที่ไม่ได้ระบุภาษา (ว่าง) ให้ยุบเข้ากลุ่มชื่อเดียวกันได้ทุกภาษา
-  const groups = [];
-  const byName = new Map(); // ชื่อ → กลุ่มทั้งหมดของชื่อนั้น
-  for (const c of list) {
-    const name = (c.name || '').trim().toLowerCase();
-    const lang = c.lang || '';
-    const arr = byName.get(name) || [];
-    let g = lang
-      ? (arr.find(x => x.lang === lang) || arr.find(x => !x.lang))   // มีภาษา → กลุ่มภาษาตรง หรือกลุ่มที่ยังไม่ระบุภาษา
-      : arr[0];                                                       // ไม่มีภาษา → กลุ่มแรกของชื่อนั้น
-    if (!g) {
-      g = { rep: c, repLive: null, qty: 0, img: '', lang, ids: [] };
-      groups.push(g); arr.push(g); byName.set(name, arr);
-    }
-    if (!g.lang && lang) g.lang = lang; // กลุ่มยังไม่ระบุภาษา แล้วเจอใบที่มีภาษา → ใช้ภาษานั้น
-    if (!g.repLive && c.status !== 'sold') g.repLive = c; // ใบที่ยังไม่ขาย → ใช้โชว์ราคา/ใช้แก้
-    g.qty += Number(c.qty) || 1;
-    g.ids.push(c.id);
-    if (!g.img && c.image) g.img = c.image;
-  }
+  const groups = buildProductGroups(list);
   productGroups = groups; // เก็บไว้อ้างอิงตอนกดแก้ไข
   const rows = groups.map((g, i) => {
     const c = g.repLive || g.rep; // โชว์ราคาจากใบที่ยังไม่ขายก่อน
-    const gImg = g.img, gLang = g.lang;
-    const img = gImg
-      ? `<img class="thumb" src="${gImg}" onclick="openLightbox('${c.id}')" alt="">`
+    const img = g.img
+      ? `<img class="thumb" src="${g.img}" onclick="openLightbox('${c.id}')" alt="">`
       : `<div class="thumb-empty">🃏</div>`;
     return `<tr>
       <td>${img}</td>
-      <td class="name">${c.topic ? `<div class="topic">${esc(c.topic)}</div>` : ''}${esc(c.name)}${gLang ? ` <span class="lang-badge">${esc(gLang)}</span>` : ''}${setMetaHTML(c)}${c.set ? `<div class="cardset">รุ่น: ${esc(c.set)}</div>` : ''}${c.detail ? `<div class="detail">${esc(c.detail)}</div>` : ''}</td>
+      <td class="name">${productNameCellHTML(c, g.lang)}</td>
       <td class="num">${money(c.buy)}</td>
       <td class="num">${money(c.sell)}</td>
       <td><button class="icon-btn" onclick="openProductEdit(${i})" title="แก้ไขราคารับซื้อ/ราคาขาย">✏️</button></td>
@@ -1237,10 +1209,35 @@ function saveProductEdit() {
   render();            // อัปเดตหน้าสต็อก/สถิติ
   renderProductSearch(); // อัปเดตหน้าข้อมูลสินค้า
 }
+// แถบ "รับซื้อสินค้า" — ใช้ข้อมูลแบบยุบรวมเหมือนหน้าข้อมูลสินค้า แสดงแค่ "ราคาซื้อ" (ไม่มีสถานะ/ราคาขาย)
 function renderBuySearch() {
   const area = document.getElementById('buySearchArea');
   if (!area) return;
-  area.innerHTML = cardSearchResultsHTML((document.getElementById('buySearch').value || '').trim().toLowerCase());
+  const q = (document.getElementById('buySearch').value || '').trim().toLowerCase();
+  const list = filterCardsByQuery(q);
+  if (!list.length) {
+    area.innerHTML = q
+      ? `<div class="empty"><div class="big">🃏</div>ไม่พบการ์ดที่ตรงกับ “${esc(q)}”</div>`
+      : `<div class="empty"><div class="big">📦</div>ยังไม่มีการ์ดในสต็อก</div>`;
+    return;
+  }
+  const groups = buildProductGroups(list);
+  const rows = groups.map(g => {
+    const c = g.repLive || g.rep;
+    const img = g.img
+      ? `<img class="thumb" src="${g.img}" onclick="openLightbox('${c.id}')" alt="">`
+      : `<div class="thumb-empty">🃏</div>`;
+    return `<tr>
+      <td>${img}</td>
+      <td class="name">${productNameCellHTML(c, g.lang)}</td>
+      <td class="num">${money(c.buy)}</td>
+    </tr>`;
+  }).join('');
+  area.innerHTML = `<div class="sales-summary" style="margin:10px 0">ทั้งหมด ${groups.length} รายการ</div>
+    <table>
+      <thead><tr><th>รูป</th><th>ชื่อการ์ด</th><th class="num">ราคาซื้อ</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`;
 }
 
 function reportToday() {
