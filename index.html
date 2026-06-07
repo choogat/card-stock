@@ -72,6 +72,8 @@
   tr.cancelled-row td { opacity: .5; }
   tr.cancelled-row td .badge-cancelled { opacity: 1; }
   .badge-cancelled { display: inline-block; background: rgba(226,59,78,.18); color: var(--danger); padding: 1px 8px; border-radius: 999px; font-size: .72rem; font-weight: 700; }
+  .badge-ok { display: inline-block; background: rgba(24,165,88,.18); color: var(--green); padding: 1px 8px; border-radius: 999px; font-size: .72rem; font-weight: 700; }
+  tr.cancelled-row td .badge-ok { opacity: 1; }
   .report-controls { display: flex; align-items: center; gap: 10px; margin-bottom: 18px; flex-wrap: wrap; }
   .report-controls label { color: var(--muted); font-size: .9rem; }
   .report-controls input[type=date] { background: var(--card); border: 1px solid var(--border); color: var(--text); padding: 10px 14px; border-radius: 11px; font-size: .95rem; font-family: inherit; }
@@ -1348,7 +1350,7 @@ function renderReport() {
     const cx = !!c.cancelled; // ยกเลิกแล้ว = แสดงอยู่แต่ไม่นับยอด
     return `<tr class="${cx ? 'cancelled-row' : ''}">
       <td>${img}</td>
-      <td class="name">${c.topic ? `<div class="topic">${esc(c.topic)}</div>` : ''}${esc(c.name)}${c.lang ? ` <span class="lang-badge">${esc(c.lang)}</span>` : ''}${c.psa ? ` <span class="muted">(PSA ${esc(c.psa)})</span>` : ''}${setMetaHTML(c)}${cx ? ' <span class="badge-cancelled">ยกเลิก</span>' : ''}</td>
+      <td class="name">${c.topic ? `<div class="topic">${esc(c.topic)}</div>` : ''}${esc(c.name)}${c.lang ? ` <span class="lang-badge">${esc(c.lang)}</span>` : ''}${c.psa ? ` <span class="muted">(PSA ${esc(c.psa)})</span>` : ''}${setMetaHTML(c)}</td>
       <td class="center"><span class="qty-badge">${Number(c.qty) || 1}${c.unit ? ' ' + esc(c.unit) : ''}</span></td>
       <td class="center muted">${c.sellTime || '-'}</td>
       <td class="center"><span class="pay-tag ${c.payment || ''}">${PAYMENT[c.payment] || '-'}</span></td>
@@ -1357,11 +1359,12 @@ function renderReport() {
       <td class="num">${disc > 0 ? money(disc) : '-'}</td>
       <td class="num">${money(net)}</td>
       ${canSeeProfit() ? `<td class="num">${cx ? '<span class="muted">—</span>' : `<span class="${p > 0 ? 'profit-pos' : p < 0 ? 'profit-neg' : 'muted'}">${p > 0 ? '+' : ''}${money(p)}</span>`}</td>` : ''}
-      ${isToday ? `<td class="center">${cx ? '<span class="muted" style="font-size:.76rem">ยกเลิกแล้ว</span>' : `<button class="btn btn-danger btn-sm" onclick="cancelSale('${c.id}')" title="ยกเลิกการขาย (ต้องใส่รหัส)">ยกเลิก</button>`}</td>` : ''}
+      <td class="center">${cx ? '<span class="badge-cancelled">ยกเลิก</span>' : '<span class="badge-ok">สำเร็จ</span>'}</td>
+      <td class="center">${(isToday && !cx) ? `<button class="lock-btn" onclick="cancelSale('${c.id}')" title="กดเพื่อยกเลิกการขาย (ต้องใส่รหัส)">🔒</button>` : ''}</td>
     </tr>`;
   }).join('');
   area.innerHTML = `<table>
-    <thead><tr><th>รูป</th><th>ชื่อการ์ด</th><th class="center">จำนวน</th><th class="center">เวลา</th><th class="center">ชำระเงิน</th><th class="num">รับซื้อ</th><th class="num">ขาย</th><th class="num">ส่วนลด</th><th class="num">ยอดขายสุทธิ</th>${canSeeProfit() ? '<th class="num">กำไร</th>' : ''}${isToday ? '<th class="center">ยกเลิก</th>' : ''}</tr></thead>
+    <thead><tr><th>รูป</th><th>ชื่อการ์ด</th><th class="center">จำนวน</th><th class="center">เวลา</th><th class="center">ชำระเงิน</th><th class="num">รับซื้อ</th><th class="num">ขาย</th><th class="num">ส่วนลด</th><th class="num">ยอดขายสุทธิ</th>${canSeeProfit() ? '<th class="num">กำไร</th>' : ''}<th class="center">ผลการขาย</th><th></th></tr></thead>
     <tbody>${rows}</tbody>
   </table>`;
 }
