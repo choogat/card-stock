@@ -1348,7 +1348,8 @@ function renderReport() {
     const cx = !!c.cancelled; // ยกเลิกแล้ว = แสดงอยู่แต่ไม่นับยอด
     return `<tr class="${cx ? 'cancelled-row' : ''}">
       <td>${img}</td>
-      <td class="name">${c.topic ? `<div class="topic">${esc(c.topic)}</div>` : ''}${esc(c.name)}${c.lang ? ` <span class="lang-badge">${esc(c.lang)}</span>` : ''}${c.psa ? ` <span class="muted">(PSA ${esc(c.psa)})</span>` : ''}${(c.qty && c.qty > 1) ? ` <span class="qty-badge">×${c.qty}${c.unit ? ' ' + esc(c.unit) : ''}</span>` : ''}${setMetaHTML(c)}${cx ? ' <span class="badge-cancelled">ยกเลิก</span>' : ''}</td>
+      <td class="name">${c.topic ? `<div class="topic">${esc(c.topic)}</div>` : ''}${esc(c.name)}${c.lang ? ` <span class="lang-badge">${esc(c.lang)}</span>` : ''}${c.psa ? ` <span class="muted">(PSA ${esc(c.psa)})</span>` : ''}${setMetaHTML(c)}${cx ? ' <span class="badge-cancelled">ยกเลิก</span>' : ''}</td>
+      <td class="center"><span class="qty-badge">${Number(c.qty) || 1}${c.unit ? ' ' + esc(c.unit) : ''}</span></td>
       <td class="center muted">${c.sellTime || '-'}</td>
       <td class="center"><span class="pay-tag ${c.payment || ''}">${PAYMENT[c.payment] || '-'}</span></td>
       <td class="num">${money(c.buy)}</td>
@@ -1360,7 +1361,7 @@ function renderReport() {
     </tr>`;
   }).join('');
   area.innerHTML = `<table>
-    <thead><tr><th>รูป</th><th>ชื่อการ์ด</th><th class="center">เวลา</th><th class="center">ชำระเงิน</th><th class="num">รับซื้อ</th><th class="num">ขาย</th><th class="num">ส่วนลด</th><th class="num">ยอดขายสุทธิ</th>${canSeeProfit() ? '<th class="num">กำไร</th>' : ''}${isToday ? '<th class="center">ยกเลิก</th>' : ''}</tr></thead>
+    <thead><tr><th>รูป</th><th>ชื่อการ์ด</th><th class="center">จำนวน</th><th class="center">เวลา</th><th class="center">ชำระเงิน</th><th class="num">รับซื้อ</th><th class="num">ขาย</th><th class="num">ส่วนลด</th><th class="num">ยอดขายสุทธิ</th>${canSeeProfit() ? '<th class="num">กำไร</th>' : ''}${isToday ? '<th class="center">ยกเลิก</th>' : ''}</tr></thead>
     <tbody>${rows}</tbody>
   </table>`;
 }
