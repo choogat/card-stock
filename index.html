@@ -774,6 +774,18 @@
         <button type="button" class="btn btn-ghost" onclick="openSnkrFromForm()" title="เปิด SNKRDUNK ค้นหาการ์ดนี้">🔎 เปิด SNKRDUNK</button>
       </div>
     </div>
+    <div id="row_namtcg">
+      <div class="grid2">
+        <div class="field">
+          <label>Last sold NamTCG — RAW (฿)</label>
+          <input id="f_namRaw" type="number" inputmode="decimal" placeholder="ราคา RAW">
+        </div>
+        <div class="field">
+          <label>Last sold NamTCG — PSA 10 (฿)</label>
+          <input id="f_namPsa10" type="number" inputmode="decimal" placeholder="ราคา PSA 10">
+        </div>
+      </div>
+    </div>
     <div class="field" id="row_detail">
       <label>รายละเอียด Card</label>
       <textarea id="f_detail" rows="3" placeholder="รายละเอียดเพิ่มเติม เช่น สภาพ, ตำหนิ, ที่มา..."></textarea>
@@ -1953,7 +1965,7 @@ function applyFormMode(mode) {
   const isSet = mode === 'set';
   const isCard = mode === 'card';
   // ช่องเฉพาะการ์ดเดี่ยว (cert / SNKRDUNK / รุ่น+PSA) — โชว์เฉพาะโหมดการ์ดเดี่ยว
-  ['row_psaLookup', 'row_snkr', 'fld_set', 'fld_psaGrade'].forEach(id => {
+  ['row_psaLookup', 'row_snkr', 'row_namtcg', 'fld_set', 'fld_psaGrade'].forEach(id => {
     document.getElementById(id).style.display = isCard ? '' : 'none';
   });
   // แถว รุ่น/PSA/สถานะ โชว์เสมอ (มีช่อง "สถานะ" ที่ทุกโหมดต้องใช้)
@@ -1990,7 +2002,7 @@ function openProductAdd(mode) {
   openForm(mode);
   productMode = true;
   document.getElementById('modalTitle').textContent = mode === 'collect' ? 'เพิ่มข้อมูลของสะสม' : 'เพิ่มข้อมูลสินค้า';
-  ['fld_median', 'fld_status', 'fld_buyDate', 'row_snkr'].forEach(id => {
+  ['fld_median', 'fld_status', 'fld_buyDate', 'row_snkr', 'row_namtcg'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.style.display = 'none';
   });
@@ -2004,7 +2016,7 @@ function setBuyMode(on) {
   buyMode = on;
   document.getElementById('fld_median').style.display = on ? 'none' : '';
   document.getElementById('fld_sell').style.display = on ? 'none' : '';
-  if (on) document.getElementById('row_snkr').style.display = 'none';
+  if (on) { document.getElementById('row_snkr').style.display = 'none'; document.getElementById('row_namtcg').style.display = 'none'; }
   document.getElementById('modalTitle').textContent = on ? '📥 รับซื้อจาก PSA' : document.getElementById('modalTitle').textContent;
 }
 // ค้นหาจาก PSA ในแท็บรับซื้อ → เปิดฟอร์มแบบเพิ่มการ์ด (ซ่อนราคากลาง/ขาย/last sold)
@@ -2126,6 +2138,8 @@ function openForm(mode = 'card') {
   document.getElementById('f_status').value = 'show';
   document.getElementById('f_buyDate').value = '';
   document.getElementById('f_snkr').value = '';
+  document.getElementById('f_namRaw').value = '';
+  document.getElementById('f_namPsa10').value = '';
   document.getElementById('f_detail').value = '';
   document.getElementById('f_isSet').checked = false;
   renderSetItemRows();
@@ -2163,6 +2177,8 @@ function editCard(id) {
   document.getElementById('f_status').value = c.status || 'show';
   document.getElementById('f_buyDate').value = c.buyDate || '';
   document.getElementById('f_snkr').value = c.snkr ?? '';
+  document.getElementById('f_namRaw').value = c.namRaw ?? '';
+  document.getElementById('f_namPsa10').value = c.namPsa10 ?? '';
   document.getElementById('f_detail').value = c.detail || '';
   renderSetItemRows(c.setItems || []);
   setImage(c.image || '');
@@ -2490,6 +2506,8 @@ function saveCard() {
     status: document.getElementById('f_status').value,
     buyDate: document.getElementById('f_buyDate').value || '',
     snkr: parseFloat(document.getElementById('f_snkr').value) || 0,
+    namRaw: parseFloat(document.getElementById('f_namRaw').value) || 0,
+    namPsa10: parseFloat(document.getElementById('f_namPsa10').value) || 0,
     detail: document.getElementById('f_detail').value.trim(),
   };
   const id = document.getElementById('f_id').value;
@@ -2593,7 +2611,7 @@ function exportCSV() {
   if (!cards.length) { alert('ยังไม่มีข้อมูลให้ส่งออก'); return; }
   const cols = [
     ['เรื่อง', 'topic'], ['ชื่อการ์ด', 'name'], ['รุ่น', 'set'], ['หมายเลข PSA', 'psa'],
-    ['ราคากลาง', 'median'], ['SNKRDUNK(¥)', 'snkr'], ['ราคารับซื้อ', 'buy'], ['ราคาขาย', 'sell'],
+    ['ราคากลาง', 'median'], ['SNKRDUNK(¥)', 'snkr'], ['NamTCG RAW(฿)', 'namRaw'], ['NamTCG PSA10(฿)', 'namPsa10'], ['ราคารับซื้อ', 'buy'], ['ราคาขาย', 'sell'],
     ['กำไร', c => cardProfit(c)], ['สถานะ', c => (STATUS[c.status] || {}).label || c.status],
     ['วันที่ซื้อ', 'buyDate'], ['วันที่ขาย', 'sellDate'], ['รายละเอียด', 'detail'],
   ];
