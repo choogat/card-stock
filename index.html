@@ -1189,6 +1189,7 @@ function stockRow(c, isChild) {
     </td>
     <td>
       <div class="row-actions">
+        <button class="icon-btn" onclick="copyCard('${c.id}')" title="ทำสำเนา (เพิ่มใบใหม่จากใบนี้)">📋</button>
         <button class="icon-btn" onclick="editCard('${c.id}')" title="แก้ไข">✏️</button>
         <button class="icon-btn del" onclick="delCard('${c.id}')" title="ลบ">🗑️</button>
       </div>
@@ -2289,6 +2290,22 @@ function editCard(id) {
   setImage(c.image || '');
   applyFormMode(mode);
   document.getElementById('overlay').classList.add('open');
+}
+
+// ทำสำเนา: เปิดฟอร์มเพิ่ม "ใบใหม่" โดยก๊อปข้อมูลจากใบที่เลือก (ล้างเฉพาะเลข cert ที่ต้องไม่ซ้ำ)
+function copyCard(id) {
+  const c = cards.find(x => x.id === id);
+  if (!c) return;
+  editCard(id);                                   // เติมทุกช่องจากใบต้นฉบับ
+  document.getElementById('f_id').value = '';      // เป็น "ใบใหม่" ไม่ทับใบเดิม
+  document.getElementById('f_cert').value = '';    // cert ต้องไม่ซ้ำ — กรอกใหม่
+  // ตัดส่วน "cert ..." (เลข cert ใบเดิม) ออกจากรายละเอียด
+  const detEl = document.getElementById('f_detail');
+  detEl.value = (detEl.value || '').split('·').map(s => s.trim()).filter(s => s && !/cert/i.test(s)).join(' · ');
+  const t = c.type === 'collect' ? 'ของสะสม' : (c.type === 'set' ? 'ชุด' : 'การ์ด');
+  document.getElementById('modalTitle').textContent = `ทำสำเนา${t} (ใบใหม่)`;
+  psaSay('คัดลอกข้อมูลแล้ว — แก้เลข cert / รายละเอียดที่ต่าง แล้วกดบันทึก', '');
+  document.getElementById('f_cert').focus();
 }
 
 function closeForm() { document.getElementById('overlay').classList.remove('open'); }
