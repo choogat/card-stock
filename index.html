@@ -2411,9 +2411,9 @@ function snkrBrandSlug(topic) {
   if (t.includes('weiss')) return 'weissschwarz';
   return '';
 }
-// ใส่คำค้นลงช่องค้นหาหลักของ SNKRDUNK
+// ใส่คำค้นลงช่องค้นหาของ SNKRDUNK (เว็บญี่ปุ่น)
 function snkrdunkUrl(keyword) {
-  return 'https://snkrdunk.com/en/search?keyword=' + encodeURIComponent(keyword || '');
+  return 'https://snkrdunk.com/search?keywords=' + encodeURIComponent(keyword || '');
 }
 // โค้ดการ์ด เช่น OP12-093 (จากรุ่น + เลขการ์ดในรายละเอียด) — ใช้ภาษาไหนก็เหมือนกัน
 function snkrCardCode() {
