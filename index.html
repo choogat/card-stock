@@ -2401,10 +2401,23 @@ function addFromPSASearch() {
 // ---- SNKRDUNK ----
 function yen(n) { const v = Number(n) || 0; return '¥' + v.toLocaleString('th-TH', { maximumFractionDigits: 0 }); }
 function snkrdunkUrl(keyword) { return 'https://snkrdunk.com/en/search?keyword=' + encodeURIComponent(keyword || ''); }
+// สร้างคำค้นให้เจาะจงการ์ด: โค้ดเซ็ต-เลขการ์ด (เช่น OP12-093) + ชื่อ → ลิงก์ตรงผลค้นหามากขึ้น
+function buildSnkrKeyword() {
+  const name = (document.getElementById('f_name').value || '').trim();
+  const set = (document.getElementById('f_set').value || '').trim();
+  const detail = (document.getElementById('f_detail').value || '').trim();
+  const codeM = set.match(/\b([A-Z]{2,3}\d{2,3})\b/);              // โค้ดเซ็ต เช่น OP12, EB01, SV2A
+  const numM = detail.match(/การ์ดเลข\s*([0-9A-Za-z\-]+)/) || detail.match(/\bNo\.?\s*([0-9A-Za-z\-]+)/i);
+  const parts = [];
+  if (codeM && numM) parts.push(codeM[1] + '-' + numM[1]);        // OP12-093
+  else if (codeM) parts.push(codeM[1]);
+  if (name) parts.push(name);
+  return parts.join(' ').trim();
+}
 function openSnkrFromForm() {
-  const name = document.getElementById('f_name').value.trim();
-  if (!name) { alert('ใส่ชื่อการ์ดก่อน แล้วค่อยกดค้นหา SNKRDUNK'); return; }
-  window.open(snkrdunkUrl(name), '_blank');
+  const kw = buildSnkrKeyword();
+  if (!kw) { alert('ใส่ชื่อการ์ดก่อน แล้วค่อยกดค้นหา SNKRDUNK'); return; }
+  window.open(snkrdunkUrl(kw), '_blank');
 }
 
 function saveCard() {
