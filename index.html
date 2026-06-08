@@ -2121,8 +2121,7 @@ async function fetchSetItemPSA(btn) {
   const orig = btn.textContent;
   btn.disabled = true; btn.textContent = '…';
   try {
-    const resp = await fetch(`${PSA_API_BASE}?cert=${encodeURIComponent(cert)}`);
-    const data = await resp.json();
+    const { resp, data } = await psaLookup(cert);
     if (!resp.ok || data.found === false || data.error) { alert(data.error || ('ไม่พบข้อมูล cert ' + cert)); return; }
     if (data.subject) nameEl.value = data.subject;
     const topicEl = document.getElementById('f_topic');
@@ -2333,6 +2332,22 @@ function psaSay(msg, cls) {
   el.className = 'psa-msg' + (cls ? ' ' + cls : '');
 }
 
+// เรียกหลังบ้าน PSA พร้อมลองใหม่อัตโนมัติเมื่อโดน rate limit (429)
+async function psaLookup(cert, tries = 3) {
+  let resp, data = {};
+  for (let i = 0; i < tries; i++) {
+    resp = await fetch(`${PSA_API_BASE}?cert=${encodeURIComponent(cert)}`);
+    try { data = await resp.json(); } catch (_) { data = {}; }
+    if (resp.status === 429 && i < tries - 1) {
+      const ra = parseFloat(resp.headers.get('retry-after'));
+      await new Promise(r => setTimeout(r, Number.isFinite(ra) ? Math.min(ra * 1000, 6000) : 1200 * (i + 1)));
+      continue;
+    }
+    break;
+  }
+  return { resp, data };
+}
+
 async function fetchPSA() {
   const cert = document.getElementById('f_cert').value.trim().replace(/\D/g, '');
   if (!cert) { psaSay('กรุณากรอกเลข cert ก่อน', 'err'); return; }
@@ -2340,8 +2355,7 @@ async function fetchPSA() {
   btn.disabled = true;
   psaSay('กำลังดึงข้อมูลจาก PSA...', 'load');
   try {
-    const resp = await fetch(`${PSA_API_BASE}?cert=${encodeURIComponent(cert)}`);
-    const data = await resp.json();
+    const { resp, data } = await psaLookup(cert);
     if (!resp.ok || data.found === false || data.error) {
       psaSay(data.error || 'ไม่พบข้อมูล', 'err');
       return;
@@ -2459,8 +2473,7 @@ async function searchPSA() {
   psSearchMsg('กำลังค้นหา...', 'load');
   document.getElementById('psResult').innerHTML = '';
   try {
-    const resp = await fetch(`${PSA_API_BASE}?cert=${encodeURIComponent(cert)}`);
-    const data = await resp.json();
+    const { resp, data } = await psaLookup(cert);
     if (!resp.ok || data.found === false || data.error) { psSearchMsg(data.error || 'ไม่พบข้อมูล', 'err'); return; }
     lastPSA = data;
     psSearchMsg('✓ พบข้อมูล', 'ok');

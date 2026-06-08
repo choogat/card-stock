@@ -6,6 +6,26 @@
 
 const PSA_BASE = 'https://api.psacard.com/publicapi';
 
+// แคชระดับโมดูล (lambda ใช้ซ้ำข้ามรีเควสต์) — กันเรียก cert เดิมซ้ำจน PSA จำกัดโควต้า (429)
+const CACHE_TTL_MS = 6 * 60 * 60 * 1000; // 6 ชั่วโมง
+const certCache = {}; // cert -> { at, data }
+
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+// เรียก PSA พร้อม retry เมื่อโดน rate limit (429) — เคารพ Retry-After ถ้ามี
+async function psaFetch(url, headers, tries = 3) {
+  let resp;
+  for (let i = 0; i < tries; i++) {
+    resp = await fetch(url, { headers });
+    if (resp.status !== 429) return resp;
+    if (i === tries - 1) break; // ครั้งสุดท้ายแล้ว — คืน 429 ออกไป
+    const ra = parseFloat(resp.headers.get('retry-after'));
+    const waitMs = Number.isFinite(ra) ? Math.min(ra * 1000, 8000) : 800 * Math.pow(2, i); // 0.8s, 1.6s, ...
+    await sleep(waitMs);
+  }
+  return resp;
+}
+
 export default async function handler(req, res) {
   // CORS — อนุญาตให้หน้าเว็บ (GitHub Pages / Vercel / เปิดไฟล์ตรงๆ) เรียกได้
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -25,13 +45,27 @@ export default async function handler(req, res) {
     return;
   }
 
+  // ตอบจากแคชถ้ามี (ลดจำนวนคำขอไป PSA)
+  const cached = certCache[cert];
+  if (cached && (Date.now() - cached.at) < CACHE_TTL_MS) {
+    res.setHeader('Cache-Control', 's-maxage=86400, stale-while-revalidate');
+    res.status(200).json(cached.data);
+    return;
+  }
+
   const headers = { Authorization: `Bearer ${token}`, Accept: 'application/json' };
 
   try {
     // 1) ข้อมูลการ์ด
-    const certResp = await fetch(`${PSA_BASE}/cert/GetByCertNumber/${cert}`, { headers });
+    const certResp = await psaFetch(`${PSA_BASE}/cert/GetByCertNumber/${cert}`, headers);
     if (certResp.status === 401 || certResp.status === 403) {
       res.status(502).json({ error: 'token PSA ไม่ถูกต้องหรือหมดสิทธิ์' });
+      return;
+    }
+    if (certResp.status === 429) {
+      const ra = parseFloat(certResp.headers.get('retry-after'));
+      res.setHeader('Retry-After', Number.isFinite(ra) ? String(Math.ceil(ra)) : '30');
+      res.status(429).json({ error: 'PSA จำกัดจำนวนคำขอชั่วคราว (429) — รอสักครู่แล้วลองใหม่' });
       return;
     }
     if (!certResp.ok) {
@@ -45,10 +79,10 @@ export default async function handler(req, res) {
       return;
     }
 
-    // 2) รูปการ์ด (อาจไม่มีในบางใบ)
+    // 2) รูปการ์ด (อาจไม่มีในบางใบ) — 429 ตรงนี้ไม่ทำให้ทั้งคำขอล้ม
     let frontImage = '', backImage = '';
     try {
-      const imgResp = await fetch(`${PSA_BASE}/cert/GetImagesByCertNumber/${cert}`, { headers });
+      const imgResp = await psaFetch(`${PSA_BASE}/cert/GetImagesByCertNumber/${cert}`, headers, 2);
       if (imgResp.ok) {
         const imgs = await imgResp.json();
         if (Array.isArray(imgs)) {
@@ -64,8 +98,7 @@ export default async function handler(req, res) {
     } catch (_) { /* ไม่มีรูปก็ปล่อยผ่าน */ }
 
     const grade = c.CardGrade || c.GradeDescription || c.cardGrade || c.gradeDescription || '';
-    res.setHeader('Cache-Control', 's-maxage=86400, stale-while-revalidate');
-    res.status(200).json({
+    const payload = {
       found: true,
       cert: c.CertNumber || c.certNumber || cert,
       year: c.Year || c.year || '',
@@ -78,7 +111,10 @@ export default async function handler(req, res) {
       gradeNumber: (String(grade).match(/(\d+(\.\d+)?)/) || [''])[0],
       frontImage,
       backImage,
-    });
+    };
+    certCache[cert] = { at: Date.now(), data: payload }; // เก็บแคชไว้กันเรียกซ้ำ
+    res.setHeader('Cache-Control', 's-maxage=86400, stale-while-revalidate');
+    res.status(200).json(payload);
   } catch (err) {
     res.status(500).json({ error: 'เรียก PSA ไม่สำเร็จ: ' + (err.message || err) });
   }
