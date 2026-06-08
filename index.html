@@ -2706,15 +2706,10 @@ async function syncOnStart() {
     updateAuthBtn(); applyPermissions(); updateAuthGate(); return;
   }
   if (res.ok) {
-    if (res.cards.length) {
-      cards = res.cards;
-      try { localStorage.setItem(KEY, JSON.stringify(cards)); } catch (e) {}
-      setSync('✓ ซิงก์แล้ว', 'ok');
-    } else if (cards.length) {
-      await pushToServer(); // เซิร์ฟเวอร์ว่าง → อัปโหลดข้อมูลในเครื่อง
-    } else {
-      setSync('✓ ซิงก์แล้ว', 'ok');
-    }
+    // เซิร์ฟเวอร์เป็นแหล่งข้อมูลหลักเสมอ — รวมถึงตอนว่าง (= ถูกล้าง) ก็ล้าง cache ตาม ไม่ดันข้อมูลเก่ากลับ
+    cards = res.cards;
+    try { localStorage.setItem(KEY, JSON.stringify(cards)); } catch (e) {}
+    setSync('✓ ซิงก์แล้ว', 'ok');
     render();
   }
 }
