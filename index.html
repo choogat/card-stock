@@ -332,6 +332,17 @@
   .grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
   /* แถว รุ่น(50%) / PSA.BGS(25%) / สถานะ(25%) */
   .grid-setpsa { display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 12px; }
+  /* dropdown แนะนำ "รุ่น" ที่เคยพิมพ์ — กว้างตามข้อความ ไม่ตัดคำ */
+  .ac-wrap { position: relative; }
+  .ac-list { position: absolute; top: calc(100% + 4px); left: 0; z-index: 60;
+    min-width: 100%; width: max-content; max-width: 360px; max-height: 240px; overflow-y: auto;
+    background: var(--card); border: 1px solid var(--border); border-radius: 8px;
+    box-shadow: 0 8px 24px rgba(0,0,0,.35); display: none; }
+  .ac-list.open { display: block; }
+  .ac-item { padding: 8px 12px; cursor: pointer; font-size: .9rem; line-height: 1.4;
+    white-space: normal; word-break: break-word; border-bottom: 1px solid var(--border); }
+  .ac-item:last-child { border-bottom: none; }
+  .ac-item:hover, .ac-item.active { background: var(--card2); }
   .danger-zone { margin-top: 26px; padding: 16px; border: 1px solid var(--danger); border-radius: 14px; background: rgba(226,59,78,.06); max-width: 560px; }
   .psa-lookup { background: rgba(108,92,231,.12); border: 1px solid var(--accent2); border-radius: 14px; padding: 14px; }
   .psa-row { display: flex; gap: 8px; }
@@ -742,7 +753,10 @@
     <div class="grid-setpsa" id="row_setPsa">
       <div class="field" id="fld_set">
         <label>รุ่น</label>
-        <input id="f_set" placeholder="เช่น Base Set, 151...">
+        <div class="ac-wrap">
+          <input id="f_set" placeholder="เช่น Base Set, 151..." autocomplete="off" oninput="showSetSuggest()" onfocus="showSetSuggest()" onblur="hideSetSuggest()">
+          <div class="ac-list" id="setSuggest"></div>
+        </div>
       </div>
       <div class="field" id="fld_psaGrade">
         <label>PSA. BGS</label>
@@ -2540,6 +2554,36 @@ function snkrBrandSlug(topic) {
 function snkrdunkUrl(keyword) {
   return 'https://snkrdunk.com/search?keywords=' + encodeURIComponent(keyword || '');
 }
+// ---- ช่อง "รุ่น": dropdown แนะนำค่าที่เคยใช้ (แสดงเต็ม ไม่ตัดคำ) ----
+// รวมรายการ "รุ่น" ที่ไม่ซ้ำจากการ์ดทั้งหมด
+function distinctSets() {
+  const seen = new Set(), out = [];
+  for (const c of cards) {
+    const s = (c.set || '').trim();
+    const k = s.toLowerCase();
+    if (s && !seen.has(k)) { seen.add(k); out.push(s); }
+  }
+  return out.sort((a, b) => a.localeCompare(b, 'th'));
+}
+function showSetSuggest() {
+  const inp = document.getElementById('f_set');
+  const box = document.getElementById('setSuggest');
+  const q = (inp.value || '').trim().toLowerCase();
+  const items = distinctSets().filter(s => !q || s.toLowerCase().includes(q));
+  if (!items.length) { box.classList.remove('open'); box.innerHTML = ''; return; }
+  box.innerHTML = items.map(s => `<div class="ac-item" data-v="${esc(s)}" onmousedown="event.preventDefault();pickSet(this)">${esc(s)}</div>`).join('');
+  box.classList.add('open');
+}
+function pickSet(el) {
+  document.getElementById('f_set').value = el.dataset.v || '';
+  const box = document.getElementById('setSuggest');
+  box.classList.remove('open');
+  document.getElementById('f_set').focus();
+}
+function hideSetSuggest() {
+  setTimeout(() => { const b = document.getElementById('setSuggest'); if (b) b.classList.remove('open'); }, 120);
+}
+
 // โค้ดการ์ดสำหรับค้น SNKRDUNK:
 //  - เป็นเซ็ต OP/EB/PRB → "OP-093" (ตัดเลขเซ็ตทิ้ง) · EB-093 · PRB-093
 //  - ไม่ใช่ OP/EB/PRB → ใช้แค่เลขการ์ด (กลายเป็น "ชื่อ + เลข")
