@@ -2411,12 +2411,9 @@ function snkrBrandSlug(topic) {
   if (t.includes('weiss')) return 'weissschwarz';
   return '';
 }
-// ลิงก์ไปหน้า "การ์ดเดี่ยว" ของ SNKRDUNK ตามแบรนด์ (ไม่ใช่ /search ที่เป็นรองเท้า)
-function snkrdunkUrl(keyword, topic) {
-  const kw = encodeURIComponent(keyword || '');
-  const b = snkrBrandSlug(topic);
-  if (b) return `https://snkrdunk.com/en/brands/${b}/trading-cards?categoryId=25&keyword=${kw}`;
-  return `https://snkrdunk.com/en/trading-card-categories/25?keyword=${kw}`; // ไม่รู้แบรนด์ → หมวดการ์ดเดี่ยวรวม
+// ใส่คำค้นลงช่องค้นหาหลักของ SNKRDUNK
+function snkrdunkUrl(keyword) {
+  return 'https://snkrdunk.com/en/search?keyword=' + encodeURIComponent(keyword || '');
 }
 // โค้ดการ์ด เช่น OP12-093 (จากรุ่น + เลขการ์ดในรายละเอียด) — ใช้ภาษาไหนก็เหมือนกัน
 function snkrCardCode() {
@@ -2441,17 +2438,16 @@ async function translateToJP(text) {
     return (d.text || '').trim();
   } catch (e) { return ''; }
 }
-// กดค้นหา SNKRDUNK → แปลชื่อ EN เป็นญี่ปุ่นก่อน แล้วค้นด้วยชื่อญี่ปุ่น + โค้ดการ์ด
+// กดค้นหา SNKRDUNK → แปลชื่อเป็นญี่ปุ่นก่อน แล้วค้นด้วย "ชื่อญี่ปุ่น ตามด้วย OP/รุ่น"
 async function openSnkrFromForm() {
   const name = (document.getElementById('f_name').value || '').trim();
   if (!name) { alert('ใส่ชื่อการ์ดก่อน แล้วค่อยกดค้นหา SNKRDUNK'); return; }
-  const topic = (document.getElementById('f_topic').value || '') + ' ' + (document.getElementById('f_set').value || '');
-  const code = snkrCardCode();
+  const code = snkrCardCode(); // เช่น OP12-093 (โค้ด/รุ่น)
   // เปิดแท็บทันที (อยู่ใน user gesture กันโดน popup block) แล้วค่อยพาไปหลังแปลเสร็จ
   const win = window.open('about:blank', '_blank');
   const jp = await translateToJP(name);
-  const kw = [code, jp || name].filter(Boolean).join(' ').trim(); // ใช้ชื่อญี่ปุ่นถ้าแปลได้ ไม่งั้นใช้ EN เดิม
-  const url = snkrdunkUrl(kw, topic);
+  const kw = [(jp || name), code].filter(Boolean).join(' ').trim(); // ชื่อญี่ปุ่นก่อน → ตามด้วย OP/รุ่น
+  const url = snkrdunkUrl(kw);
   if (win && !win.closed) win.location.href = url; else window.open(url, '_blank');
 }
 
