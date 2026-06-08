@@ -2415,17 +2415,18 @@ function snkrBrandSlug(topic) {
 function snkrdunkUrl(keyword) {
   return 'https://snkrdunk.com/search?keywords=' + encodeURIComponent(keyword || '');
 }
-// โค้ดการ์ดสำหรับค้น SNKRDUNK: ตัวอักษรนำหน้า (OP/EB/PRB...) ตัดเลขเซ็ตทิ้ง + "-" + เลขการ์ด
-// เช่น OP12 → OP-093 · EB01 → EB-093 · ไม่มีโค้ด → event-093 · ไม่มีเลขการ์ด → "" (ใช้แค่ชื่อ)
+// โค้ดการ์ดสำหรับค้น SNKRDUNK:
+//  - เป็นเซ็ต OP/EB/PRB → "OP-093" (ตัดเลขเซ็ตทิ้ง) · EB-093 · PRB-093
+//  - ไม่ใช่ OP/EB/PRB → ใช้แค่เลขการ์ด (กลายเป็น "ชื่อ + เลข")
+//  - ไม่มีเลขการ์ด → "" (ใช้แค่ชื่อ)
 function snkrCardCode() {
   const set = (document.getElementById('f_set').value || '').trim();
   const detail = (document.getElementById('f_detail').value || '').trim();
   const numM = detail.match(/การ์ดเลข\s*([0-9A-Za-z]+)/) || detail.match(/\bNo\.?\s*([0-9A-Za-z]+)/i);
   const num = numM ? numM[1] : '';
-  if (!num) return '';                                   // ไม่มีเลขการ์ด → ใช้แค่ชื่อ
-  const codeM = set.match(/\b([A-Z]{2,4})\d{1,3}\b/);    // ตัวอักษรนำหน้าของโค้ดเซ็ต
-  const prefix = codeM ? codeM[1] : 'event';             // ไม่มีโค้ด → event
-  return prefix + '-' + num;                             // OP-093 / EB-093 / PRB-093 / event-093
+  if (!num) return '';
+  const codeM = set.match(/\b(OP|EB|PRB)\d{1,3}\b/);
+  return codeM ? (codeM[1] + '-' + num) : num;
 }
 function buildSnkrKeyword() {
   return [snkrCardCode(), (document.getElementById('f_name').value || '').trim()].filter(Boolean).join(' ').trim();
