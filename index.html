@@ -330,6 +330,8 @@
   .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
   .grid-topic-lang { display: grid; grid-template-columns: 3fr 1fr; gap: 12px; }
   .grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+  /* แถว รุ่น(50%) / PSA.BGS(25%) / สถานะ(25%) */
+  .grid-setpsa { display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 12px; }
   .danger-zone { margin-top: 26px; padding: 16px; border: 1px solid var(--danger); border-radius: 14px; background: rgba(226,59,78,.06); max-width: 560px; }
   .psa-lookup { background: rgba(108,92,231,.12); border: 1px solid var(--accent2); border-radius: 14px; padding: 14px; }
   .psa-row { display: flex; gap: 8px; }
@@ -737,13 +739,13 @@
       <div id="setItemsList"></div>
       <button type="button" class="btn btn-ghost btn-sm" id="setAddBtn" onclick="addSetItem()">+ เพิ่มใบ</button>
     </div>
-    <div class="grid3" id="row_setPsa">
+    <div class="grid-setpsa" id="row_setPsa">
       <div class="field" id="fld_set">
         <label>รุ่น</label>
         <input id="f_set" placeholder="เช่น Base Set, 151...">
       </div>
       <div class="field" id="fld_psaGrade">
-        <label>หมายเลข PSA</label>
+        <label>PSA. BGS</label>
         <input id="f_psa" placeholder="เช่น 10, 9...">
       </div>
       <div class="field" id="fld_status">
