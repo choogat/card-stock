@@ -2384,7 +2384,7 @@ function renderPSResult(d) {
         ${rows.map(r => `<div class="k">${esc(r[0])}</div><div class="v">${esc(r[1])}</div>`).join('')}
         <div class="k">เกรด PSA</div><div class="v"><span class="ps-grade">${esc(d.grade || '-')}</span></div>
       </div>
-      <button class="btn btn-ghost ps-add" onclick="window.open(snkrdunkUrl('${esc((d.subject || '').replace(/'/g, ''))}'),'_blank')">🔎 เช็คราคา Last sold ใน SNKRDUNK</button>
+      <button class="btn btn-ghost ps-add" onclick="window.open(snkrdunkUrl('${esc((d.subject || '').replace(/'/g, ''))}', '${esc((d.brand || '').replace(/'/g, ''))}'),'_blank')">🔎 เช็คราคา Last sold ใน SNKRDUNK</button>
       <button class="btn btn-primary ps-add" onclick="addFromPSASearch()">+ เพิ่มการ์ดนี้เข้าสต็อก</button>
     </div>`;
 }
@@ -2400,7 +2400,23 @@ function addFromPSASearch() {
 
 // ---- SNKRDUNK ----
 function yen(n) { const v = Number(n) || 0; return '¥' + v.toLocaleString('th-TH', { maximumFractionDigits: 0 }); }
-function snkrdunkUrl(keyword) { return 'https://snkrdunk.com/en/search?keyword=' + encodeURIComponent(keyword || ''); }
+// แม็พ "เรื่อง/แบรนด์" → slug ของ SNKRDUNK (รองรับทั้งชื่อเรื่องและ brand เต็มจาก PSA)
+function snkrBrandSlug(topic) {
+  const t = (topic || '').toLowerCase();
+  if (t.includes('one piece') || t.includes('onepiece')) return 'onepiece';
+  if (t.includes('pokemon') || t.includes('pokémon') || t.includes('โปเกมอน')) return 'pokemon';
+  if (t.includes('dragon ball') || t.includes('dragonball')) return 'dragonball';
+  if (t.includes('yu-gi-oh') || t.includes('yugioh') || t.includes('yu gi oh')) return 'yugioh';
+  if (t.includes('weiss')) return 'weissschwarz';
+  return '';
+}
+// ลิงก์ไปหน้า "การ์ดเดี่ยว" ของ SNKRDUNK ตามแบรนด์ (ไม่ใช่ /search ที่เป็นรองเท้า)
+function snkrdunkUrl(keyword, topic) {
+  const kw = encodeURIComponent(keyword || '');
+  const b = snkrBrandSlug(topic);
+  if (b) return `https://snkrdunk.com/en/brands/${b}/trading-cards?categoryId=25&keyword=${kw}`;
+  return `https://snkrdunk.com/en/trading-card-categories/25?keyword=${kw}`; // ไม่รู้แบรนด์ → หมวดการ์ดเดี่ยวรวม
+}
 // สร้างคำค้นให้เจาะจงการ์ด: โค้ดเซ็ต-เลขการ์ด (เช่น OP12-093) + ชื่อ → ลิงก์ตรงผลค้นหามากขึ้น
 function buildSnkrKeyword() {
   const name = (document.getElementById('f_name').value || '').trim();
@@ -2417,7 +2433,8 @@ function buildSnkrKeyword() {
 function openSnkrFromForm() {
   const kw = buildSnkrKeyword();
   if (!kw) { alert('ใส่ชื่อการ์ดก่อน แล้วค่อยกดค้นหา SNKRDUNK'); return; }
-  window.open(snkrdunkUrl(kw), '_blank');
+  const topic = (document.getElementById('f_topic').value || '') + ' ' + (document.getElementById('f_set').value || '');
+  window.open(snkrdunkUrl(kw, topic), '_blank');
 }
 
 function saveCard() {
