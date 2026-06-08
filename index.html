@@ -2340,6 +2340,7 @@ async function psaLookup(cert, tries = 3) {
     try { data = await resp.json(); } catch (_) { data = {}; }
     if (resp.status === 429 && i < tries - 1) {
       const ra = parseFloat(resp.headers.get('retry-after'));
+      if (Number.isFinite(ra) && ra > 15) break; // โควต้าเต็มจริง — ไม่ต้องลองซ้ำสั้น ๆ
       await new Promise(r => setTimeout(r, Number.isFinite(ra) ? Math.min(ra * 1000, 6000) : 1200 * (i + 1)));
       continue;
     }
