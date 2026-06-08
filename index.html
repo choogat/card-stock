@@ -301,7 +301,18 @@
   .set-item-row .si-del { background: var(--card2); border: 1px solid var(--border); color: var(--muted); border-radius: 9px; width: 34px; height: 38px; cursor: pointer; font-size: 1rem; flex: none; }
   .set-item-row .si-del:hover { border-color: var(--danger); color: var(--danger); }
   .set-badge { display: inline-block; background: #7c3aed; color: #fff; padding: 1px 9px; border-radius: 999px; font-size: .72rem; font-weight: 700; }
+  .set-badge.clickable { cursor: pointer; user-select: none; }
+  .set-badge.clickable:hover { background: #6d28d9; }
+  .set-badge .exp { font-size: .8em; }
   .set-list { font-size: .78rem; color: var(--muted); margin-top: 3px; line-height: 1.5; }
+  /* แถบย่อยโชว์รูปการ์ดทุกใบในชุด */
+  tr.set-cards-row > td { background: var(--card2); padding: 12px 14px; }
+  .set-cards { display: flex; flex-wrap: wrap; gap: 12px; }
+  .sc-card { width: 96px; display: flex; flex-direction: column; gap: 5px; }
+  .sc-card img { width: 96px; height: 134px; object-fit: cover; border-radius: 8px; border: 1px solid var(--border); cursor: zoom-in; background: #0001; }
+  .sc-card .sc-empty { width: 96px; height: 134px; display: flex; align-items: center; justify-content: center; font-size: 1.6rem; border-radius: 8px; border: 1px dashed var(--border); color: var(--muted); }
+  .sc-card .sc-name { font-size: .72rem; line-height: 1.35; color: var(--text); word-break: break-word; }
+  .si-thumb { width: 34px; height: 34px; object-fit: cover; border-radius: 7px; border: 1px solid var(--border); flex: none; }
   .filter-banner { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; background: rgba(192,138,0,.12); border: 1px solid var(--yellow); border-radius: 12px; padding: 9px 14px; font-size: .9rem; margin-bottom: 12px; }
   .filter-banner .fb-clear { background: var(--card2); border: 1px solid var(--border); color: var(--text); border-radius: 999px; padding: 4px 12px; font-size: .82rem; font-family: inherit; cursor: pointer; }
   .filter-banner .fb-clear:hover { border-color: var(--accent); }
@@ -1072,6 +1083,8 @@ function render() {
 
 // ---- รวมกลุ่มการ์ดชื่อเดียวกัน (เกรด PSA ต่างได้) ----
 const expandedGroups = new Set();
+// การ์ดชุดที่ "กางดูรูปการ์ดทุกใบ" อยู่ (เก็บตาม id)
+const expandedSets = new Set();
 // ลายเซ็นแยก "ชนิดการ์ด" = รุ่น(set/OP) + รายละเอียด (ตัดเลข cert ที่ไม่ซ้ำกันออก เพื่อให้สำเนาเดียวกันยังรวมได้)
 // ใช้แยกพวก variety/rarity เช่น 3RD ANNIVERSARY-GOLD vs SILVER ที่ set เดียวกัน
 function cardVariantSig(c) {
@@ -1092,6 +1105,32 @@ function toggleGroup(key) {
   if (expandedGroups.has(key)) expandedGroups.delete(key); else expandedGroups.add(key);
   render();
 }
+// กาง/พับ แถบรูปการ์ดทุกใบในชุด
+function toggleSetCards(id) {
+  if (expandedSets.has(id)) expandedSets.delete(id); else expandedSets.add(id);
+  render();
+}
+// ชื่อ/รูป ของการ์ดในชุด — รองรับทั้งข้อมูลเก่า (string) และใหม่ ({name,cert,image})
+function setItemName(it) { return typeof it === 'string' ? it : (it && it.name) || ''; }
+function setItemImg(it) { return (it && typeof it === 'object') ? (it.image || '') : ''; }
+function openImgUrl(url) {
+  if (!url) return;
+  document.getElementById('lightboxImg').src = url;
+  document.getElementById('lightbox').classList.add('open');
+}
+// แถวย่อย: โชว์รูปการ์ดทุกใบในชุด
+function setCardsRow(c) {
+  const items = Array.isArray(c.setItems) ? c.setItems.filter(Boolean) : [];
+  const cells = items.map((it, i) => {
+    const name = setItemName(it), img = setItemImg(it);
+    const pic = img
+      ? `<img src="${esc(img)}" alt="" onclick="openImgUrl('${esc(img)}')">`
+      : `<div class="sc-empty">🃏</div>`;
+    return `<div class="sc-card">${pic}<div class="sc-name">${i + 1}. ${esc(name)}</div></div>`;
+  }).join('');
+  const body = cells || '<span class="muted">ยังไม่มีรายการการ์ดในชุด</span>';
+  return `<tr class="set-cards-row"><td colspan="9"><div class="set-cards">${body}</div></td></tr>`;
+}
 // สรุปสถานะเป็นป้ายสี (เหมือนป้ายชำระเงิน)
 function statPills(cnt) {
   return [
@@ -1106,8 +1145,9 @@ function setMetaHTML(c) {
   if (c.type !== 'set') return '';
   const items = Array.isArray(c.setItems) ? c.setItems.filter(Boolean) : [];
   const n = c.setCount != null ? c.setCount : items.length;
-  const badge = ` <span class="set-badge">📦 ชุด ${n} ใบ</span>`;
-  const list = items.length ? `<div class="set-list">${items.map((s, i) => `${i + 1}. ${esc(s)}`).join(' · ')}</div>` : '';
+  const open = expandedSets.has(c.id);
+  const badge = ` <span class="set-badge clickable" onclick="event.stopPropagation();toggleSetCards('${c.id}')" title="คลิกดูรูปการ์ดทุกใบในชุด">📦 ชุด ${n} ใบ <span class="exp">${open ? '▾' : '▸'}</span></span>`;
+  const list = items.length ? `<div class="set-list">${items.map((s, i) => `${i + 1}. ${esc(setItemName(s))}`).join(' · ')}</div>` : '';
   return badge + list;
 }
 
@@ -1183,9 +1223,16 @@ function buildStockRows(list) {
     g.items.push(c);
   }
   return groups.map(g => {
-    if (g.items.length === 1) return stockRow(g.items[0], false);
+    if (g.items.length === 1) {
+      const c = g.items[0];
+      let html = stockRow(c, false);
+      if (c.type === 'set' && expandedSets.has(c.id)) html += setCardsRow(c);
+      return html;
+    }
     let html = groupRow(g);
-    if (expandedGroups.has(g.key)) html += g.items.map(c => stockRow(c, true)).join('');
+    if (expandedGroups.has(g.key)) html += g.items.map(c =>
+      stockRow(c, true) + (c.type === 'set' && expandedSets.has(c.id) ? setCardsRow(c) : '')
+    ).join('');
     return html;
   }).join('');
 }
@@ -2051,12 +2098,16 @@ async function buyFromPSA(cert) {
 
 // ---- รายชื่อการ์ดในชุด (สูงสุด 15 ใบ) ----
 const SET_MAX = 15;
-function setItemRowHTML(i, name) {
-  return `<div class="set-item-row">
+function setItemRowHTML(i, item) {
+  const name = setItemName(item);
+  const cert = (item && typeof item === 'object') ? (item.cert || '') : '';
+  const img = setItemImg(item);
+  return `<div class="set-item-row" data-img="${esc(img)}">
     <span class="si-num">${i + 1}.</span>
-    <input type="text" class="set-item-cert" inputmode="numeric" placeholder="cert PSA" title="ใส่เลข cert แล้วกด ⚡ เพื่อดึงชื่อ" onkeydown="if(event.key==='Enter'){event.preventDefault();fetchSetItemPSA(this.nextElementSibling)}">
-    <button type="button" class="si-psa" title="ดึงชื่อจาก PSA" onclick="fetchSetItemPSA(this)">⚡</button>
-    <input type="text" class="set-item-input" placeholder="ชื่อการ์ดใบที่ ${i + 1}" value="${esc(name || '')}">
+    <input type="text" class="set-item-cert" inputmode="numeric" placeholder="cert PSA" value="${esc(cert)}" title="ใส่เลข cert แล้วกด ⚡ เพื่อดึงชื่อ+รูป" onkeydown="if(event.key==='Enter'){event.preventDefault();fetchSetItemPSA(this.nextElementSibling)}">
+    <button type="button" class="si-psa" title="ดึงชื่อ+รูปจาก PSA" onclick="fetchSetItemPSA(this)">⚡</button>
+    <input type="text" class="set-item-input" placeholder="ชื่อการ์ดใบที่ ${i + 1}" value="${esc(name)}">
+    <img class="si-thumb" src="${esc(img)}" alt="" style="${img ? '' : 'display:none'}" onclick="openImgUrl(this.closest('.set-item-row').dataset.img)">
     <button type="button" class="si-del" title="ลบใบนี้" onclick="removeSetItem(this)">✕</button>
   </div>`;
 }
@@ -2080,7 +2131,13 @@ async function fetchSetItemPSA(btn) {
       const guess = b.includes('pokemon') ? 'Pokemon' : b.includes('one piece') ? 'One Piece' : b.includes('dragon ball') ? 'Dragon Ball' : '';
       if (guess) topicEl.value = guess;
     }
-    if (data.frontImage && !document.getElementById('f_image').value) setImage(data.frontImage);
+    // เก็บรูปการ์ดใบนี้ไว้กับแถว (ใช้โชว์ในแถบย่อยของชุด) + โชว์ thumbnail
+    if (data.frontImage) {
+      row.dataset.img = data.frontImage;
+      const thumb = row.querySelector('.si-thumb');
+      if (thumb) { thumb.src = data.frontImage; thumb.style.display = ''; }
+      if (!document.getElementById('f_image').value) setImage(data.frontImage);
+    }
   } catch (e) {
     alert('เชื่อมต่อหลังบ้านไม่ได้ — ตรวจสอบ Vercel');
   } finally {
@@ -2122,7 +2179,15 @@ function updateSetAddBtn() {
   btn.textContent = full ? `ครบ ${SET_MAX} ใบแล้ว` : '+ เพิ่มใบ';
 }
 function collectSetItems() {
-  return [...document.querySelectorAll('#setItemsList .set-item-input')].map(i => i.value.trim()).filter(Boolean);
+  return [...document.querySelectorAll('#setItemsList .set-item-row')].map(row => {
+    const name = row.querySelector('.set-item-input').value.trim();
+    if (!name) return null;
+    return {
+      name,
+      cert: (row.querySelector('.set-item-cert').value || '').trim().replace(/\D/g, ''),
+      image: row.dataset.img || '',
+    };
+  }).filter(Boolean);
 }
 
 // แสดงยอดรวม = ราคาต่อชิ้น × จำนวน (เฉพาะโหมดของสะสม)
