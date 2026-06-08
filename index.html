@@ -1210,10 +1210,11 @@ function buildProductGroups(list) {
   const byName = new Map();
   for (const c of list) {
     const name = (c.name || '').trim().toLowerCase();
+    const nk = name + '|' + (c.set || '').trim().toLowerCase(); // แยกตาม ชื่อ + รุ่น (set/OP) ให้ตรงกับหน้าสต็อก
     const lang = c.lang || '';
-    const arr = byName.get(name) || [];
+    const arr = byName.get(nk) || [];
     let g = lang ? (arr.find(x => x.lang === lang) || arr.find(x => !x.lang)) : arr[0];
-    if (!g) { g = { rep: c, repLive: null, qty: 0, img: '', lang, ids: [] }; groups.push(g); arr.push(g); byName.set(name, arr); }
+    if (!g) { g = { rep: c, repLive: null, qty: 0, img: '', lang, ids: [] }; groups.push(g); arr.push(g); byName.set(nk, arr); }
     if (!g.lang && lang) g.lang = lang;
     // ตัวแทนกลุ่ม (ใช้โชว์ราคา): การ์ดจริงในสต็อกสำคัญกว่า "ข้อมูลสินค้าอย่างเดียว"
     if (c.status !== 'sold') {
