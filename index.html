@@ -305,6 +305,7 @@
   .grp-price:focus { outline: none; border-color: var(--accent); }
   .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
   .grid-topic-lang { display: grid; grid-template-columns: 3fr 1fr; gap: 12px; }
+  .grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
   .danger-zone { margin-top: 26px; padding: 16px; border: 1px solid var(--danger); border-radius: 14px; background: rgba(226,59,78,.06); max-width: 560px; }
   .psa-lookup { background: rgba(108,92,231,.12); border: 1px solid var(--accent2); border-radius: 14px; padding: 14px; }
   .psa-row { display: flex; gap: 8px; }
@@ -712,14 +713,22 @@
       <div id="setItemsList"></div>
       <button type="button" class="btn btn-ghost btn-sm" id="setAddBtn" onclick="addSetItem()">+ เพิ่มใบ</button>
     </div>
-    <div class="grid2" id="row_setPsa">
-      <div class="field">
+    <div class="grid3" id="row_setPsa">
+      <div class="field" id="fld_set">
         <label>รุ่น</label>
         <input id="f_set" placeholder="เช่น Base Set, 151...">
       </div>
-      <div class="field">
+      <div class="field" id="fld_psaGrade">
         <label>หมายเลข PSA</label>
         <input id="f_psa" placeholder="เช่น 10, 9...">
+      </div>
+      <div class="field" id="fld_status">
+        <label>สถานะ</label>
+        <select id="f_status">
+          <option value="show">สะสม</option>
+          <option value="wait">รอขาย</option>
+          <option value="sold">ขายแล้ว</option>
+        </select>
       </div>
     </div>
     <div class="grid2" id="row_qty" style="display:none">
@@ -751,14 +760,6 @@
       <div class="field" id="fld_sell">
         <label id="lblSell">ราคาขาย (฿)</label>
         <input id="f_sell" type="number" inputmode="decimal" placeholder="0" oninput="updateQtyTotals()">
-      </div>
-      <div class="field" id="fld_status">
-        <label>สถานะ</label>
-        <select id="f_status">
-          <option value="show">สะสม</option>
-          <option value="wait">รอขาย</option>
-          <option value="sold">ขายแล้ว</option>
-        </select>
       </div>
     </div>
     <div class="qty-totals" id="qtyTotals" style="display:none"></div>
@@ -1951,10 +1952,12 @@ function applyFormMode(mode) {
   const isCollect = mode === 'collect';
   const isSet = mode === 'set';
   const isCard = mode === 'card';
-  // ช่องเฉพาะการ์ดเดี่ยว (cert / รุ่น+PSA / SNKRDUNK) — โชว์เฉพาะโหมดการ์ดเดี่ยว
-  ['row_psaLookup', 'row_setPsa', 'row_snkr'].forEach(id => {
+  // ช่องเฉพาะการ์ดเดี่ยว (cert / SNKRDUNK / รุ่น+PSA) — โชว์เฉพาะโหมดการ์ดเดี่ยว
+  ['row_psaLookup', 'row_snkr', 'fld_set', 'fld_psaGrade'].forEach(id => {
     document.getElementById(id).style.display = isCard ? '' : 'none';
   });
+  // แถว รุ่น/PSA/สถานะ โชว์เสมอ (มีช่อง "สถานะ" ที่ทุกโหมดต้องใช้)
+  document.getElementById('row_setPsa').style.display = '';
   document.getElementById('row_detail').style.display = isCollect ? 'none' : '';
   document.getElementById('row_qty').style.display = isCollect ? '' : 'none';
   document.getElementById('row_opLookup').style.display = isCollect ? '' : 'none';
