@@ -1033,14 +1033,21 @@ function render() {
 
 // ---- รวมกลุ่มการ์ดชื่อเดียวกัน (เกรด PSA ต่างได้) ----
 const expandedGroups = new Set();
+// ลายเซ็นแยก "ชนิดการ์ด" = รุ่น(set/OP) + รายละเอียด (ตัดเลข cert ที่ไม่ซ้ำกันออก เพื่อให้สำเนาเดียวกันยังรวมได้)
+// ใช้แยกพวก variety/rarity เช่น 3RD ANNIVERSARY-GOLD vs SILVER ที่ set เดียวกัน
+function cardVariantSig(c) {
+  const set = (c.set || '').trim().toLowerCase();
+  const det = (c.detail || '').split('·').map(s => s.trim()).filter(s => s && !/cert/i.test(s)).join('·').toLowerCase();
+  return set + '|' + det;
+}
 function groupKeyOf(c) {
   const base = (c.name || '').trim().toLowerCase() + '|' + (c.topic || '').trim().toLowerCase() + '|' + (c.lang || '');
   // ชุด: แต่ละชุดเป็นรายการเดี่ยว ไม่รวมกับใคร
   if (c.type === 'set') return 'set:' + c.id;
   // ของสะสม: รวมตามชื่อ+เรื่อง+ภาษา+หน่วย (ขายแล้วจะแยกใบของตัวเองในกลุ่ม)
   if (c.type === 'collect') return 'col:' + base + '|' + (c.unit || '');
-  // การ์ด: รวมตามชื่อ+เรื่อง+ภาษา + "รุ่น (set/OP)" ด้วย — คนละรุ่นถือเป็นคนละใบ ไม่รวมกัน
-  return 'card:' + base + '|' + (c.set || '').trim().toLowerCase();
+  // การ์ด: รวมตามชื่อ+เรื่อง+ภาษา + รุ่น + รายละเอียด(variety) — คนละรุ่น/คนละแบบถือเป็นคนละใบ
+  return 'card:' + base + '|' + cardVariantSig(c);
 }
 function toggleGroup(key) {
   if (expandedGroups.has(key)) expandedGroups.delete(key); else expandedGroups.add(key);
@@ -1210,7 +1217,7 @@ function buildProductGroups(list) {
   const byName = new Map();
   for (const c of list) {
     const name = (c.name || '').trim().toLowerCase();
-    const nk = name + '|' + (c.set || '').trim().toLowerCase(); // แยกตาม ชื่อ + รุ่น (set/OP) ให้ตรงกับหน้าสต็อก
+    const nk = name + '|' + cardVariantSig(c); // แยกตาม ชื่อ + รุ่น + รายละเอียด(variety) ให้ตรงกับหน้าสต็อก
     const lang = c.lang || '';
     const arr = byName.get(nk) || [];
     let g = lang ? (arr.find(x => x.lang === lang) || arr.find(x => !x.lang)) : arr[0];
