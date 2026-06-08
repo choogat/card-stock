@@ -810,6 +810,7 @@ const API_BASE = CARDS_API.replace(/\/cards$/, '');
 const LOGIN_API = API_BASE + '/login';
 const USERS_API = API_BASE + '/users';
 const ONEPIECE_API = API_BASE + '/onepiece';
+const TRANSLATE_API = API_BASE + '/translate';
 const OPIMG_API = API_BASE + '/opimg';
 function opImgUrl(u) { return `${OPIMG_API}?url=${encodeURIComponent(u)}`; }
 const ALL_TABS = ['stock', 'sales', 'report', 'buy', 'product'];
@@ -2417,24 +2418,41 @@ function snkrdunkUrl(keyword, topic) {
   if (b) return `https://snkrdunk.com/en/brands/${b}/trading-cards?categoryId=25&keyword=${kw}`;
   return `https://snkrdunk.com/en/trading-card-categories/25?keyword=${kw}`; // ไม่รู้แบรนด์ → หมวดการ์ดเดี่ยวรวม
 }
-// สร้างคำค้นให้เจาะจงการ์ด: โค้ดเซ็ต-เลขการ์ด (เช่น OP12-093) + ชื่อ → ลิงก์ตรงผลค้นหามากขึ้น
-function buildSnkrKeyword() {
-  const name = (document.getElementById('f_name').value || '').trim();
+// โค้ดการ์ด เช่น OP12-093 (จากรุ่น + เลขการ์ดในรายละเอียด) — ใช้ภาษาไหนก็เหมือนกัน
+function snkrCardCode() {
   const set = (document.getElementById('f_set').value || '').trim();
   const detail = (document.getElementById('f_detail').value || '').trim();
-  const codeM = set.match(/\b([A-Z]{2,3}\d{2,3})\b/);              // โค้ดเซ็ต เช่น OP12, EB01, SV2A
+  const codeM = set.match(/\b([A-Z]{2,3}\d{2,3})\b/);
   const numM = detail.match(/การ์ดเลข\s*([0-9A-Za-z\-]+)/) || detail.match(/\bNo\.?\s*([0-9A-Za-z\-]+)/i);
-  const parts = [];
-  if (codeM && numM) parts.push(codeM[1] + '-' + numM[1]);        // OP12-093
-  else if (codeM) parts.push(codeM[1]);
-  if (name) parts.push(name);
-  return parts.join(' ').trim();
+  if (codeM && numM) return codeM[1] + '-' + numM[1];
+  if (codeM) return codeM[1];
+  return '';
 }
-function openSnkrFromForm() {
-  const kw = buildSnkrKeyword();
-  if (!kw) { alert('ใส่ชื่อการ์ดก่อน แล้วค่อยกดค้นหา SNKRDUNK'); return; }
+function buildSnkrKeyword() {
+  return [snkrCardCode(), (document.getElementById('f_name').value || '').trim()].filter(Boolean).join(' ').trim();
+}
+// แปลข้อความเป็นญี่ปุ่น (ผ่านหลังบ้าน) — ล้มเหลวคืนค่าว่าง
+async function translateToJP(text) {
+  if (!text) return '';
+  try {
+    const r = await fetch(`${TRANSLATE_API}?sl=auto&tl=ja&q=${encodeURIComponent(text)}`);
+    if (!r.ok) return '';
+    const d = await r.json();
+    return (d.text || '').trim();
+  } catch (e) { return ''; }
+}
+// กดค้นหา SNKRDUNK → แปลชื่อ EN เป็นญี่ปุ่นก่อน แล้วค้นด้วยชื่อญี่ปุ่น + โค้ดการ์ด
+async function openSnkrFromForm() {
+  const name = (document.getElementById('f_name').value || '').trim();
+  if (!name) { alert('ใส่ชื่อการ์ดก่อน แล้วค่อยกดค้นหา SNKRDUNK'); return; }
   const topic = (document.getElementById('f_topic').value || '') + ' ' + (document.getElementById('f_set').value || '');
-  window.open(snkrdunkUrl(kw, topic), '_blank');
+  const code = snkrCardCode();
+  // เปิดแท็บทันที (อยู่ใน user gesture กันโดน popup block) แล้วค่อยพาไปหลังแปลเสร็จ
+  const win = window.open('about:blank', '_blank');
+  const jp = await translateToJP(name);
+  const kw = [code, jp || name].filter(Boolean).join(' ').trim(); // ใช้ชื่อญี่ปุ่นถ้าแปลได้ ไม่งั้นใช้ EN เดิม
+  const url = snkrdunkUrl(kw, topic);
+  if (win && !win.closed) win.location.href = url; else window.open(url, '_blank');
 }
 
 function saveCard() {
