@@ -232,6 +232,19 @@
   td.center { text-align: center; }
   .snkr-link { color: var(--accent); text-decoration: none; font-weight: 600; }
   .snkr-link:hover { text-decoration: underline; }
+  .nam-status { margin-top: 6px; font-size: 13px; color: var(--muted); }
+  .nam-status.err { color: var(--danger); }
+  .nam-variants { margin-top: 6px; display: flex; flex-direction: column; gap: 6px; }
+  .nam-variant { display: flex; justify-content: space-between; align-items: center; gap: 10px;
+    padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--card);
+    cursor: pointer; text-align: left; font-size: 13px; transition: border-color .15s, background .15s; }
+  .nam-variant:hover { border-color: var(--accent); background: rgba(125,125,125,.06); }
+  .nam-variant .nv-meta { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+  .nam-variant .nv-name { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .nam-variant .nv-rar { color: var(--muted); font-size: 12px; }
+  .nam-variant .nv-px { text-align: right; white-space: nowrap; font-size: 12px; line-height: 1.5; }
+  .nam-variant .nv-raw { color: var(--text); font-weight: 600; }
+  .nam-variant .nv-psa { color: var(--accent); font-weight: 600; }
   .profit-pos { color: var(--green); font-weight: 600; }
   .profit-neg { color: var(--danger); font-weight: 600; }
   .dates { font-size: .74rem; color: var(--muted); margin-top: 3px; }
@@ -775,13 +788,20 @@
       </div>
     </div>
     <div id="row_namtcg">
-      <div class="grid2">
+      <label>ราคา Last sold — NamTCG</label>
+      <div class="psa-row">
+        <input id="f_namCode" type="text" placeholder="โค้ดการ์ด เช่น OP09-119" style="text-transform:uppercase">
+        <button type="button" class="btn btn-ghost" onclick="fetchNamtcg()" title="ดึงราคา RAW/PSA10 จาก NamTCG">🔎 ดึงราคา</button>
+      </div>
+      <div id="namStatus" class="nam-status" style="display:none"></div>
+      <div id="namVariants" class="nam-variants" style="display:none"></div>
+      <div class="grid2" style="margin-top:8px">
         <div class="field">
-          <label>Last sold NamTCG — RAW (฿)</label>
+          <label>RAW (฿)</label>
           <input id="f_namRaw" type="number" inputmode="decimal" placeholder="ราคา RAW">
         </div>
         <div class="field">
-          <label>Last sold NamTCG — PSA 10 (฿)</label>
+          <label>PSA 10 (฿)</label>
           <input id="f_namPsa10" type="number" inputmode="decimal" placeholder="ราคา PSA 10">
         </div>
       </div>
@@ -824,6 +844,7 @@ const LOGIN_API = API_BASE + '/login';
 const USERS_API = API_BASE + '/users';
 const ONEPIECE_API = API_BASE + '/onepiece';
 const TRANSLATE_API = API_BASE + '/translate';
+const NAMTCG_API = API_BASE + '/namtcg';
 const OPIMG_API = API_BASE + '/opimg';
 function opImgUrl(u) { return `${OPIMG_API}?url=${encodeURIComponent(u)}`; }
 const ALL_TABS = ['stock', 'sales', 'report', 'buy', 'product'];
@@ -2138,8 +2159,10 @@ function openForm(mode = 'card') {
   document.getElementById('f_status').value = 'show';
   document.getElementById('f_buyDate').value = '';
   document.getElementById('f_snkr').value = '';
+  document.getElementById('f_namCode').value = '';
   document.getElementById('f_namRaw').value = '';
   document.getElementById('f_namPsa10').value = '';
+  namStatusMsg(''); document.getElementById('namVariants').style.display = 'none';
   document.getElementById('f_detail').value = '';
   document.getElementById('f_isSet').checked = false;
   renderSetItemRows();
@@ -2177,8 +2200,10 @@ function editCard(id) {
   document.getElementById('f_status').value = c.status || 'show';
   document.getElementById('f_buyDate').value = c.buyDate || '';
   document.getElementById('f_snkr').value = c.snkr ?? '';
+  document.getElementById('f_namCode').value = c.namCode || '';
   document.getElementById('f_namRaw').value = c.namRaw ?? '';
   document.getElementById('f_namPsa10').value = c.namPsa10 ?? '';
+  namStatusMsg(''); document.getElementById('namVariants').style.display = 'none';
   document.getElementById('f_detail').value = c.detail || '';
   renderSetItemRows(c.setItems || []);
   setImage(c.image || '');
@@ -2473,6 +2498,74 @@ async function openSnkrFromForm() {
   if (win && !win.closed) win.location.href = url; else window.open(url, '_blank');
 }
 
+// ---- NamTCG (namcardtcg.com) — ดึงราคา last sold RAW / PSA10 ----
+let _namVariants = [];
+function namStatusMsg(msg, isErr) {
+  const el = document.getElementById('namStatus');
+  el.textContent = msg || '';
+  el.classList.toggle('err', !!isErr);
+  el.style.display = msg ? '' : 'none';
+}
+// เดาโค้ดการ์ด เช่น OP09-119 จาก "รุ่น" (f_set) + เลขการ์ดใน "รายละเอียด"
+function deriveNamCode() {
+  const set = (document.getElementById('f_set').value || '').toUpperCase();
+  const detail = (document.getElementById('f_detail').value || '');
+  // f_set มีโค้ดเต็มอยู่แล้ว เช่น "OP09-119" หรือ "OP09 ROMANCE DAWN"
+  let m = set.match(/([A-Z]{2,3})\s*-?\s*(\d{1,2})\s*-\s*(\d{1,4})/);
+  if (m) return `${m[1]}${m[2].padStart(2, '0')}-${m[3].padStart(3, '0')}`;
+  const setM = set.match(/([A-Z]{2,3})\s*-?\s*(\d{1,2})/);
+  const numM = detail.match(/การ์ดเลข\s*0*(\d{1,4})/) || detail.match(/\bNo\.?\s*0*(\d{1,4})/i);
+  if (setM && numM) return `${setM[1]}${setM[2].padStart(2, '0')}-${numM[1].padStart(3, '0')}`;
+  return '';
+}
+function thb(n) { return '฿' + (Number(n) || 0).toLocaleString('th-TH', { maximumFractionDigits: 0 }); }
+// เติมราคา RAW / PSA10 จาก variant ที่เลือก
+function applyNamVariant(v) {
+  if (!v) return;
+  document.getElementById('f_namRaw').value = v.rawThb != null ? v.rawThb : '';
+  document.getElementById('f_namPsa10').value = v.psa10Thb != null ? v.psa10Thb : '';
+  const psaTxt = v.psa10Thb != null ? thb(v.psa10Thb) : '— (ไม่มีข้อมูล PSA10)';
+  namStatusMsg(`✅ ${v.key} · ${v.rarity || ''} — RAW ${thb(v.rawThb)} · PSA10 ${psaTxt}`);
+  document.getElementById('namVariants').style.display = 'none';
+}
+// แสดงรายการ variant ให้เลือก (ใบธรรมดา / parallel ราคาต่างกันมาก)
+function renderNamVariants(d) {
+  _namVariants = d.variants;
+  const box = document.getElementById('namVariants');
+  box.innerHTML = '';
+  d.variants.forEach((v, i) => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'nam-variant';
+    const psaTxt = v.psa10Thb != null ? thb(v.psa10Thb) : '—';
+    btn.innerHTML = `<span class="nv-meta"><span class="nv-name">${esc(v.name || v.key)}</span>`
+      + `<span class="nv-rar">${esc(v.key)} · ${esc(v.rarity || '')}${v.stock ? '' : ' · หมด'}</span></span>`
+      + `<span class="nv-px"><span class="nv-raw">RAW ${thb(v.rawThb)}</span><br><span class="nv-psa">PSA10 ${psaTxt}</span></span>`;
+    btn.onclick = () => applyNamVariant(_namVariants[i]);
+    box.appendChild(btn);
+  });
+  box.style.display = '';
+  namStatusMsg(`พบ ${d.variants.length} แบบ — เลือกใบที่ตรงกับการ์ดของคุณ`);
+}
+async function fetchNamtcg() {
+  const codeInput = document.getElementById('f_namCode');
+  let code = (codeInput.value || '').trim().toUpperCase();
+  if (!code) { code = deriveNamCode(); codeInput.value = code; }
+  if (!code) { namStatusMsg('ใส่โค้ดการ์ดก่อน เช่น OP09-119', true); return; }
+  namStatusMsg('⏳ กำลังดึงราคาจาก NamTCG…');
+  document.getElementById('namVariants').style.display = 'none';
+  try {
+    const r = await fetch(`${NAMTCG_API}?code=${encodeURIComponent(code)}`);
+    const d = await r.json();
+    if (!r.ok || d.error) { namStatusMsg(d.error || 'ดึงราคาไม่สำเร็จ', true); return; }
+    if (!d.found || !d.variants.length) { namStatusMsg(`ไม่พบการ์ด ${code} ใน NamTCG`, true); return; }
+    if (d.variants.length === 1) applyNamVariant(d.variants[0]);
+    else renderNamVariants(d);
+  } catch (e) {
+    namStatusMsg('ดึงราคาไม่สำเร็จ: ' + (e.message || e), true);
+  }
+}
+
 function saveCard() {
   const name = document.getElementById('f_name').value.trim();
   const isCollect = formMode === 'collect';
@@ -2506,6 +2599,7 @@ function saveCard() {
     status: document.getElementById('f_status').value,
     buyDate: document.getElementById('f_buyDate').value || '',
     snkr: parseFloat(document.getElementById('f_snkr').value) || 0,
+    namCode: document.getElementById('f_namCode').value.trim().toUpperCase(),
     namRaw: parseFloat(document.getElementById('f_namRaw').value) || 0,
     namPsa10: parseFloat(document.getElementById('f_namPsa10').value) || 0,
     detail: document.getElementById('f_detail').value.trim(),
