@@ -1121,10 +1121,13 @@ function toggleGroup(key) {
   if (expandedGroups.has(key)) expandedGroups.delete(key); else expandedGroups.add(key);
   render();
 }
-// กาง/พับ แถบรูปการ์ดทุกใบในชุด
+// กาง/พับ แถบรูปการ์ดทุกใบในชุด — รีเฟรชเฉพาะแท็บที่กำลังเปิดอยู่
 function toggleSetCards(id) {
   if (expandedSets.has(id)) expandedSets.delete(id); else expandedSets.add(id);
-  render();
+  const vis = elId => { const el = document.getElementById(elId); return el && el.style.display !== 'none'; };
+  if (vis('viewSales')) renderSales();
+  else if (vis('viewSoldStock')) renderSoldStock();
+  else render();
 }
 // ชื่อ/รูป ของการ์ดในชุด — รองรับทั้งข้อมูลเก่า (string) และใหม่ ({name,cert,image})
 function setItemName(it) { return typeof it === 'string' ? it : (it && it.name) || ''; }
@@ -1666,7 +1669,7 @@ function renderSoldStock() {
       <td class="num hide-sm">${money(c.buy)}</td>
       <td class="num">${money(c.sell)}</td>
       ${canSeeProfit() ? `<td class="num"><span class="${p > 0 ? 'profit-pos' : p < 0 ? 'profit-neg' : 'muted'}">${p > 0 ? '+' : ''}${money(p)}</span></td>` : ''}
-    </tr>`;
+    </tr>` + (c.type === 'set' && expandedSets.has(c.id) ? setCardsRow(c) : '');
   }).join('');
   area.innerHTML = `<div class="sales-summary" style="margin:10px 0">ขายแล้ว ${list.length} ใบ · รวม ${money(totalSell)}</div>
     <table>
@@ -1797,9 +1800,16 @@ function buildSalesRows(list) {
     g.items.push(c);
   }
   return groups.map(g => {
-    if (g.items.length === 1) return salesRow(g.items[0], false);
+    if (g.items.length === 1) {
+      const c = g.items[0];
+      let html = salesRow(c, false);
+      if (c.type === 'set' && expandedSets.has(c.id)) html += setCardsRow(c);
+      return html;
+    }
     let html = salesGroupRow(g);
-    if (expandedSales.has(g.key)) html += g.items.map(c => salesRow(c, true)).join('');
+    if (expandedSales.has(g.key)) html += g.items.map(c =>
+      salesRow(c, true) + (c.type === 'set' && expandedSets.has(c.id) ? setCardsRow(c) : '')
+    ).join('');
     return html;
   }).join('');
 }
