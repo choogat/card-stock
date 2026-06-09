@@ -77,11 +77,22 @@
   table.gb-prizes { width: 100%; border-collapse: collapse; }
   table.gb-prizes td { padding: 6px 8px; border-top: 1px solid var(--border); font-size: .9rem; }
   table.gb-prizes td.num { text-align: right; font-weight: 700; white-space: nowrap; }
-  .gp-row { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
-  .gp-row .gp-name { flex: 1; min-width: 0; }
-  .gp-row .gp-qty { width: 90px; }
+  table.gb-prizes td.gb-pnum { color: var(--muted); font-variant-numeric: tabular-nums; width: 30px; text-align: right; }
+  .gb-pimg { width: 34px; height: 34px; object-fit: cover; border-radius: 6px; border: 1px solid var(--border); display: inline-block; vertical-align: middle; cursor: pointer; }
+  .gb-noimg { display: inline-flex; align-items: center; justify-content: center; color: var(--muted); cursor: default; }
+  .gp-row { display: flex; gap: 7px; align-items: center; margin-bottom: 8px; flex-wrap: wrap; }
+  .gp-row .gp-num { color: var(--muted); font-size: .82rem; min-width: 26px; text-align: right; font-variant-numeric: tabular-nums; font-weight: 700; }
   .gp-row input { background: var(--bg); border: 1px solid var(--border); color: var(--text); padding: 9px 12px; border-radius: 10px; font-size: .92rem; font-family: inherit; }
   .gp-row input:focus { outline: none; border-color: var(--accent); }
+  .gp-row .gp-cert { flex: 0 1 92px; min-width: 70px; }
+  .gp-row .gp-name { flex: 1 1 140px; min-width: 0; }
+  .gp-row .gp-qty { flex: 0 1 110px; min-width: 90px; }
+  .gp-row .gp-psa { background: rgba(108,92,231,.15); border: 1px solid var(--accent2); color: var(--accent2); border-radius: 9px; width: 38px; height: 38px; cursor: pointer; font-size: 1rem; flex: none; }
+  .gp-row .gp-psa:hover { background: var(--accent2); color: #fff; }
+  .gp-row .gp-psa:disabled { opacity: .5; cursor: default; }
+  .gp-row .gp-thumb { width: 34px; height: 34px; object-fit: cover; border-radius: 7px; border: 1px solid var(--border); flex: none; cursor: pointer; }
+  .gp-row .si-del { background: var(--card2); border: 1px solid var(--border); color: var(--muted); border-radius: 9px; width: 34px; height: 38px; cursor: pointer; font-size: 1rem; flex: none; }
+  .gp-row .si-del:hover { border-color: var(--danger); color: var(--danger); }
   /* รับซื้อสินค้า: popup ผลค้นหา (ลอยใต้ช่องค้นหา) */
   .buy-search-wrap { position: relative; }
   .buy-popup { position: absolute; top: calc(100% + 6px); left: 0; right: 0; z-index: 40; background: var(--card); border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 12px 32px rgba(0,0,0,.35); max-height: 60vh; overflow-y: auto; padding: 6px; }
@@ -627,7 +638,7 @@
     <input type="hidden" id="g_idx">
     <div class="field"><label>ชื่อตู้</label><input id="g_name" placeholder="เช่น ตู้จุ่ม One Piece OP09"></div>
     <div class="grid2">
-      <div class="field"><label>จำนวนใบในตู้</label><input id="g_slots" type="number" inputmode="numeric" placeholder="เช่น 100"></div>
+      <div class="field"><label>จำนวนใบในตู้</label><input id="g_slots" type="number" inputmode="numeric" min="0" placeholder="เช่น 100" oninput="syncPrizeRowsToSlots()"></div>
       <div class="field"><label>ราคาต่อครั้ง (฿)</label><input id="g_price" type="number" inputmode="decimal" placeholder="เช่น 50"></div>
     </div>
     <div class="field">
@@ -2701,11 +2712,19 @@ function renderGacha() {
     return;
   }
   area.innerHTML = gachaBoxes.map((b, i) => {
-    const prizeQty = (b.prizes || []).reduce((s, p) => s + (Number(p.qty) || 0), 0);
+    const prizes = b.prizes || [];
+    const prizeValue = prizes.reduce((s, p) => s + (Number(p.value != null ? p.value : p.qty) || 0), 0);
     const total = (Number(b.price) || 0) * (Number(b.slots) || 0);
-    const prizeRows = (b.prizes || []).length
-      ? b.prizes.map(p => `<tr><td>${esc(p.name || '-')}</td><td class="num">×${Number(p.qty) || 0}</td></tr>`).join('')
-      : '<tr><td colspan="2" style="color:var(--muted)">ยังไม่กำหนดรางวัล</td></tr>';
+    const prizeRows = prizes.length
+      ? prizes.map((p, k) => {
+          const img = p.image || '';
+          const thumb = img
+            ? `<img class="gb-pimg" src="${esc(img)}" onclick="openImgUrl('${esc(img)}')" alt="">`
+            : '<span class="gb-pimg gb-noimg">—</span>';
+          const v = Number(p.value != null ? p.value : p.qty) || 0;
+          return `<tr><td class="gb-pnum">${k + 1}.</td><td>${thumb}</td><td>${esc(p.name || '-')}</td><td class="num">${money(v)}</td></tr>`;
+        }).join('')
+      : '<tr><td colspan="4" style="color:var(--muted)">ยังไม่กำหนดรางวัล</td></tr>';
     return `<div class="gacha-box">
       <div class="gb-head">
         <div class="gb-name">🎰 ${esc(b.name || '(ไม่มีชื่อ)')}</div>
@@ -2716,28 +2735,79 @@ function renderGacha() {
       </div>
       <div class="gb-meta">จำนวนใบ <b>${Number(b.slots) || 0}</b> · ราคาต่อครั้ง <b>${money(b.price)}</b> · ยอดเต็มตู้ <b>${money(total)}</b></div>
       ${b.note ? `<div class="gb-note">${esc(b.note)}</div>` : ''}
-      <div class="gb-prize-title">รางวัล (${prizeQty} ชิ้น)</div>
+      <div class="gb-prize-title">รางวัล (${prizes.length} รายการ · รวมยอด ${money(prizeValue)})</div>
       <table class="gb-prizes"><tbody>${prizeRows}</tbody></table>
     </div>`;
   }).join('');
 }
 
-function prizeRowHTML(p) {
+const GACHA_MAX_SLOTS = 500; // กันสร้างช่องเยอะจนเบราว์เซอร์ค้าง
+function prizeRowHTML(i, p) {
   p = p || {};
-  return `<div class="gp-row">
+  const img = p.image || '';
+  const val = (p.value != null && p.value !== '') ? Number(p.value) : (p.qty != null && p.qty !== '' ? Number(p.qty) : '');
+  return `<div class="gp-row" data-img="${esc(img)}">
+    <span class="gp-num">${i + 1}.</span>
+    <input class="gp-cert" inputmode="numeric" placeholder="cert PSA" value="${esc(p.cert || '')}" title="ใส่เลข cert แล้วกด 🔍 เพื่อดึงชื่อ+รูป" onkeydown="if(event.key==='Enter'){event.preventDefault();fetchPrizePSA(this.nextElementSibling)}">
+    <button type="button" class="gp-psa" title="ค้นหาการ์ด PSA" onclick="fetchPrizePSA(this)">🔍</button>
     <input class="gp-name" placeholder="ชื่อรางวัล" value="${esc(p.name || '')}">
-    <input class="gp-qty" type="number" inputmode="numeric" min="0" placeholder="จำนวน" value="${p.qty != null && p.qty !== '' ? Number(p.qty) : ''}">
-    <button type="button" class="si-del" title="ลบรางวัลนี้" onclick="this.closest('.gp-row').remove()">✕</button>
+    <img class="gp-thumb" src="${esc(img)}" alt="" style="${img ? '' : 'display:none'}" onclick="openImgUrl(this.closest('.gp-row').dataset.img)">
+    <input class="gp-qty" type="number" inputmode="decimal" min="0" placeholder="ยอดรางวัล" value="${val}">
+    <button type="button" class="si-del" title="ลบรางวัลนี้" onclick="removePrizeRow(this)">✕</button>
   </div>`;
 }
+function renumberPrizeRows() {
+  document.querySelectorAll('#gachaPrizeList .gp-row .gp-num').forEach((el, i) => { el.textContent = (i + 1) + '.'; });
+}
 function addPrizeRow() {
-  document.getElementById('gachaPrizeList').insertAdjacentHTML('beforeend', prizeRowHTML({}));
+  const list = document.getElementById('gachaPrizeList');
+  list.insertAdjacentHTML('beforeend', prizeRowHTML(list.children.length, {}));
+  renumberPrizeRows();
+}
+function removePrizeRow(btn) {
+  btn.closest('.gp-row').remove();
+  renumberPrizeRows();
+}
+// พิมพ์ "จำนวนใบในตู้" → ปรับจำนวนช่องรางวัลให้เท่ากัน (เก็บค่าที่กรอกไว้เดิม)
+function syncPrizeRowsToSlots() {
+  const target = Math.max(0, Math.min(Number(document.getElementById('g_slots').value) || 0, GACHA_MAX_SLOTS));
+  const list = document.getElementById('gachaPrizeList');
+  let n = list.querySelectorAll('.gp-row').length;
+  while (n < target) { list.insertAdjacentHTML('beforeend', prizeRowHTML(n, {})); n++; }
+  while (n > target) { list.lastElementChild.remove(); n--; }
+  renumberPrizeRows();
+}
+// ค้นหาการ์ด PSA ในแถวรางวัล → เติมชื่อ + รูป
+async function fetchPrizePSA(btn) {
+  const row = btn.closest('.gp-row');
+  const certEl = row.querySelector('.gp-cert');
+  const nameEl = row.querySelector('.gp-name');
+  const cert = certEl.value.trim().replace(/\D/g, '');
+  if (!cert) { certEl.focus(); return; }
+  const orig = btn.textContent;
+  btn.disabled = true; btn.textContent = '…';
+  try {
+    const { resp, data } = await psaLookup(cert);
+    if (!resp.ok || data.found === false || data.error) { alert(data.error || ('ไม่พบข้อมูล cert ' + cert)); return; }
+    if (data.subject) nameEl.value = data.subject;
+    if (data.frontImage) {
+      row.dataset.img = data.frontImage;
+      const thumb = row.querySelector('.gp-thumb');
+      if (thumb) { thumb.src = data.frontImage; thumb.style.display = ''; }
+    }
+  } catch (e) {
+    alert('เชื่อมต่อหลังบ้านไม่ได้ — ตรวจสอบ Vercel');
+  } finally {
+    btn.disabled = false; btn.textContent = orig;
+  }
 }
 function collectPrizes() {
   return [...document.querySelectorAll('#gachaPrizeList .gp-row')].map(r => ({
+    cert: (r.querySelector('.gp-cert').value || '').trim().replace(/\D/g, ''),
     name: r.querySelector('.gp-name').value.trim(),
-    qty: Number(r.querySelector('.gp-qty').value) || 0,
-  })).filter(p => p.name);
+    image: r.dataset.img || '',
+    value: Number(r.querySelector('.gp-qty').value) || 0,
+  })).filter(p => p.name || p.cert || p.value);
 }
 
 function openGachaForm(idx) {
@@ -2749,8 +2819,8 @@ function openGachaForm(idx) {
   document.getElementById('g_slots').value = b && b.slots != null ? b.slots : '';
   document.getElementById('g_price').value = b && b.price != null ? b.price : '';
   document.getElementById('g_note').value = b ? (b.note || '') : '';
-  const prizes = (b && b.prizes && b.prizes.length) ? b.prizes : [{}, {}, {}];
-  document.getElementById('gachaPrizeList').innerHTML = prizes.map(prizeRowHTML).join('');
+  const prizes = (b && b.prizes && b.prizes.length) ? b.prizes : [{}];
+  document.getElementById('gachaPrizeList').innerHTML = prizes.map((p, i) => prizeRowHTML(i, p)).join('');
   document.getElementById('gachaOverlay').classList.add('open');
   setTimeout(() => document.getElementById('g_name').focus(), 50);
 }
