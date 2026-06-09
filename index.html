@@ -930,6 +930,29 @@ function setSync(text, cls) {
   if (el) { el.textContent = text; el.className = 'sync ' + (cls || ''); }
 }
 
+// แปลงรูป base64 ที่ยังค้างในก้อนข้อมูล (ของเก่าใน cache / นำเข้า / อัปไม่ทัน) → URL บน Blob
+// เรียกก่อน push ทุกครั้ง กัน payload บวมจนเกินลิมิต (413)
+async function externalizeImages() {
+  if (!passcode) return;
+  let changed = false;
+  for (const c of cards) {
+    if ((c.image || '').startsWith('data:')) {
+      const url = await uploadImageToBlob(c.image, 'card-' + c.id);
+      if (url && url !== c.image) { c.image = url; changed = true; }
+    }
+    if (Array.isArray(c.setItems)) {
+      for (let i = 0; i < c.setItems.length; i++) {
+        const it = c.setItems[i];
+        if (it && typeof it === 'object' && (it.image || '').startsWith('data:')) {
+          const u = await uploadImageToBlob(it.image, 'set-' + c.id + '-' + i);
+          if (u && u !== it.image) { it.image = u; changed = true; }
+        }
+      }
+    }
+  }
+  if (changed) { try { localStorage.setItem(KEY, JSON.stringify(cards)); } catch (e) {} }
+}
+
 async function pushToServer() {
   if (!passcode) return;
   // กันยิงซ้อน: ถ้ากำลัง push อยู่ ให้คิวไว้ดันสถานะล่าสุดหลังอันปัจจุบันเสร็จ
@@ -938,6 +961,7 @@ async function pushToServer() {
   pushing = true;
   setSync('⏳ กำลังบันทึกขึ้นเซิร์ฟเวอร์...', 'load');
   try {
+    await externalizeImages(); // แปลงรูป base64 → URL ก่อน กัน 413
     const r = await fetch(CARDS_API, {
       method: 'POST',
       headers: authHeaders({ 'Content-Type': 'application/json' }),
