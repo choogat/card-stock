@@ -2370,13 +2370,30 @@ function clearImage() {
   document.getElementById('f_imageFile').value = '';
 }
 
+// อัปโหลดรูป (data URL) ขึ้น Blob → คืน URL · ถ้าไม่ใช่ data URL หรือพลาด คืนค่าเดิม
+async function uploadImageToBlob(dataUrl, id) {
+  if (!dataUrl || !dataUrl.startsWith('data:') || !passcode) return dataUrl;
+  try {
+    const r = await fetch(`${API_BASE}/upload`, {
+      method: 'POST',
+      headers: authHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify({ data: dataUrl, id }),
+    });
+    if (!r.ok) throw new Error(String(r.status));
+    const d = await r.json();
+    return d.url || dataUrl;
+  } catch (e) {
+    return dataUrl; // พลาด → เก็บ base64 ชั่วคราว (ยังใช้งานได้)
+  }
+}
+
 function onPickImage(e) {
   const file = e.target.files && e.target.files[0];
   if (!file) return;
   const reader = new FileReader();
   reader.onload = ev => {
     const img = new Image();
-    img.onload = () => {
+    img.onload = async () => {
       // ย่อรูปให้ด้านยาวสุดไม่เกิน 700px แล้วแปลงเป็น JPEG เพื่อประหยัดพื้นที่
       const MAX = 700;
       let { width, height } = img;
@@ -2385,7 +2402,13 @@ function onPickImage(e) {
       const canvas = document.createElement('canvas');
       canvas.width = width; canvas.height = height;
       canvas.getContext('2d').drawImage(img, 0, 0, width, height);
-      setImage(canvas.toDataURL('image/jpeg', 0.8));
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+      setImage(dataUrl); // โชว์ทันที
+      // อัปโหลดเก็บเป็นไฟล์แยกใน Blob แล้วเก็บแค่ URL (กัน cards.json บวมจน 413)
+      setSync('⏳ กำลังอัปโหลดรูป...', 'load');
+      const url = await uploadImageToBlob(dataUrl);
+      if (url && url !== dataUrl) { setImage(url); setSync('✓ อัปโหลดรูปแล้ว', 'ok'); }
+      else setSync('⚠️ อัปโหลดรูปไม่สำเร็จ — เก็บแบบเดิมชั่วคราว', 'err');
     };
     img.src = ev.target.result;
   };
