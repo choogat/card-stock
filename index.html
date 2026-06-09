@@ -332,6 +332,10 @@
   .grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
   /* แถว รุ่น(50%) / PSA.BGS(25%) / สถานะ(25%) */
   .grid-setpsa { display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 12px; }
+  /* ช่อง PSA.BGS: เลือกบริษัท (PSA/BGS) + เลขเกรด */
+  .grade-row { display: flex; gap: 6px; }
+  .grade-row select { flex: 0 0 auto; width: auto; padding-left: 8px; padding-right: 6px; }
+  .grade-row input { flex: 1 1 auto; min-width: 0; }
   /* dropdown แนะนำ "รุ่น" ที่เคยพิมพ์ — กว้างตามข้อความ ไม่ตัดคำ */
   .ac-wrap { position: relative; }
   .ac-list { position: absolute; top: calc(100% + 4px); left: 0; z-index: 60;
@@ -760,7 +764,13 @@
       </div>
       <div class="field" id="fld_psaGrade">
         <label>PSA. BGS</label>
-        <input id="f_psa" placeholder="เช่น 10, 9...">
+        <div class="grade-row">
+          <select id="f_grader" title="บริษัทเกรด">
+            <option value="PSA">PSA</option>
+            <option value="BGS">BGS</option>
+          </select>
+          <input id="f_psa" placeholder="10">
+        </div>
       </div>
       <div class="field" id="fld_status">
         <label>สถานะ</label>
@@ -1053,7 +1063,7 @@ function render() {
   if (q) {
     const terms = q.split(/\s+/).filter(Boolean);
     list = list.filter(c => {
-      const hay = [c.topic, c.name, c.set, c.psa, c.cert, c.detail]
+      const hay = [c.topic, c.name, c.set, c.psa, c.grader, c.cert, c.detail]
         .filter(Boolean).join(' ').toLowerCase();
       return terms.every(t => hay.includes(t)); // เจอเมื่อ "ทุกคำ" ที่พิมพ์อยู่ในข้อมูล
     });
@@ -1181,7 +1191,7 @@ function stockRow(c, isChild) {
   const profitCell = `<span class="${p > 0 ? 'profit-pos' : p < 0 ? 'profit-neg' : 'muted'}">${p > 0 ? '+' : ''}${money(p)}</span>`;
   return `<tr class="${isChild ? 'child-row' : ''}">
     <td>${img}</td>
-    <td class="name">${c.topic ? `<div class="topic">${esc(c.topic)}</div>` : ''}${esc(c.name)}${c.lang ? ` <span class="lang-badge">${esc(c.lang)}</span>` : ''}${c.psa ? ` <span class="muted">(PSA ${esc(c.psa)})</span>` : ''}${(c.qty && c.qty > 1) ? ` <span class="qty-badge">×${c.qty}${c.unit ? ' ' + esc(c.unit) : ''}</span>` : ''}${setMetaHTML(c)}${c.set ? `<div class="cardset">รุ่น: ${esc(c.set)}</div>` : ''}${c.detail ? `<div class="detail">${esc(c.detail)}</div>` : ''}</td>
+    <td class="name">${c.topic ? `<div class="topic">${esc(c.topic)}</div>` : ''}${esc(c.name)}${c.lang ? ` <span class="lang-badge">${esc(c.lang)}</span>` : ''}${c.psa ? ` <span class="muted">(${esc(c.grader || 'PSA')} ${esc(c.psa)})</span>` : ''}${(c.qty && c.qty > 1) ? ` <span class="qty-badge">×${c.qty}${c.unit ? ' ' + esc(c.unit) : ''}</span>` : ''}${setMetaHTML(c)}${c.set ? `<div class="cardset">รุ่น: ${esc(c.set)}</div>` : ''}${c.detail ? `<div class="detail">${esc(c.detail)}</div>` : ''}</td>
     <td class="num">${money(c.median)}</td>
     <td class="num hide-sm">${money(c.buy)}</td>
     <td class="num hide-sm">${money(c.sell)}</td>
@@ -1313,7 +1323,7 @@ function filterCardsByQuery(q) {
   if (!q) return cards.slice();
   const terms = q.split(/\s+/).filter(Boolean);
   return cards.filter(c => {
-    const hay = [c.topic, c.name, c.set, c.psa, c.cert, c.detail, c.lang].filter(Boolean).join(' ').toLowerCase();
+    const hay = [c.topic, c.name, c.set, c.psa, c.grader, c.cert, c.detail, c.lang].filter(Boolean).join(' ').toLowerCase();
     return terms.every(t => hay.includes(t));
   });
 }
@@ -1580,7 +1590,7 @@ function renderReport() {
   if (rq) {
     const terms = rq.split(/\s+/).filter(Boolean);
     rowItems = rowItems.filter(c => {
-      const hay = [c.topic, c.name, c.set, c.psa, c.cert, c.lang, c.detail].filter(Boolean).join(' ').toLowerCase();
+      const hay = [c.topic, c.name, c.set, c.psa, c.grader, c.cert, c.lang, c.detail].filter(Boolean).join(' ').toLowerCase();
       return terms.every(t => hay.includes(t));
     });
   }
@@ -1597,7 +1607,7 @@ function renderReport() {
     const cx = !!c.cancelled; // ยกเลิกแล้ว = แสดงอยู่แต่ไม่นับยอด
     return `<tr class="${cx ? 'cancelled-row' : ''}">
       <td>${img}</td>
-      <td class="name">${c.topic ? `<div class="topic">${esc(c.topic)}</div>` : ''}${esc(c.name)}${c.lang ? ` <span class="lang-badge">${esc(c.lang)}</span>` : ''}${c.psa ? ` <span class="muted">(PSA ${esc(c.psa)})</span>` : ''}${setMetaHTML(c)}</td>
+      <td class="name">${c.topic ? `<div class="topic">${esc(c.topic)}</div>` : ''}${esc(c.name)}${c.lang ? ` <span class="lang-badge">${esc(c.lang)}</span>` : ''}${c.psa ? ` <span class="muted">(${esc(c.grader || 'PSA')} ${esc(c.psa)})</span>` : ''}${setMetaHTML(c)}</td>
       <td class="center">${c.seller ? `<span class="seller-tag">${esc(c.seller)}</span>` : '<span class="muted">-</span>'}</td>
       <td class="center"><span class="qty-badge">${Number(c.qty) || 1}${c.unit ? ' ' + esc(c.unit) : ''}</span></td>
       <td class="center muted">${c.sellTime || '-'}</td>
@@ -1650,7 +1660,7 @@ function renderSoldStock() {
   if (q) {
     const terms = q.split(/\s+/).filter(Boolean);
     list = list.filter(c => {
-      const hay = [c.topic, c.name, c.set, c.psa, c.cert, c.detail, c.lang].filter(Boolean).join(' ').toLowerCase();
+      const hay = [c.topic, c.name, c.set, c.psa, c.grader, c.cert, c.detail, c.lang].filter(Boolean).join(' ').toLowerCase();
       return terms.every(t => hay.includes(t));
     });
   }
@@ -1665,7 +1675,7 @@ function renderSoldStock() {
     const p = (Number(c.sell) || 0) - (Number(c.buy) || 0);
     return `<tr>
       <td>${img}</td>
-      <td class="name">${c.topic ? `<div class="topic">${esc(c.topic)}</div>` : ''}${esc(c.name)}${c.lang ? ` <span class="lang-badge">${esc(c.lang)}</span>` : ''}${c.psa ? ` <span class="muted">(PSA ${esc(c.psa)})</span>` : ''}${c.cert ? ` <span class="muted">cert ${esc(c.cert)}</span>` : ''}${(c.qty && c.qty > 1) ? ` <span class="qty-badge">×${c.qty}${c.unit ? ' ' + esc(c.unit) : ''}</span>` : ''}${setMetaHTML(c)}</td>
+      <td class="name">${c.topic ? `<div class="topic">${esc(c.topic)}</div>` : ''}${esc(c.name)}${c.lang ? ` <span class="lang-badge">${esc(c.lang)}</span>` : ''}${c.psa ? ` <span class="muted">(${esc(c.grader || 'PSA')} ${esc(c.psa)})</span>` : ''}${c.cert ? ` <span class="muted">cert ${esc(c.cert)}</span>` : ''}${(c.qty && c.qty > 1) ? ` <span class="qty-badge">×${c.qty}${c.unit ? ' ' + esc(c.unit) : ''}</span>` : ''}${setMetaHTML(c)}</td>
       <td class="center muted">${c.sellDate ? fmtDate(c.sellDate) : '-'}${c.sellTime ? '<br>' + c.sellTime : ''}</td>
       <td class="num hide-sm">${money(c.buy)}</td>
       <td class="num">${money(c.sell)}</td>
@@ -1693,7 +1703,7 @@ function renderSales() {
   if (q) {
     const terms = q.split(/\s+/).filter(Boolean);
     list = list.filter(c => {
-      const hay = [c.topic, c.name, c.set, c.psa, c.cert, c.detail].filter(Boolean).join(' ').toLowerCase();
+      const hay = [c.topic, c.name, c.set, c.psa, c.grader, c.cert, c.detail].filter(Boolean).join(' ').toLowerCase();
       return terms.every(t => hay.includes(t));
     });
   }
@@ -1760,7 +1770,7 @@ function salesRow(c, isChild) {
   const qtyText = `${Number(c.qty) || 1}${c.unit ? ' ' + esc(c.unit) : ''}`;
   return `<tr class="${isChild ? 'child-row' : ''}">
     <td>${img}</td>
-    <td class="name">${c.topic ? `<div class="topic">${esc(c.topic)}</div>` : ''}${esc(c.name)}${c.lang ? ` <span class="lang-badge">${esc(c.lang)}</span>` : ''}${c.psa ? ` <span class="muted">(PSA ${esc(c.psa)})</span>` : ''}${setMetaHTML(c)}${c.detail ? `<div class="detail">${esc(c.detail)}</div>` : ''}</td>
+    <td class="name">${c.topic ? `<div class="topic">${esc(c.topic)}</div>` : ''}${esc(c.name)}${c.lang ? ` <span class="lang-badge">${esc(c.lang)}</span>` : ''}${c.psa ? ` <span class="muted">(${esc(c.grader || 'PSA')} ${esc(c.psa)})</span>` : ''}${setMetaHTML(c)}${c.detail ? `<div class="detail">${esc(c.detail)}</div>` : ''}</td>
     <td class="center"><span class="qty-badge">${qtyText}</span></td>
     <td class="num">${money(c.buy)}</td>
     <td class="num">${money(c.sell)}</td>
@@ -2243,6 +2253,7 @@ function openForm(mode = 'card') {
   document.getElementById('f_lang').value = 'JP';
   document.getElementById('f_set').value = '';
   document.getElementById('f_psa').value = '';
+  document.getElementById('f_grader').value = 'PSA';
   document.getElementById('f_median').value = '';
   document.getElementById('f_buy').value = '';
   document.getElementById('f_sell').value = '';
@@ -2277,6 +2288,7 @@ function editCard(id) {
   document.getElementById('f_lang').value = c.lang || 'JP';
   document.getElementById('f_set').value = c.set || '';
   document.getElementById('f_psa').value = c.psa || '';
+  document.getElementById('f_grader').value = c.grader || 'PSA';
   document.getElementById('f_qty').value = c.qty || 1;
   document.getElementById('f_unit').value = c.unit || 'Box';
   // ของสะสมเก็บราคาต่อชิ้นไว้ใน unit* — โหลดราคาต่อชิ้นมาแก้
@@ -2425,6 +2437,7 @@ async function fetchPSA() {
     setIfEmpty('f_name', data.subject);
     setIfEmpty('f_set', [data.year, data.brand].filter(Boolean).join(' '));
     setIfEmpty('f_psa', data.gradeNumber || data.grade);
+    document.getElementById('f_grader').value = 'PSA'; // ดึงจาก PSA → บริษัทเกรด = PSA
     // รายละเอียดเพิ่มเติม
     const detailEl = document.getElementById('f_detail');
     const extra = [
@@ -2740,6 +2753,7 @@ function saveCard() {
     image: document.getElementById('f_image').value || '',
     set: document.getElementById('f_set').value.trim(),
     psa: document.getElementById('f_psa').value.trim(),
+    grader: document.getElementById('f_grader').value || 'PSA',
     // ของสะสม: ราคาที่เก็บ = ราคาต่อหน่วย × จำนวน (เก็บราคาต่อหน่วยไว้แก้ทีหลัง)
     qty,
     unit: isCollect ? document.getElementById('f_unit').value : undefined,
@@ -2857,7 +2871,7 @@ function exportJSON() {
 function exportCSV() {
   if (!cards.length) { alert('ยังไม่มีข้อมูลให้ส่งออก'); return; }
   const cols = [
-    ['เรื่อง', 'topic'], ['ชื่อการ์ด', 'name'], ['รุ่น', 'set'], ['หมายเลข PSA', 'psa'],
+    ['เรื่อง', 'topic'], ['ชื่อการ์ด', 'name'], ['รุ่น', 'set'], ['บริษัทเกรด', c => c.grader || 'PSA'], ['เกรด', 'psa'],
     ['ราคากลาง', 'median'], ['SNKRDUNK(¥)', 'snkr'], ['NamTCG RAW(฿)', 'namRaw'], ['NamTCG PSA10(฿)', 'namPsa10'], ['ราคารับซื้อ', 'buy'], ['ราคาขาย', 'sell'],
     ['กำไร', c => cardProfit(c)], ['สถานะ', c => (STATUS[c.status] || {}).label || c.status],
     ['วันที่ซื้อ', 'buyDate'], ['วันที่ขาย', 'sellDate'], ['รายละเอียด', 'detail'],
