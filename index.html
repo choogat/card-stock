@@ -66,6 +66,22 @@
   .status-select.sold { border-color: var(--green); color: var(--green); }
   .daily-title { font-weight: 600; font-size: .95rem; margin-bottom: 10px; }
   .product-section { margin-bottom: 26px; }
+  /* ยอดจุ่ม: การ์ดตู้ + แถวรางวัล */
+  .gacha-box { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 16px 18px; margin-bottom: 16px; }
+  .gb-head { display: flex; align-items: center; gap: 10px; }
+  .gb-name { font-size: 1.05rem; font-weight: 700; flex: 1; min-width: 0; }
+  .gb-actions { display: flex; gap: 4px; }
+  .gb-meta { color: var(--muted); font-size: .86rem; margin-top: 6px; }
+  .gb-note { color: var(--muted); font-size: .84rem; margin-top: 6px; font-style: italic; }
+  .gb-prize-title { font-weight: 600; font-size: .9rem; margin: 12px 0 6px; }
+  table.gb-prizes { width: 100%; border-collapse: collapse; }
+  table.gb-prizes td { padding: 6px 8px; border-top: 1px solid var(--border); font-size: .9rem; }
+  table.gb-prizes td.num { text-align: right; font-weight: 700; white-space: nowrap; }
+  .gp-row { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
+  .gp-row .gp-name { flex: 1; min-width: 0; }
+  .gp-row .gp-qty { width: 90px; }
+  .gp-row input { background: var(--bg); border: 1px solid var(--border); color: var(--text); padding: 9px 12px; border-radius: 10px; font-size: .92rem; font-family: inherit; }
+  .gp-row input:focus { outline: none; border-color: var(--accent); }
   /* รับซื้อสินค้า: popup ผลค้นหา (ลอยใต้ช่องค้นหา) */
   .buy-search-wrap { position: relative; }
   .buy-popup { position: absolute; top: calc(100% + 6px); left: 0; right: 0; z-index: 40; background: var(--card); border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 12px 32px rgba(0,0,0,.35); max-height: 60vh; overflow-y: auto; padding: 6px; }
@@ -382,6 +398,7 @@
       <button class="nav-item" data-view="report" onclick="switchView('report')">📊 รายงานการขาย</button>
       <button class="nav-item" data-view="buy" onclick="switchView('buy')">🛒 รับซื้อสินค้า</button>
       <button class="nav-item" data-view="product" onclick="switchView('product')">📋 ข้อมูลสินค้า</button>
+      <button class="nav-item" data-view="gacha" onclick="switchView('gacha')">🎲 ยอดจุ่ม</button>
       <button class="nav-item" data-view="users" onclick="switchView('users')" style="display:none">👥 ผู้ใช้งาน</button>
     </nav>
     <div class="sidebar-foot">
@@ -533,6 +550,20 @@
     </div>
   </div><!-- /viewProduct -->
 
+  <div id="viewGacha" style="display:none">
+    <h2 class="view-title">🎲 ยอดจุ่ม</h2>
+    <div class="product-section">
+      <div class="daily-title">🎰 ตู้จุ่ม</div>
+      <p style="color:var(--muted);font-size:.88rem;margin-bottom:12px">สร้างตู้จุ่ม กำหนดจำนวนใบในตู้ · ราคาต่อครั้ง · และรางวัลในแต่ละตู้</p>
+      <div class="toolbar">
+        <button class="btn btn-primary" onclick="openGachaForm()">+ สร้างตู้จุ่ม</button>
+      </div>
+    </div>
+    <div class="product-section">
+      <div id="gachaList"></div>
+    </div>
+  </div><!-- /viewGacha -->
+
   <div id="viewUsers" style="display:none">
     <h2 class="view-title">👥 จัดการผู้ใช้งาน</h2>
     <p style="color:var(--muted);font-size:.9rem;margin-bottom:16px">สร้างผู้ช่วย กำหนด ID/รหัสผ่าน และเลือกแถบที่เข้าได้</p>
@@ -549,6 +580,7 @@
           <label><input type="checkbox" id="u_tab_report" value="report"> 📊 รายงานการขาย</label>
           <label><input type="checkbox" id="u_tab_buy" value="buy"> 🛒 รับซื้อสินค้า</label>
           <label><input type="checkbox" id="u_tab_product" value="product"> 📋 ข้อมูลสินค้า</label>
+          <label><input type="checkbox" id="u_tab_gacha" value="gacha"> 🎲 ยอดจุ่ม</label>
         </div>
       </div>
       <div class="field">
@@ -584,6 +616,29 @@
     <div id="psResult"></div>
     <div class="modal-actions">
       <button class="btn btn-ghost" onclick="closePSASearch()">ปิด</button>
+    </div>
+  </div>
+</div>
+
+<!-- สร้าง/แก้ไข ตู้จุ่ม -->
+<div class="overlay" id="gachaOverlay">
+  <div class="modal" style="max-width:600px">
+    <h2 id="gachaModalTitle">🎰 สร้างตู้จุ่ม</h2>
+    <input type="hidden" id="g_idx">
+    <div class="field"><label>ชื่อตู้</label><input id="g_name" placeholder="เช่น ตู้จุ่ม One Piece OP09"></div>
+    <div class="grid2">
+      <div class="field"><label>จำนวนใบในตู้</label><input id="g_slots" type="number" inputmode="numeric" placeholder="เช่น 100"></div>
+      <div class="field"><label>ราคาต่อครั้ง (฿)</label><input id="g_price" type="number" inputmode="decimal" placeholder="เช่น 50"></div>
+    </div>
+    <div class="field">
+      <label>รางวัลในตู้</label>
+      <div id="gachaPrizeList"></div>
+      <button type="button" class="btn btn-ghost btn-sm" onclick="addPrizeRow()" style="margin-top:6px">+ เพิ่มรางวัล</button>
+    </div>
+    <div class="field"><label>หมายเหตุ</label><input id="g_note" placeholder="(ไม่บังคับ)"></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeGachaForm()">ยกเลิก</button>
+      <button class="btn btn-primary" onclick="saveGachaBox()">บันทึก</button>
     </div>
   </div>
 </div>
@@ -891,8 +946,9 @@ const ONEPIECE_API = API_BASE + '/onepiece';
 const TRANSLATE_API = API_BASE + '/translate';
 const NAMTCG_API = API_BASE + '/namtcg';
 const OPIMG_API = API_BASE + '/opimg';
+const GACHA_API = API_BASE + '/gacha';
 function opImgUrl(u) { return `${OPIMG_API}?url=${encodeURIComponent(u)}`; }
-const ALL_TABS = ['stock', 'sales', 'report', 'buy', 'product'];
+const ALL_TABS = ['stock', 'sales', 'report', 'buy', 'product', 'gacha'];
 let passcode = localStorage.getItem('app_pass') || '';
 let loginId = localStorage.getItem('app_id') || '';
 let userRole = localStorage.getItem('app_role') || '';
@@ -1332,6 +1388,7 @@ function switchView(view) {
   document.getElementById('viewReport').style.display = view === 'report' ? '' : 'none';
   document.getElementById('viewBuy').style.display = view === 'buy' ? '' : 'none';
   document.getElementById('viewProduct').style.display = view === 'product' ? '' : 'none';
+  document.getElementById('viewGacha').style.display = view === 'gacha' ? '' : 'none';
   document.getElementById('viewUsers').style.display = view === 'users' ? '' : 'none';
   // เมนูย่อย "สต็อกการ์ดขายแล้ว" → โผล่เมื่ออยู่ในกลุ่มสต็อก (กดสต็อกการ์ดก่อน)
   const navSold = document.getElementById('navSoldStock');
@@ -1346,6 +1403,7 @@ function switchView(view) {
   if (view === 'soldstock') renderSoldStock();
   if (view === 'buy') { closeBuyPopup(); renderBuyList(); }
   if (view === 'product') { const ps = document.getElementById('productSearch'); if (ps) ps.value = ''; renderProductSearch(); }
+  if (view === 'gacha') renderGacha();
   if (view === 'users') renderUsers();
   localStorage.setItem('app_view', view); // จำแถบล่าสุด ไว้คงหน้าตอน F5
 }
@@ -2604,6 +2662,124 @@ function checkPriceFromBuy() {
   psaCheckOnly = true;
   if (cert) { document.getElementById('ps_cert').value = cert; searchPSA(); }
 }
+
+// ================= ยอดจุ่ม (ตู้จุ่ม) =================
+// แต่ละตู้: { id, name, slots(จำนวนใบ), price(ราคาต่อครั้ง), note, prizes:[{name, qty}] }
+const KEY_GACHA = 'psa_gacha_v1';
+let gachaBoxes = (() => { try { return JSON.parse(localStorage.getItem(KEY_GACHA)) || []; } catch (e) { return []; } })();
+let gachaPushing = false, gachaQueued = false, gachaTimer = null;
+
+function saveGacha() {
+  try { localStorage.setItem(KEY_GACHA, JSON.stringify(gachaBoxes)); } catch (e) {}
+  if (passcode) { clearTimeout(gachaTimer); gachaTimer = setTimeout(pushGacha, 500); }
+}
+async function pushGacha() {
+  if (!passcode) return;
+  if (gachaPushing) { gachaQueued = true; return; }
+  gachaPushing = true;
+  try {
+    await fetch(GACHA_API, { method: 'POST', headers: authHeaders({ 'Content-Type': 'application/json' }), body: JSON.stringify(gachaBoxes) });
+  } catch (e) { /* ออฟไลน์ — ไว้ดันใหม่ตอนแก้ครั้งหน้า */ }
+  finally { gachaPushing = false; if (gachaQueued) { gachaQueued = false; pushGacha(); } }
+}
+async function pullGacha() {
+  if (!passcode) return;
+  try {
+    const r = await fetch(GACHA_API, { headers: authHeaders(), cache: 'no-store' });
+    if (!r.ok) return;
+    const d = await r.json();
+    gachaBoxes = Array.isArray(d.boxes) ? d.boxes : [];
+    try { localStorage.setItem(KEY_GACHA, JSON.stringify(gachaBoxes)); } catch (e) {}
+  } catch (e) { /* ออฟไลน์ — ใช้ค่าในเครื่อง */ }
+}
+
+function renderGacha() {
+  const area = document.getElementById('gachaList');
+  if (!area) return;
+  if (!gachaBoxes.length) {
+    area.innerHTML = '<div class="empty"><div class="big">🎲</div>ยังไม่มีตู้จุ่ม — กด “+ สร้างตู้จุ่ม” เพื่อเริ่ม</div>';
+    return;
+  }
+  area.innerHTML = gachaBoxes.map((b, i) => {
+    const prizeQty = (b.prizes || []).reduce((s, p) => s + (Number(p.qty) || 0), 0);
+    const total = (Number(b.price) || 0) * (Number(b.slots) || 0);
+    const prizeRows = (b.prizes || []).length
+      ? b.prizes.map(p => `<tr><td>${esc(p.name || '-')}</td><td class="num">×${Number(p.qty) || 0}</td></tr>`).join('')
+      : '<tr><td colspan="2" style="color:var(--muted)">ยังไม่กำหนดรางวัล</td></tr>';
+    return `<div class="gacha-box">
+      <div class="gb-head">
+        <div class="gb-name">🎰 ${esc(b.name || '(ไม่มีชื่อ)')}</div>
+        <div class="gb-actions">
+          <button class="icon-btn" onclick="openGachaForm(${i})" title="แก้ไข">✏️</button>
+          <button class="icon-btn del" onclick="deleteGachaBox(${i})" title="ลบ">🗑️</button>
+        </div>
+      </div>
+      <div class="gb-meta">จำนวนใบ <b>${Number(b.slots) || 0}</b> · ราคาต่อครั้ง <b>${money(b.price)}</b> · ยอดเต็มตู้ <b>${money(total)}</b></div>
+      ${b.note ? `<div class="gb-note">${esc(b.note)}</div>` : ''}
+      <div class="gb-prize-title">รางวัล (${prizeQty} ชิ้น)</div>
+      <table class="gb-prizes"><tbody>${prizeRows}</tbody></table>
+    </div>`;
+  }).join('');
+}
+
+function prizeRowHTML(p) {
+  p = p || {};
+  return `<div class="gp-row">
+    <input class="gp-name" placeholder="ชื่อรางวัล" value="${esc(p.name || '')}">
+    <input class="gp-qty" type="number" inputmode="numeric" min="0" placeholder="จำนวน" value="${p.qty != null && p.qty !== '' ? Number(p.qty) : ''}">
+    <button type="button" class="si-del" title="ลบรางวัลนี้" onclick="this.closest('.gp-row').remove()">✕</button>
+  </div>`;
+}
+function addPrizeRow() {
+  document.getElementById('gachaPrizeList').insertAdjacentHTML('beforeend', prizeRowHTML({}));
+}
+function collectPrizes() {
+  return [...document.querySelectorAll('#gachaPrizeList .gp-row')].map(r => ({
+    name: r.querySelector('.gp-name').value.trim(),
+    qty: Number(r.querySelector('.gp-qty').value) || 0,
+  })).filter(p => p.name);
+}
+
+function openGachaForm(idx) {
+  const editing = typeof idx === 'number';
+  const b = editing ? gachaBoxes[idx] : null;
+  document.getElementById('gachaModalTitle').textContent = editing ? '🎰 แก้ไขตู้จุ่ม' : '🎰 สร้างตู้จุ่ม';
+  document.getElementById('g_idx').value = editing ? idx : '';
+  document.getElementById('g_name').value = b ? (b.name || '') : '';
+  document.getElementById('g_slots').value = b && b.slots != null ? b.slots : '';
+  document.getElementById('g_price').value = b && b.price != null ? b.price : '';
+  document.getElementById('g_note').value = b ? (b.note || '') : '';
+  const prizes = (b && b.prizes && b.prizes.length) ? b.prizes : [{}, {}, {}];
+  document.getElementById('gachaPrizeList').innerHTML = prizes.map(prizeRowHTML).join('');
+  document.getElementById('gachaOverlay').classList.add('open');
+  setTimeout(() => document.getElementById('g_name').focus(), 50);
+}
+function closeGachaForm() { document.getElementById('gachaOverlay').classList.remove('open'); }
+
+function saveGachaBox() {
+  const name = document.getElementById('g_name').value.trim();
+  if (!name) { alert('กรุณาใส่ชื่อตู้ก่อน'); document.getElementById('g_name').focus(); return; }
+  const box = {
+    name,
+    slots: Number(document.getElementById('g_slots').value) || 0,
+    price: Number(document.getElementById('g_price').value) || 0,
+    note: document.getElementById('g_note').value.trim(),
+    prizes: collectPrizes(),
+  };
+  const idxRaw = document.getElementById('g_idx').value;
+  if (idxRaw !== '' && gachaBoxes[idxRaw]) { box.id = gachaBoxes[idxRaw].id; gachaBoxes[idxRaw] = box; }
+  else { box.id = uid(); gachaBoxes.push(box); }
+  saveGacha();
+  renderGacha();
+  closeGachaForm();
+}
+function deleteGachaBox(i) {
+  if (!gachaBoxes[i]) return;
+  if (!confirm('ลบตู้จุ่ม "' + (gachaBoxes[i].name || '') + '" ?')) return;
+  gachaBoxes.splice(i, 1);
+  saveGacha();
+  renderGacha();
+}
 function psSearchMsg(t, cls) { const e = document.getElementById('psSearchMsg'); e.textContent = t || ''; e.className = 'psa-msg ' + (cls || ''); }
 
 async function searchPSA() {
@@ -3131,12 +3307,15 @@ async function syncOnStart() {
       render();
     }
   }
+  // ดึงข้อมูลตู้จุ่มจากเซิร์ฟเวอร์ (เก็บแยกจาก cards.json)
+  await pullGacha();
+  renderGacha();
 }
 
 // ---- จัดการผู้ใช้ (แอดมิน) ----
 let usersCache = [];
 function usersMsg(t, cls) { const e = document.getElementById('usersMsg'); e.textContent = t || ''; e.className = 'usersMsg ' + (cls || ''); }
-const TAB_NAME = { stock: 'สต็อก', sales: 'สินค้าขาย', report: 'รายงาน', buy: 'รับซื้อสินค้า', product: 'ข้อมูลสินค้า' };
+const TAB_NAME = { stock: 'สต็อก', sales: 'สินค้าขาย', report: 'รายงาน', buy: 'รับซื้อสินค้า', product: 'ข้อมูลสินค้า', gacha: 'ยอดจุ่ม' };
 
 function renderUsersList() {
   const list = document.getElementById('usersList');
@@ -3247,7 +3426,10 @@ document.getElementById('buyConfirmOverlay').addEventListener('click', e => {
 document.addEventListener('click', e => {
   if (!e.target.closest('.buy-search-wrap')) closeBuyPopup();
 });
-document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeLogin(); closePSASearch(); closeSale(); closeSplit(); closeProductEdit(); closeBuyConfirm(); closeBuyPopup(); } });
+document.getElementById('gachaOverlay').addEventListener('click', e => {
+  if (e.target.id === 'gachaOverlay') closeGachaForm();
+});
+document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeLogin(); closePSASearch(); closeSale(); closeSplit(); closeProductEdit(); closeBuyConfirm(); closeBuyPopup(); closeGachaForm(); } });
 
 render();
 applyPermissions(); // ตั้งเมนู/แถบตามสิทธิ์ + คงแถบเดิมหลัง F5
