@@ -2584,8 +2584,10 @@ async function applyOpResult(i) {
 
 // ---- ค้นหาการ์ด PSA (แสดงรายละเอียดก่อนเพิ่ม) ----
 let lastPSA = null;
+let psaCheckOnly = false; // true = เปิดจากปุ่ม "เช็คราคา" ในหน้ารับซื้อ → ไม่โชว์ปุ่มเพิ่มเข้าสต็อก
 
 function openPSASearch() {
+  psaCheckOnly = false;
   document.getElementById('ps_cert').value = '';
   document.getElementById('psSearchMsg').textContent = '';
   document.getElementById('psResult').innerHTML = '';
@@ -2599,6 +2601,7 @@ function closePSASearch() { document.getElementById('psaSearchOverlay').classLis
 function checkPriceFromBuy() {
   const cert = (document.getElementById('buyCheckCert').value || '').trim().replace(/\D/g, '');
   openPSASearch();
+  psaCheckOnly = true;
   if (cert) { document.getElementById('ps_cert').value = cert; searchPSA(); }
 }
 function psSearchMsg(t, cls) { const e = document.getElementById('psSearchMsg'); e.textContent = t || ''; e.className = 'psa-msg ' + (cls || ''); }
@@ -2646,7 +2649,7 @@ function renderPSResult(d) {
         <div class="k">เกรด PSA</div><div class="v"><span class="ps-grade">${esc(d.grade || '-')}</span></div>
       </div>
       <button class="btn btn-ghost ps-add" onclick="window.open(snkrdunkUrl('${esc((d.subject || '').replace(/'/g, ''))}', '${esc((d.brand || '').replace(/'/g, ''))}'),'_blank')">🔎 เช็คราคา Last sold ใน SNKRDUNK</button>
-      <button class="btn btn-primary ps-add" onclick="addFromPSASearch()">+ เพิ่มการ์ดนี้เข้าสต็อก</button>
+      ${psaCheckOnly ? '' : '<button class="btn btn-primary ps-add" onclick="addFromPSASearch()">+ เพิ่มการ์ดนี้เข้าสต็อก</button>'}
     </div>`;
 }
 
