@@ -495,6 +495,14 @@
   <div id="viewBuy" style="display:none">
     <h2 class="view-title">🛒 รับซื้อสินค้า</h2>
     <div class="product-section">
+      <div class="daily-title">🔎 เช็คราคา</div>
+      <p style="color:var(--muted);font-size:.86rem;margin-bottom:10px">ใส่เลข cert PSA เพื่อดูรายละเอียดการ์ด และเช็คราคา Last sold ใน SNKRDUNK</p>
+      <div class="psa-row">
+        <input id="buyCheckCert" inputmode="numeric" placeholder="เลข cert เช่น 144153428" onkeydown="if(event.key==='Enter')checkPriceFromBuy()">
+        <button type="button" class="btn btn-primary" onclick="checkPriceFromBuy()">เช็คราคา</button>
+      </div>
+    </div>
+    <div class="product-section">
       <div class="daily-title">🔎 ค้นหาเพื่อรับซื้อ</div>
       <div class="buy-search-wrap">
         <input class="search" id="buySearch" placeholder="พิมพ์ชื่อ / เรื่อง / รุ่น แล้วเลือกการ์ดเพื่อรับซื้อ..." oninput="openBuyPopup()" autocomplete="off" style="width:100%">
@@ -2586,6 +2594,13 @@ function openPSASearch() {
   setTimeout(() => document.getElementById('ps_cert').focus(), 50);
 }
 function closePSASearch() { document.getElementById('psaSearchOverlay').classList.remove('open'); }
+
+// เช็คราคาจากแท็บรับซื้อ → เปิด modal ค้นหา PSA (มีปุ่มเปิด SNKRDUNK) แล้วค้นให้อัตโนมัติ
+function checkPriceFromBuy() {
+  const cert = (document.getElementById('buyCheckCert').value || '').trim().replace(/\D/g, '');
+  openPSASearch();
+  if (cert) { document.getElementById('ps_cert').value = cert; searchPSA(); }
+}
 function psSearchMsg(t, cls) { const e = document.getElementById('psSearchMsg'); e.textContent = t || ''; e.className = 'psa-msg ' + (cls || ''); }
 
 async function searchPSA() {
