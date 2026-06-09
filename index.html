@@ -81,18 +81,11 @@
   table.gb-prizes { width: 100%; border-collapse: collapse; }
   table.gb-prizes td { padding: 6px 8px; border-top: 1px solid var(--border); font-size: .9rem; }
   table.gb-prizes td.num { text-align: right; font-weight: 700; white-space: nowrap; }
-  table.gb-prizes td.gb-pnum { color: var(--muted); font-variant-numeric: tabular-nums; width: 30px; text-align: right; }
-  table.gb-prizes tr.gb-sec td { font-weight: 700; color: var(--accent2); background: var(--card2); border-top: 1px solid var(--border); }
-  .gp-header { display: flex; align-items: center; gap: 7px; margin: 6px 0 8px; }
-  .gp-header .gp-htag { font-size: .74rem; font-weight: 700; color: var(--accent2); background: rgba(108,92,231,.15); border: 1px solid var(--accent2); border-radius: 999px; padding: 3px 10px; flex: none; }
-  .gp-header .gp-hlabel { flex: 1; min-width: 0; background: var(--bg); border: 1px solid var(--accent2); color: var(--text); padding: 9px 12px; border-radius: 10px; font-size: .92rem; font-family: inherit; font-weight: 600; }
-  .gp-header .gp-hlabel:focus { outline: none; border-color: var(--accent); }
-  .gp-header .si-del { background: var(--card2); border: 1px solid var(--border); color: var(--muted); border-radius: 9px; width: 34px; height: 38px; cursor: pointer; font-size: 1rem; flex: none; }
-  .gp-header .si-del:hover { border-color: var(--danger); color: var(--danger); }
+  table.gb-prizes td.gb-pnum { color: var(--accent2); font-weight: 700; white-space: nowrap; text-align: center; }
   .gb-pimg { width: 34px; height: 34px; object-fit: cover; border-radius: 6px; border: 1px solid var(--border); display: inline-block; vertical-align: middle; cursor: pointer; }
   .gb-noimg { display: inline-flex; align-items: center; justify-content: center; color: var(--muted); cursor: default; }
   .gp-row { display: flex; gap: 7px; align-items: center; margin-bottom: 8px; flex-wrap: wrap; }
-  .gp-row .gp-num { color: var(--muted); font-size: .82rem; min-width: 26px; text-align: right; font-variant-numeric: tabular-nums; font-weight: 700; }
+  .gp-row .gp-num { flex: 0 1 64px; min-width: 50px; text-align: center; font-weight: 700; color: var(--accent2); }
   .gp-row input { background: var(--bg); border: 1px solid var(--border); color: var(--text); padding: 9px 12px; border-radius: 10px; font-size: .92rem; font-family: inherit; }
   .gp-row input:focus { outline: none; border-color: var(--accent); }
   .gp-row .gp-cert { flex: 0 1 92px; min-width: 70px; }
@@ -653,12 +646,9 @@
       <div class="field"><label>ราคาต่อครั้ง (฿)</label><input id="g_price" type="number" inputmode="decimal" placeholder="เช่น 50"></div>
     </div>
     <div class="field">
-      <label>รางวัลในตู้</label>
+      <label>รางวัลในตู้ <span style="color:var(--muted);font-weight:400;font-size:.82rem">(ช่องลำดับพิมพ์ช่วงได้ เช่น 6 - 20)</span></label>
       <div id="gachaPrizeList"></div>
-      <div style="display:flex;gap:8px;margin-top:6px;flex-wrap:wrap">
-        <button type="button" class="btn btn-ghost btn-sm" onclick="addPrizeRow()">+ เพิ่มรางวัล</button>
-        <button type="button" class="btn btn-ghost btn-sm" onclick="addPrizeHeader()">+ เพิ่มหัวข้อรางวัล</button>
-      </div>
+      <button type="button" class="btn btn-ghost btn-sm" onclick="addPrizeRow()" style="margin-top:6px">+ เพิ่มรางวัล</button>
     </div>
     <div class="field"><label>หมายเหตุ</label><input id="g_note" placeholder="(ไม่บังคับ)"></div>
     <div class="modal-actions">
@@ -2726,21 +2716,18 @@ function renderGacha() {
     return;
   }
   area.innerHTML = gachaBoxes.map((b, i) => {
-    const items = b.prizes || [];
-    const realPrizes = items.filter(p => p && !p.header);
+    const realPrizes = (b.prizes || []).filter(p => p && !p.header);
     const prizeValue = realPrizes.reduce((s, p) => s + (Number(p.value != null ? p.value : p.qty) || 0), 0);
     const total = (Number(b.price) || 0) * (Number(b.slots) || 0);
-    let pi = 0;
-    const prizeRows = items.length
-      ? items.map(p => {
-          if (p && p.header) return `<tr class="gb-sec"><td colspan="4">📌 ${esc(p.label || '')}</td></tr>`;
-          pi++;
+    const prizeRows = realPrizes.length
+      ? realPrizes.map((p, k) => {
           const img = p.image || '';
           const thumb = img
             ? `<img class="gb-pimg" src="${esc(img)}" onclick="openImgUrl('${esc(img)}')" alt="">`
             : '<span class="gb-pimg gb-noimg">—</span>';
           const v = Number(p.value != null ? p.value : p.qty) || 0;
-          return `<tr><td class="gb-pnum">${pi}.</td><td>${thumb}</td><td>${esc(p.name || '-')}</td><td class="num">${money(v)}</td></tr>`;
+          const noShow = (p.no != null && p.no !== '') ? p.no : (k + 1);
+          return `<tr><td class="gb-pnum">${esc(String(noShow))}</td><td>${thumb}</td><td>${esc(p.name || '-')}</td><td class="num">${money(v)}</td></tr>`;
         }).join('')
       : '<tr><td colspan="4" style="color:var(--muted)">ยังไม่กำหนดรางวัล</td></tr>';
     return `<div class="gacha-box">
@@ -2769,12 +2756,13 @@ function toggleGachaBox(head) {
 }
 
 const GACHA_MAX_SLOTS = 500; // กันสร้างช่องเยอะจนเบราว์เซอร์ค้าง
-function prizeRowHTML(i, p) {
+function prizeRowHTML(no, p) {
   p = p || {};
   const img = p.image || '';
   const val = (p.value != null && p.value !== '') ? Number(p.value) : (p.qty != null && p.qty !== '' ? Number(p.qty) : '');
+  const noVal = (p.no != null && p.no !== '') ? p.no : no;
   return `<div class="gp-row" data-img="${esc(img)}">
-    <span class="gp-num">${i + 1}.</span>
+    <input class="gp-num" value="${esc(String(noVal))}" title="ลำดับ — พิมพ์ช่วงได้ เช่น 6 - 20">
     <input class="gp-cert" inputmode="numeric" placeholder="cert PSA" value="${esc(p.cert || '')}" title="ใส่เลข cert แล้วกด 🔍 เพื่อดึงชื่อ+รูป" onkeydown="if(event.key==='Enter'){event.preventDefault();fetchPrizePSA(this.nextElementSibling)}">
     <button type="button" class="gp-psa" title="ค้นหาการ์ด PSA" onclick="fetchPrizePSA(this)">🔍</button>
     <input class="gp-name" placeholder="ชื่อรางวัล" value="${esc(p.name || '')}">
@@ -2783,39 +2771,22 @@ function prizeRowHTML(i, p) {
     <button type="button" class="si-del" title="ลบรางวัลนี้" onclick="removePrizeRow(this)">✕</button>
   </div>`;
 }
-// หัวข้อรางวัลคั่นกลาง (เช่น "รางวัลที่ 6 - 20") — เพิ่มซ้ำได้หลายอัน
-function prizeHeaderHTML(label) {
-  return `<div class="gp-header">
-    <span class="gp-htag">หัวข้อ</span>
-    <input class="gp-hlabel" placeholder="เช่น รางวัลที่ 6 - 20" value="${esc(label || '')}">
-    <button type="button" class="si-del" title="ลบหัวข้อนี้" onclick="this.closest('.gp-header').remove();renumberPrizeRows()">✕</button>
-  </div>`;
-}
-function renumberPrizeRows() {
-  let i = 0;
-  document.querySelectorAll('#gachaPrizeList .gp-row .gp-num').forEach(el => { el.textContent = (++i) + '.'; });
-}
 function addPrizeRow() {
   const list = document.getElementById('gachaPrizeList');
-  list.insertAdjacentHTML('beforeend', prizeRowHTML(0, {}));
-  renumberPrizeRows();
-}
-function addPrizeHeader() {
-  document.getElementById('gachaPrizeList').insertAdjacentHTML('beforeend', prizeHeaderHTML(''));
+  const n = list.querySelectorAll('.gp-row').length;
+  list.insertAdjacentHTML('beforeend', prizeRowHTML(n + 1, {}));
 }
 function removePrizeRow(btn) {
   btn.closest('.gp-row').remove();
-  renumberPrizeRows();
 }
-// พิมพ์ "จำนวนใบในตู้" → ปรับจำนวน "ช่องรางวัล" ให้เท่ากัน (ไม่ยุ่งกับหัวข้อ · เก็บค่าที่กรอกไว้เดิม)
+// พิมพ์ "จำนวนใบในตู้" → ปรับจำนวนช่องรางวัลให้เท่ากัน (เก็บค่าที่กรอกไว้เดิม · เลขลำดับช่องใหม่ไล่ต่อ)
 function syncPrizeRowsToSlots() {
   const target = Math.max(0, Math.min(Number(document.getElementById('g_slots').value) || 0, GACHA_MAX_SLOTS));
   const list = document.getElementById('gachaPrizeList');
   let rows = list.querySelectorAll('.gp-row');
   let n = rows.length;
-  while (n < target) { list.insertAdjacentHTML('beforeend', prizeRowHTML(0, {})); n++; }
+  while (n < target) { list.insertAdjacentHTML('beforeend', prizeRowHTML(n + 1, {})); n++; }
   while (n > target) { rows[--n].remove(); }
-  renumberPrizeRows();
 }
 // ค้นหาการ์ด PSA ในแถวรางวัล → เติมชื่อ + รูป
 async function fetchPrizePSA(btn) {
@@ -2841,24 +2812,14 @@ async function fetchPrizePSA(btn) {
     btn.disabled = false; btn.textContent = orig;
   }
 }
-// เก็บรายการตามลำดับจริงในฟอร์ม (หัวข้อ + รางวัล สลับกันได้)
 function collectPrizes() {
-  const out = [];
-  [...document.getElementById('gachaPrizeList').children].forEach(r => {
-    if (r.classList.contains('gp-header')) {
-      const label = r.querySelector('.gp-hlabel').value.trim();
-      if (label) out.push({ header: true, label });
-    } else if (r.classList.contains('gp-row')) {
-      const p = {
-        cert: (r.querySelector('.gp-cert').value || '').trim().replace(/\D/g, ''),
-        name: r.querySelector('.gp-name').value.trim(),
-        image: r.dataset.img || '',
-        value: Number(r.querySelector('.gp-qty').value) || 0,
-      };
-      if (p.name || p.cert || p.value) out.push(p);
-    }
-  });
-  return out;
+  return [...document.querySelectorAll('#gachaPrizeList .gp-row')].map(r => ({
+    no: (r.querySelector('.gp-num').value || '').trim(),
+    cert: (r.querySelector('.gp-cert').value || '').trim().replace(/\D/g, ''),
+    name: r.querySelector('.gp-name').value.trim(),
+    image: r.dataset.img || '',
+    value: Number(r.querySelector('.gp-qty').value) || 0,
+  })).filter(p => p.name || p.cert || p.value);
 }
 
 function openGachaForm(idx) {
@@ -2870,10 +2831,8 @@ function openGachaForm(idx) {
   document.getElementById('g_slots').value = b && b.slots != null ? b.slots : '';
   document.getElementById('g_price').value = b && b.price != null ? b.price : '';
   document.getElementById('g_note').value = b ? (b.note || '') : '';
-  const items = (b && b.prizes && b.prizes.length) ? b.prizes : [{}];
-  let pi = 0;
-  document.getElementById('gachaPrizeList').innerHTML = items.map(it => it && it.header ? prizeHeaderHTML(it.label) : prizeRowHTML(pi++, it)).join('');
-  renumberPrizeRows();
+  const prizes = (b && b.prizes && b.prizes.length) ? b.prizes.filter(p => !p.header) : [{}];
+  document.getElementById('gachaPrizeList').innerHTML = prizes.map((p, i) => prizeRowHTML(i + 1, p)).join('');
   document.getElementById('gachaOverlay').classList.add('open');
   setTimeout(() => document.getElementById('g_name').focus(), 50);
 }
