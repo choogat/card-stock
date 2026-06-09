@@ -67,8 +67,12 @@
   .daily-title { font-weight: 600; font-size: .95rem; margin-bottom: 10px; }
   .product-section { margin-bottom: 26px; }
   /* ยอดจุ่ม: การ์ดตู้ + แถวรางวัล */
-  .gacha-box { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 16px 18px; margin-bottom: 16px; }
-  .gb-head { display: flex; align-items: center; gap: 10px; }
+  .gacha-box { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 14px 18px; margin-bottom: 12px; }
+  .gb-head { display: flex; align-items: center; gap: 10px; cursor: pointer; user-select: none; }
+  .gb-caret { color: var(--muted); font-size: .8rem; transition: transform .15s; flex: none; }
+  .gacha-box.open .gb-caret { transform: rotate(90deg); }
+  .gb-count { color: var(--muted); font-size: .82rem; background: var(--card2); padding: 2px 10px; border-radius: 999px; white-space: nowrap; flex: none; }
+  .gb-body { margin-top: 12px; }
   .gb-name { font-size: 1.05rem; font-weight: 700; flex: 1; min-width: 0; }
   .gb-actions { display: flex; gap: 4px; }
   .gb-meta { color: var(--muted); font-size: .86rem; margin-top: 6px; }
@@ -78,6 +82,13 @@
   table.gb-prizes td { padding: 6px 8px; border-top: 1px solid var(--border); font-size: .9rem; }
   table.gb-prizes td.num { text-align: right; font-weight: 700; white-space: nowrap; }
   table.gb-prizes td.gb-pnum { color: var(--muted); font-variant-numeric: tabular-nums; width: 30px; text-align: right; }
+  table.gb-prizes tr.gb-sec td { font-weight: 700; color: var(--accent2); background: var(--card2); border-top: 1px solid var(--border); }
+  .gp-header { display: flex; align-items: center; gap: 7px; margin: 6px 0 8px; }
+  .gp-header .gp-htag { font-size: .74rem; font-weight: 700; color: var(--accent2); background: rgba(108,92,231,.15); border: 1px solid var(--accent2); border-radius: 999px; padding: 3px 10px; flex: none; }
+  .gp-header .gp-hlabel { flex: 1; min-width: 0; background: var(--bg); border: 1px solid var(--accent2); color: var(--text); padding: 9px 12px; border-radius: 10px; font-size: .92rem; font-family: inherit; font-weight: 600; }
+  .gp-header .gp-hlabel:focus { outline: none; border-color: var(--accent); }
+  .gp-header .si-del { background: var(--card2); border: 1px solid var(--border); color: var(--muted); border-radius: 9px; width: 34px; height: 38px; cursor: pointer; font-size: 1rem; flex: none; }
+  .gp-header .si-del:hover { border-color: var(--danger); color: var(--danger); }
   .gb-pimg { width: 34px; height: 34px; object-fit: cover; border-radius: 6px; border: 1px solid var(--border); display: inline-block; vertical-align: middle; cursor: pointer; }
   .gb-noimg { display: inline-flex; align-items: center; justify-content: center; color: var(--muted); cursor: default; }
   .gp-row { display: flex; gap: 7px; align-items: center; margin-bottom: 8px; flex-wrap: wrap; }
@@ -644,7 +655,10 @@
     <div class="field">
       <label>รางวัลในตู้</label>
       <div id="gachaPrizeList"></div>
-      <button type="button" class="btn btn-ghost btn-sm" onclick="addPrizeRow()" style="margin-top:6px">+ เพิ่มรางวัล</button>
+      <div style="display:flex;gap:8px;margin-top:6px;flex-wrap:wrap">
+        <button type="button" class="btn btn-ghost btn-sm" onclick="addPrizeRow()">+ เพิ่มรางวัล</button>
+        <button type="button" class="btn btn-ghost btn-sm" onclick="addPrizeHeader()">+ เพิ่มหัวข้อรางวัล</button>
+      </div>
     </div>
     <div class="field"><label>หมายเหตุ</label><input id="g_note" placeholder="(ไม่บังคับ)"></div>
     <div class="modal-actions">
@@ -2712,33 +2726,46 @@ function renderGacha() {
     return;
   }
   area.innerHTML = gachaBoxes.map((b, i) => {
-    const prizes = b.prizes || [];
-    const prizeValue = prizes.reduce((s, p) => s + (Number(p.value != null ? p.value : p.qty) || 0), 0);
+    const items = b.prizes || [];
+    const realPrizes = items.filter(p => p && !p.header);
+    const prizeValue = realPrizes.reduce((s, p) => s + (Number(p.value != null ? p.value : p.qty) || 0), 0);
     const total = (Number(b.price) || 0) * (Number(b.slots) || 0);
-    const prizeRows = prizes.length
-      ? prizes.map((p, k) => {
+    let pi = 0;
+    const prizeRows = items.length
+      ? items.map(p => {
+          if (p && p.header) return `<tr class="gb-sec"><td colspan="4">📌 ${esc(p.label || '')}</td></tr>`;
+          pi++;
           const img = p.image || '';
           const thumb = img
             ? `<img class="gb-pimg" src="${esc(img)}" onclick="openImgUrl('${esc(img)}')" alt="">`
             : '<span class="gb-pimg gb-noimg">—</span>';
           const v = Number(p.value != null ? p.value : p.qty) || 0;
-          return `<tr><td class="gb-pnum">${k + 1}.</td><td>${thumb}</td><td>${esc(p.name || '-')}</td><td class="num">${money(v)}</td></tr>`;
+          return `<tr><td class="gb-pnum">${pi}.</td><td>${thumb}</td><td>${esc(p.name || '-')}</td><td class="num">${money(v)}</td></tr>`;
         }).join('')
       : '<tr><td colspan="4" style="color:var(--muted)">ยังไม่กำหนดรางวัล</td></tr>';
     return `<div class="gacha-box">
-      <div class="gb-head">
+      <div class="gb-head" onclick="toggleGachaBox(this)">
+        <span class="gb-caret">▶</span>
         <div class="gb-name">🎰 ${esc(b.name || '(ไม่มีชื่อ)')}</div>
+        <span class="gb-count">${realPrizes.length} รางวัล</span>
         <div class="gb-actions">
-          <button class="icon-btn" onclick="openGachaForm(${i})" title="แก้ไข">✏️</button>
-          <button class="icon-btn del" onclick="deleteGachaBox(${i})" title="ลบ">🗑️</button>
+          <button class="icon-btn" onclick="event.stopPropagation();openGachaForm(${i})" title="แก้ไข">✏️</button>
+          <button class="icon-btn del" onclick="event.stopPropagation();deleteGachaBox(${i})" title="ลบ">🗑️</button>
         </div>
       </div>
-      <div class="gb-meta">จำนวนใบ <b>${Number(b.slots) || 0}</b> · ราคาต่อครั้ง <b>${money(b.price)}</b> · ยอดเต็มตู้ <b>${money(total)}</b></div>
-      ${b.note ? `<div class="gb-note">${esc(b.note)}</div>` : ''}
-      <div class="gb-prize-title">รางวัล (${prizes.length} รายการ · รวมยอด ${money(prizeValue)})</div>
-      <table class="gb-prizes"><tbody>${prizeRows}</tbody></table>
+      <div class="gb-body" style="display:none">
+        <div class="gb-meta">จำนวนใบ <b>${Number(b.slots) || 0}</b> · ราคาต่อครั้ง <b>${money(b.price)}</b> · ยอดเต็มตู้ <b>${money(total)}</b></div>
+        ${b.note ? `<div class="gb-note">${esc(b.note)}</div>` : ''}
+        <div class="gb-prize-title">รางวัล (${realPrizes.length} รายการ · รวมยอด ${money(prizeValue)})</div>
+        <table class="gb-prizes"><tbody>${prizeRows}</tbody></table>
+      </div>
     </div>`;
   }).join('');
+}
+function toggleGachaBox(head) {
+  const box = head.closest('.gacha-box');
+  const open = box.classList.toggle('open');
+  box.querySelector('.gb-body').style.display = open ? '' : 'none';
 }
 
 const GACHA_MAX_SLOTS = 500; // กันสร้างช่องเยอะจนเบราว์เซอร์ค้าง
@@ -2756,25 +2783,38 @@ function prizeRowHTML(i, p) {
     <button type="button" class="si-del" title="ลบรางวัลนี้" onclick="removePrizeRow(this)">✕</button>
   </div>`;
 }
+// หัวข้อรางวัลคั่นกลาง (เช่น "รางวัลที่ 6 - 20") — เพิ่มซ้ำได้หลายอัน
+function prizeHeaderHTML(label) {
+  return `<div class="gp-header">
+    <span class="gp-htag">หัวข้อ</span>
+    <input class="gp-hlabel" placeholder="เช่น รางวัลที่ 6 - 20" value="${esc(label || '')}">
+    <button type="button" class="si-del" title="ลบหัวข้อนี้" onclick="this.closest('.gp-header').remove();renumberPrizeRows()">✕</button>
+  </div>`;
+}
 function renumberPrizeRows() {
-  document.querySelectorAll('#gachaPrizeList .gp-row .gp-num').forEach((el, i) => { el.textContent = (i + 1) + '.'; });
+  let i = 0;
+  document.querySelectorAll('#gachaPrizeList .gp-row .gp-num').forEach(el => { el.textContent = (++i) + '.'; });
 }
 function addPrizeRow() {
   const list = document.getElementById('gachaPrizeList');
-  list.insertAdjacentHTML('beforeend', prizeRowHTML(list.children.length, {}));
+  list.insertAdjacentHTML('beforeend', prizeRowHTML(0, {}));
   renumberPrizeRows();
+}
+function addPrizeHeader() {
+  document.getElementById('gachaPrizeList').insertAdjacentHTML('beforeend', prizeHeaderHTML(''));
 }
 function removePrizeRow(btn) {
   btn.closest('.gp-row').remove();
   renumberPrizeRows();
 }
-// พิมพ์ "จำนวนใบในตู้" → ปรับจำนวนช่องรางวัลให้เท่ากัน (เก็บค่าที่กรอกไว้เดิม)
+// พิมพ์ "จำนวนใบในตู้" → ปรับจำนวน "ช่องรางวัล" ให้เท่ากัน (ไม่ยุ่งกับหัวข้อ · เก็บค่าที่กรอกไว้เดิม)
 function syncPrizeRowsToSlots() {
   const target = Math.max(0, Math.min(Number(document.getElementById('g_slots').value) || 0, GACHA_MAX_SLOTS));
   const list = document.getElementById('gachaPrizeList');
-  let n = list.querySelectorAll('.gp-row').length;
-  while (n < target) { list.insertAdjacentHTML('beforeend', prizeRowHTML(n, {})); n++; }
-  while (n > target) { list.lastElementChild.remove(); n--; }
+  let rows = list.querySelectorAll('.gp-row');
+  let n = rows.length;
+  while (n < target) { list.insertAdjacentHTML('beforeend', prizeRowHTML(0, {})); n++; }
+  while (n > target) { rows[--n].remove(); }
   renumberPrizeRows();
 }
 // ค้นหาการ์ด PSA ในแถวรางวัล → เติมชื่อ + รูป
@@ -2801,13 +2841,24 @@ async function fetchPrizePSA(btn) {
     btn.disabled = false; btn.textContent = orig;
   }
 }
+// เก็บรายการตามลำดับจริงในฟอร์ม (หัวข้อ + รางวัล สลับกันได้)
 function collectPrizes() {
-  return [...document.querySelectorAll('#gachaPrizeList .gp-row')].map(r => ({
-    cert: (r.querySelector('.gp-cert').value || '').trim().replace(/\D/g, ''),
-    name: r.querySelector('.gp-name').value.trim(),
-    image: r.dataset.img || '',
-    value: Number(r.querySelector('.gp-qty').value) || 0,
-  })).filter(p => p.name || p.cert || p.value);
+  const out = [];
+  [...document.getElementById('gachaPrizeList').children].forEach(r => {
+    if (r.classList.contains('gp-header')) {
+      const label = r.querySelector('.gp-hlabel').value.trim();
+      if (label) out.push({ header: true, label });
+    } else if (r.classList.contains('gp-row')) {
+      const p = {
+        cert: (r.querySelector('.gp-cert').value || '').trim().replace(/\D/g, ''),
+        name: r.querySelector('.gp-name').value.trim(),
+        image: r.dataset.img || '',
+        value: Number(r.querySelector('.gp-qty').value) || 0,
+      };
+      if (p.name || p.cert || p.value) out.push(p);
+    }
+  });
+  return out;
 }
 
 function openGachaForm(idx) {
@@ -2819,8 +2870,10 @@ function openGachaForm(idx) {
   document.getElementById('g_slots').value = b && b.slots != null ? b.slots : '';
   document.getElementById('g_price').value = b && b.price != null ? b.price : '';
   document.getElementById('g_note').value = b ? (b.note || '') : '';
-  const prizes = (b && b.prizes && b.prizes.length) ? b.prizes : [{}];
-  document.getElementById('gachaPrizeList').innerHTML = prizes.map((p, i) => prizeRowHTML(i, p)).join('');
+  const items = (b && b.prizes && b.prizes.length) ? b.prizes : [{}];
+  let pi = 0;
+  document.getElementById('gachaPrizeList').innerHTML = items.map(it => it && it.header ? prizeHeaderHTML(it.label) : prizeRowHTML(pi++, it)).join('');
+  renumberPrizeRows();
   document.getElementById('gachaOverlay').classList.add('open');
   setTimeout(() => document.getElementById('g_name').focus(), 50);
 }
