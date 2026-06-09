@@ -1128,6 +1128,7 @@ function groupKeyOf(c) {
   return 'card:' + base + '|' + cardVariantSig(c);
 }
 function toggleGroup(key) {
+  key = decodeURIComponent(key);
   if (expandedGroups.has(key)) expandedGroups.delete(key); else expandedGroups.add(key);
   render();
 }
@@ -1229,7 +1230,7 @@ function groupRow(g) {
     ? `<img class="thumb" src="${rep.image}" onclick="event.stopPropagation();openLightbox('${rep.id}')" alt="">`
     : `<div class="thumb-empty">🃏</div>`;
   const pCls = totProfit > 0 ? 'profit-pos' : totProfit < 0 ? 'profit-neg' : 'muted';
-  const k = g.key.replace(/'/g, "\\'");
+  const k = encodeURIComponent(g.key).replace(/'/g, '%27');
   return `<tr class="group-head" onclick="toggleGroup('${k}')">
     <td>${img}</td>
     <td class="name"><span class="exp">${open ? '▾' : '▸'}</span> ${rep.topic ? `<div class="topic" style="display:inline-block">${esc(rep.topic)}</div> ` : ''}${esc(rep.name)}${rep.lang ? ` <span class="lang-badge">${esc(rep.lang)}</span>` : ''} <span class="qty-badge">${countLabel}</span>${rep.set ? `<div class="cardset">รุ่น: ${esc(rep.set)}</div>` : ''}</td>
@@ -1755,6 +1756,7 @@ function renderSales() {
 // ---- รวมกลุ่มในแถบสำหรับขาย ----
 const expandedSales = new Set();
 function toggleSalesGroup(key) {
+  key = decodeURIComponent(key);
   if (expandedSales.has(key)) expandedSales.delete(key); else expandedSales.add(key);
   renderSales();
 }
@@ -1790,7 +1792,7 @@ function salesGroupRow(g) {
   const img = rep.image
     ? `<img class="thumb" src="${rep.image}" onclick="event.stopPropagation();openLightbox('${rep.id}')" alt="">`
     : `<div class="thumb-empty">🃏</div>`;
-  const k = g.key.replace(/'/g, "\\'");
+  const k = encodeURIComponent(g.key).replace(/'/g, '%27');
   return `<tr class="group-head" onclick="toggleSalesGroup('${k}')">
     <td>${img}</td>
     <td class="name"><span class="exp">${open ? '▾' : '▸'}</span> ${rep.topic ? `<div class="topic" style="display:inline-block">${esc(rep.topic)}</div> ` : ''}${esc(rep.name)}${rep.lang ? ` <span class="lang-badge">${esc(rep.lang)}</span>` : ''}${rep.set ? `<div class="cardset">รุ่น: ${esc(rep.set)}</div>` : ''}</td>
