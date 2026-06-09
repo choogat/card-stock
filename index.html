@@ -893,6 +893,12 @@ let userSeeProfit = localStorage.getItem('app_seeprofit') !== '0';
 function canSeeProfit() { return userRole === 'admin' || !passcode || userSeeProfit; }
 function authHeaders(extra) { return Object.assign({ 'x-app-id': loginId, 'x-app-pass': passcode }, extra || {}); }
 let syncTimer = null;
+// กันข้อมูลหาย: จำว่ามีการแก้ที่ยังไม่ขึ้นเซิร์ฟเวอร์ (dirty) + กัน push ยิงซ้อน
+const DIRTY_KEY = 'cards_dirty';
+let pushing = false, pushQueued = false;
+function markDirty() { try { localStorage.setItem(DIRTY_KEY, '1'); } catch (e) {} }
+function clearDirty() { try { localStorage.removeItem(DIRTY_KEY); } catch (e) {} }
+function isDirty() { return localStorage.getItem(DIRTY_KEY) === '1'; }
 const STATUS = {
   show: { label: 'สะสม', cls: 'show' },
   wait: { label: 'รอขาย', cls: 'wait' },
@@ -911,6 +917,7 @@ function save() {
   catch (e) { /* เครื่องเต็ม — ยังเก็บขึ้นเซิร์ฟเวอร์ได้ */ }
   // ดันขึ้นเซิร์ฟเวอร์ (หน่วงนิดหน่อยกันยิงถี่)
   if (passcode) {
+    markDirty(); // มีการแก้ที่ยังไม่ยืนยันว่าขึ้นเซิร์ฟเวอร์แล้ว
     clearTimeout(syncTimer);
     syncTimer = setTimeout(pushToServer, 600);
   }
@@ -925,6 +932,10 @@ function setSync(text, cls) {
 
 async function pushToServer() {
   if (!passcode) return;
+  // กันยิงซ้อน: ถ้ากำลัง push อยู่ ให้คิวไว้ดันสถานะล่าสุดหลังอันปัจจุบันเสร็จ
+  // (กันก้อนข้อมูลเก่าเสร็จทีหลังแล้วไปทับข้อมูลใหม่บนเซิร์ฟเวอร์)
+  if (pushing) { pushQueued = true; return; }
+  pushing = true;
   setSync('⏳ กำลังบันทึกขึ้นเซิร์ฟเวอร์...', 'load');
   try {
     const r = await fetch(CARDS_API, {
@@ -934,9 +945,14 @@ async function pushToServer() {
     });
     if (r.status === 401) { setSync('🔒 รหัสผ่านไม่ถูกต้อง', 'err'); return; }
     if (!r.ok) { const d = await r.json().catch(() => ({})); setSync('⚠️ บันทึกไม่สำเร็จ: ' + (d.error || r.status), 'err'); return; }
+    clearDirty(); // ยืนยันว่าขึ้นเซิร์ฟเวอร์แล้ว
     setSync('✓ ซิงก์แล้ว', 'ok');
   } catch (e) {
     setSync('⚠️ ออฟไลน์ — เก็บในเครื่องไว้ก่อน', 'err');
+  } finally {
+    pushing = false;
+    // ถ้ามีการแก้เพิ่มระหว่างกำลัง push → ดันสถานะล่าสุดต่ออีกรอบ
+    if (pushQueued) { pushQueued = false; pushToServer(); }
   }
 }
 
@@ -3037,11 +3053,18 @@ async function syncOnStart() {
     updateAuthBtn(); applyPermissions(); updateAuthGate(); return;
   }
   if (res.ok) {
-    // เซิร์ฟเวอร์เป็นแหล่งข้อมูลหลักเสมอ — รวมถึงตอนว่าง (= ถูกล้าง) ก็ล้าง cache ตาม ไม่ดันข้อมูลเก่ากลับ
-    cards = res.cards;
-    try { localStorage.setItem(KEY, JSON.stringify(cards)); } catch (e) {}
-    setSync('✓ ซิงก์แล้ว', 'ok');
-    render();
+    if (isDirty() && cards.length) {
+      // มีการแก้ในเครื่องที่ยังไม่ได้ขึ้นเซิร์ฟเวอร์ (push ค้าง/ปิดเร็ว) → ดันขึ้นก่อน ไม่ให้เซิร์ฟเวอร์ทับจนหาย
+      await pushToServer();
+      setSync('✓ ซิงก์แล้ว', 'ok');
+      render();
+    } else {
+      // เซิร์ฟเวอร์เป็นแหล่งข้อมูลหลัก — รวมถึงตอนว่าง (= ถูกล้าง) ก็ล้าง cache ตาม
+      cards = res.cards;
+      try { localStorage.setItem(KEY, JSON.stringify(cards)); } catch (e) {}
+      setSync('✓ ซิงก์แล้ว', 'ok');
+      render();
+    }
   }
 }
 
@@ -3178,6 +3201,13 @@ function maybeOpenAdd() {
 }
 maybeOpenAdd();
 window.addEventListener('hashchange', maybeOpenAdd);
+
+// เซฟขึ้นเซิร์ฟเวอร์ทันทีเมื่อสลับแท็บ/ย่อแอป/ปิดหน้า (กันข้อมูลค้างไม่ทันขึ้น)
+function flushPendingSave() {
+  if (passcode && isDirty() && !pushing) { clearTimeout(syncTimer); pushToServer(); }
+}
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') flushPendingSave(); });
+window.addEventListener('pagehide', flushPendingSave);
 </script>
 </body>
 </html>
