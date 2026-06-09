@@ -1127,6 +1127,7 @@ function toggleSetCards(id) {
   const vis = elId => { const el = document.getElementById(elId); return el && el.style.display !== 'none'; };
   if (vis('viewSales')) renderSales();
   else if (vis('viewSoldStock')) renderSoldStock();
+  else if (vis('viewProduct')) renderProductSearch();
   else render();
 }
 // ชื่อ/รูป ของการ์ดในชุด — รองรับทั้งข้อมูลเก่า (string) และใหม่ ({name,cert,image})
@@ -1367,7 +1368,7 @@ function renderProductSearch() {
       <td class="num">${money(c.buy)}</td>
       <td class="num">${money(c.sell)}</td>
       <td><button class="icon-btn" onclick="openProductEdit(${i})" title="แก้ไขราคารับซื้อ/ราคาขาย">✏️</button></td>
-    </tr>`;
+    </tr>` + (c.type === 'set' && expandedSets.has(c.id) ? setCardsRow(c) : '');
   }).join('');
   area.innerHTML = `<div class="sales-summary" style="margin:10px 0">ทั้งหมด ${groups.length} รายการ</div>
     <table>
