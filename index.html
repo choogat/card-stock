@@ -1562,7 +1562,7 @@ function openBuyPopup() {
   }
   html += groups.map((g, i) => {
     const c = g.repLive || g.rep;
-    const img = g.img ? `<img class="thumb" src="${g.img}" alt="">` : `<div class="thumb-empty">🃏</div>`;
+    const img = g.img ? `<img class="thumb" src="${g.img}" onclick="openBuyPopupImg(${i})" style="cursor:zoom-in" alt="">` : `<div class="thumb-empty">🃏</div>`;
     return `<div class="bp-item">
       ${img}
       <div class="bp-info">
@@ -1579,6 +1579,13 @@ function openBuyPopup() {
 function closeBuyPopup() {
   const pop = document.getElementById('buyPopup');
   if (pop) pop.style.display = 'none';
+}
+// กดดูรูปใหญ่จากรายการผลค้นหาในหน้ารับซื้อ
+function openBuyPopupImg(i) {
+  const g = buyPopupGroups[i];
+  if (!g || !g.img) return;
+  document.getElementById('lightboxImg').src = g.img;
+  document.getElementById('lightbox').classList.add('open');
 }
 function startBuy(i) {
   const g = buyPopupGroups[i];
