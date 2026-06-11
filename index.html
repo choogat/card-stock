@@ -256,7 +256,12 @@
   /* Lightbox */
   .lightbox { position: fixed; inset: 0; background: rgba(0,0,0,.85); display: none; align-items: center; justify-content: center; z-index: 100; padding: 30px; }
   .lightbox.open { display: flex; }
-  .lightbox img { max-width: 90vw; max-height: 90vh; border-radius: 12px; }
+  .lightbox img { max-width: 90vw; max-height: 82vh; border-radius: 12px; }
+  .lightbox-box { display: flex; flex-direction: column; align-items: center; gap: 10px; max-width: 90vw; }
+  .lightbox-caption { color: #fff; text-align: center; line-height: 1.35; }
+  .lightbox-caption:empty { display: none; }
+  .lightbox-caption .lb-name { font-weight: 700; font-size: 1rem; }
+  .lightbox-caption .lb-set { color: #cbd5e1; font-size: .85rem; margin-top: 2px; }
   td.muted { color: var(--muted); }
   .num { font-variant-numeric: tabular-nums; }
   td.num { text-align: right; white-space: nowrap; }
@@ -779,8 +784,11 @@
 </div>
 
 <!-- Lightbox -->
-<div class="lightbox" id="lightbox" onclick="this.classList.remove('open')">
-  <img id="lightboxImg" src="" alt="">
+<div class="lightbox" id="lightbox" onclick="this.classList.remove('open');document.getElementById('lightboxCaption').innerHTML=''">
+  <div class="lightbox-box">
+    <img id="lightboxImg" src="" alt="">
+    <div id="lightboxCaption" class="lightbox-caption"></div>
+  </div>
 </div>
 
 <!-- Modal -->
@@ -1562,13 +1570,14 @@ function openBuyPopup() {
   }
   html += groups.map((g, i) => {
     const c = g.repLive || g.rep;
-    const img = g.img ? `<img class="thumb" src="${g.img}" onclick="openBuyPopupImg(${i})" style="cursor:zoom-in" alt="">` : `<div class="thumb-empty">🃏</div>`;
+    const img = g.img ? `<img class="thumb" src="${g.img}" alt="">` : `<div class="thumb-empty">🃏</div>`;
     return `<div class="bp-item">
       ${img}
       <div class="bp-info">
         <div class="bp-name">${c.topic ? `<span class="topic">${esc(c.topic)}</span> ` : ''}${esc(c.name)}${g.lang ? ` <span class="lang-badge">${esc(g.lang)}</span>` : ''}</div>
         <div class="bp-price">ราคารับซื้อ: <b>${money(c.buy)}</b></div>
       </div>
+      ${g.img ? `<button class="btn btn-ghost btn-sm" onclick="openBuyPopupImg(${i})">🔍 ดูรูป</button>` : ''}
       <button class="btn btn-primary btn-sm" onclick="startBuy(${i})">รับซื้อ</button>
     </div>`;
   }).join('');
@@ -1580,11 +1589,15 @@ function closeBuyPopup() {
   const pop = document.getElementById('buyPopup');
   if (pop) pop.style.display = 'none';
 }
-// กดดูรูปใหญ่จากรายการผลค้นหาในหน้ารับซื้อ
+// กดปุ่ม "ดูรูป" จากผลค้นหาหน้ารับซื้อ → โชว์รูปใหญ่ + ชื่อ + รุ่นการ์ด
 function openBuyPopupImg(i) {
   const g = buyPopupGroups[i];
   if (!g || !g.img) return;
+  const c = g.repLive || g.rep;
+  const name = (c.topic ? esc(c.topic) + ' · ' : '') + esc(c.name || '');
   document.getElementById('lightboxImg').src = g.img;
+  document.getElementById('lightboxCaption').innerHTML =
+    `<div class="lb-name">${name}</div>` + (c.set ? `<div class="lb-set">รุ่น: ${esc(c.set)}</div>` : '');
   document.getElementById('lightbox').classList.add('open');
 }
 function startBuy(i) {
