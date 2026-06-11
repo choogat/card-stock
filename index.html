@@ -342,6 +342,8 @@
   .set-item-row .si-psa { background: rgba(108,92,231,.15); border: 1px solid var(--accent2); color: var(--accent2); border-radius: 9px; width: 38px; height: 38px; cursor: pointer; font-size: 1rem; flex: none; }
   .set-item-row .si-psa:hover { background: var(--accent2); color: #fff; }
   .set-item-row .si-psa:disabled { opacity: .5; cursor: default; }
+  .set-item-row .si-up { background: var(--card2); border: 1px solid var(--border); color: var(--muted); border-radius: 9px; width: 38px; height: 38px; cursor: pointer; font-size: 1rem; flex: none; }
+  .set-item-row .si-up:hover { border-color: var(--accent); color: var(--accent); }
   .set-item-row .si-del { background: var(--card2); border: 1px solid var(--border); color: var(--muted); border-radius: 9px; width: 34px; height: 38px; cursor: pointer; font-size: 1rem; flex: none; }
   .set-item-row .si-del:hover { border-color: var(--danger); color: var(--danger); }
   .set-badge { display: inline-block; background: #7c3aed; color: #fff; padding: 1px 9px; border-radius: 999px; font-size: .72rem; font-weight: 700; }
@@ -356,7 +358,7 @@
   .sc-card img { width: 96px; height: 134px; object-fit: cover; border-radius: 8px; border: 1px solid var(--border); cursor: zoom-in; background: #0001; }
   .sc-card .sc-empty { width: 96px; height: 134px; display: flex; align-items: center; justify-content: center; font-size: 1.6rem; border-radius: 8px; border: 1px dashed var(--border); color: var(--muted); }
   .sc-card .sc-name { font-size: .72rem; line-height: 1.35; color: var(--text); word-break: break-word; }
-  .si-thumb { width: 34px; height: 34px; object-fit: cover; border-radius: 7px; border: 1px solid var(--border); flex: none; }
+  .si-thumb { width: 34px; height: 34px; object-fit: cover; border-radius: 7px; border: 1px solid var(--border); flex: none; cursor: zoom-in; }
   .filter-banner { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; background: rgba(192,138,0,.12); border: 1px solid var(--yellow); border-radius: 12px; padding: 9px 14px; font-size: .9rem; margin-bottom: 12px; }
   .filter-banner .fb-clear { background: var(--card2); border: 1px solid var(--border); color: var(--text); border-radius: 999px; padding: 4px 12px; font-size: .82rem; font-family: inherit; cursor: pointer; }
   .filter-banner .fb-clear:hover { border-color: var(--accent); }
@@ -2296,6 +2298,8 @@ function setItemRowHTML(i, item) {
     <input type="text" class="set-item-cert" inputmode="numeric" placeholder="cert PSA" value="${esc(cert)}" title="ใส่เลข cert แล้วกด ⚡ เพื่อดึงชื่อ+รูป" onkeydown="if(event.key==='Enter'){event.preventDefault();fetchSetItemPSA(this.nextElementSibling)}">
     <button type="button" class="si-psa" title="ดึงชื่อ+รูปจาก PSA" onclick="fetchSetItemPSA(this)">⚡</button>
     <input type="text" class="set-item-input" placeholder="ชื่อการ์ดใบที่ ${i + 1}" value="${esc(name)}">
+    <input type="file" class="si-file" accept="image/*" style="display:none" onchange="onPickSetItemImage(this)">
+    <button type="button" class="si-up" title="อัปโหลดรูปใบนี้" onclick="this.previousElementSibling.click()">📷</button>
     <img class="si-thumb" src="${esc(img)}" alt="" style="${img ? '' : 'display:none'}" onclick="openImgUrl(this.closest('.set-item-row').dataset.img)">
     <button type="button" class="si-del" title="ลบใบนี้" onclick="removeSetItem(this)">✕</button>
   </div>`;
@@ -2331,6 +2335,43 @@ async function fetchSetItemPSA(btn) {
   } finally {
     btn.disabled = false; btn.textContent = orig;
   }
+}
+// อัปโหลดรูปเองให้การ์ดใบนั้นในชุด (ย่อรูป → โชว์ทันที → อัปขึ้น Blob เก็บแค่ URL)
+function onPickSetItemImage(input) {
+  const file = input.files && input.files[0];
+  if (!file) return;
+  const row = input.closest('.set-item-row');
+  const reader = new FileReader();
+  reader.onload = ev => {
+    const img = new Image();
+    img.onload = async () => {
+      const MAX = 700;
+      let { width, height } = img;
+      if (width > height && width > MAX) { height = Math.round(height * MAX / width); width = MAX; }
+      else if (height > MAX) { width = Math.round(width * MAX / height); height = MAX; }
+      const canvas = document.createElement('canvas');
+      canvas.width = width; canvas.height = height;
+      canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+      // โชว์ทันที
+      row.dataset.img = dataUrl;
+      const thumb = row.querySelector('.si-thumb');
+      if (thumb) { thumb.src = dataUrl; thumb.style.display = ''; }
+      // อัปโหลดเก็บเป็นไฟล์แยกใน Blob แล้วเก็บแค่ URL (กัน cards.json บวม)
+      setSync('⏳ กำลังอัปโหลดรูป...', 'load');
+      const url = await uploadImageToBlob(dataUrl);
+      if (url && url !== dataUrl) {
+        row.dataset.img = url;
+        if (thumb) thumb.src = url;
+        setSync('✓ อัปโหลดรูปแล้ว', 'ok');
+      } else {
+        setSync('⚠️ อัปโหลดรูปไม่สำเร็จ — เก็บแบบเดิมชั่วคราว', 'err');
+      }
+    };
+    img.src = ev.target.result;
+  };
+  reader.readAsDataURL(file);
+  input.value = '';
 }
 function renderSetItemRows(names) {
   const arr = (names && names.length) ? names.slice(0, SET_MAX) : ['', '', ''];
