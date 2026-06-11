@@ -1570,7 +1570,7 @@ function openBuyPopup() {
   }
   html += groups.map((g, i) => {
     const c = g.repLive || g.rep;
-    const img = g.img ? `<img class="thumb" src="${g.img}" alt="">` : `<div class="thumb-empty">🃏</div>`;
+    const img = g.img ? `<img class="thumb" src="${g.img}" onclick="openBuyPopupImg(${i})" style="cursor:zoom-in" alt="">` : `<div class="thumb-empty">🃏</div>`;
     return `<div class="bp-item">
       ${img}
       <div class="bp-info">
