@@ -84,6 +84,14 @@
   table.gb-prizes td.gb-pnum { color: var(--accent2); font-weight: 700; white-space: nowrap; text-align: center; }
   .gb-pimg { width: 34px; height: 34px; object-fit: cover; border-radius: 6px; border: 1px solid var(--border); display: inline-block; vertical-align: middle; cursor: pointer; }
   .gb-noimg { display: inline-flex; align-items: center; justify-content: center; color: var(--muted); cursor: default; }
+  /* ยอดจุ่ม: เครื่องหมายถูก "ออกแล้ว" หน้าแถวรางวัล */
+  table.gb-prizes td.gb-check { width: 30px; text-align: center; cursor: pointer; padding-right: 2px; }
+  .gb-tick { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; border: 1.5px solid var(--border); border-radius: 6px; color: transparent; font-size: .8rem; font-weight: 800; user-select: none; transition: .12s; }
+  td.gb-check:hover .gb-tick { border-color: var(--accent2); }
+  tr.gb-prow.drawn .gb-tick { background: var(--accent2); border-color: var(--accent2); color: #fff; }
+  tr.gb-prow.drawn td { color: var(--muted); opacity: .55; }
+  tr.gb-prow.drawn td.gb-check { opacity: 1; }
+  tr.gb-prow.drawn td.num { text-decoration: line-through; }
   .gp-row { display: flex; gap: 7px; align-items: center; margin-bottom: 8px; flex-wrap: wrap; }
   .gp-row .gp-num { flex: 0 1 64px; min-width: 50px; text-align: center; font-weight: 700; color: var(--accent2); }
   .gp-row input { background: var(--bg); border: 1px solid var(--border); color: var(--text); padding: 9px 12px; border-radius: 10px; font-size: .92rem; font-family: inherit; }
@@ -2741,15 +2749,18 @@ function renderGacha() {
     const total = (Number(b.price) || 0) * (Number(b.slots) || 0);
     const prizeRows = realPrizes.length
       ? realPrizes.map((p, k) => {
+          const oi = (b.prizes || []).indexOf(p);
           const img = p.image || '';
           const thumb = img
-            ? `<img class="gb-pimg" src="${esc(img)}" onclick="openImgUrl('${esc(img)}')" alt="">`
+            ? `<img class="gb-pimg" src="${esc(img)}" onclick="event.stopPropagation();openImgUrl('${esc(img)}')" alt="">`
             : '<span class="gb-pimg gb-noimg">—</span>';
           const v = Number(p.value != null ? p.value : p.qty) || 0;
           const noShow = (p.no != null && p.no !== '') ? p.no : (k + 1);
-          return `<tr><td class="gb-pnum">${esc(String(noShow))}</td><td>${thumb}</td><td>${esc(p.name || '-')}</td><td class="num">${money(v)}</td></tr>`;
+          return `<tr class="gb-prow${p.drawn ? ' drawn' : ''}">`
+            + `<td class="gb-check" onclick="toggleGachaPrize(this, ${i}, ${oi})" title="ทำเครื่องหมายว่าออกแล้ว"><span class="gb-tick">✓</span></td>`
+            + `<td class="gb-pnum">${esc(String(noShow))}</td><td>${thumb}</td><td>${esc(p.name || '-')}</td><td class="num">${money(v)}</td></tr>`;
         }).join('')
-      : '<tr><td colspan="4" style="color:var(--muted)">ยังไม่กำหนดรางวัล</td></tr>';
+      : '<tr><td colspan="5" style="color:var(--muted)">ยังไม่กำหนดรางวัล</td></tr>';
     return `<div class="gacha-box">
       <div class="gb-head" onclick="toggleGachaBox(this)">
         <span class="gb-caret">▶</span>
@@ -2773,6 +2784,16 @@ function toggleGachaBox(head) {
   const box = head.closest('.gacha-box');
   const open = box.classList.toggle('open');
   box.querySelector('.gb-body').style.display = open ? '' : 'none';
+}
+// ติ๊ก/ยกเลิกติ๊ก รางวัลที่ "ออกแล้ว" → แถวเป็นสีเทา + บันทึก
+function toggleGachaPrize(el, boxIdx, prizeIdx) {
+  const b = gachaBoxes[boxIdx];
+  if (!b || !b.prizes || !b.prizes[prizeIdx]) return;
+  const p = b.prizes[prizeIdx];
+  p.drawn = !p.drawn;
+  const row = el.closest('tr');
+  if (row) row.classList.toggle('drawn', !!p.drawn);
+  saveGacha();
 }
 
 const GACHA_MAX_SLOTS = 500; // กันสร้างช่องเยอะจนเบราว์เซอร์ค้าง
