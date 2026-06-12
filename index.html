@@ -123,6 +123,8 @@
   .gp-row .gp-psa:hover { background: var(--accent2); color: #fff; }
   .gp-row .gp-psa:disabled { opacity: .5; cursor: default; }
   .gp-row .gp-thumb { width: 34px; height: 34px; object-fit: cover; border-radius: 7px; border: 1px solid var(--border); flex: none; cursor: pointer; }
+  .gp-row .gp-dup { background: rgba(24,165,88,.14); border: 1px solid var(--green); color: var(--green); border-radius: 9px; width: 34px; height: 38px; cursor: pointer; font-size: 1rem; flex: none; }
+  .gp-row .gp-dup:hover { background: var(--green); color: #fff; }
   .gp-row .si-del { background: var(--card2); border: 1px solid var(--border); color: var(--muted); border-radius: 9px; width: 34px; height: 38px; cursor: pointer; font-size: 1rem; flex: none; }
   .gp-row .si-del:hover { border-color: var(--danger); color: var(--danger); }
   /* รับซื้อสินค้า: popup ผลค้นหา (ลอยใต้ช่องค้นหา) */
@@ -2905,8 +2907,41 @@ function prizeRowHTML(no, p) {
     <input class="gp-name" placeholder="ชื่อรางวัล" value="${esc(p.name || '')}">
     <img class="gp-thumb" src="${esc(img)}" alt="" style="${img ? '' : 'display:none'}" onclick="openImgUrl(this.closest('.gp-row').dataset.img)">
     <input class="gp-qty" type="number" inputmode="decimal" min="0" placeholder="ยอดรางวัล" value="${val}">
+    <button type="button" class="gp-dup" title="ทำซ้ำรางวัลนี้หลายใบ" onclick="duplicatePrizeRow(this)">⧉</button>
     <button type="button" class="si-del" title="ลบรางวัลนี้" onclick="removePrizeRow(this)">✕</button>
   </div>`;
+}
+// ทำซ้ำรางวัลนี้หลายใบในครั้งเดียว — กรอกรางวัลครั้งเดียว แล้วได้หลายใบเหมือนกัน
+function duplicatePrizeRow(btn) {
+  const row = btn.closest('.gp-row');
+  const list = document.getElementById('gachaPrizeList');
+  const ans = prompt('ทำซ้ำรางวัลนี้เพิ่มอีกกี่ใบ?', '1');
+  if (ans == null) return;
+  let n = Math.floor(Number(ans));
+  if (!n || n < 1) return;
+  const cur = list.querySelectorAll('.gp-row').length;
+  const room = Math.max(0, GACHA_MAX_SLOTS - cur);
+  if (n > room) { n = room; if (n < 1) { alert('รางวัลครบ ' + GACHA_MAX_SLOTS + ' ใบแล้ว เพิ่มไม่ได้'); return; } }
+  const data = {
+    cert: row.querySelector('.gp-cert').value.trim(),
+    name: row.querySelector('.gp-name').value.trim(),
+    image: row.dataset.img || '',
+    value: row.querySelector('.gp-qty').value,
+  };
+  let html = '';
+  for (let k = 0; k < n; k++) html += prizeRowHTML('', data); // ลำดับเว้นว่าง → ไล่เลขใหม่ด้านล่าง
+  row.insertAdjacentHTML('afterend', html);
+  renumberPrizeRows();
+  // ปรับ "จำนวนใบในตู้" ขึ้นให้พอกับจำนวนรางวัล (ไม่ลดลง)
+  const slotsEl = document.getElementById('g_slots');
+  const totalRows = list.querySelectorAll('.gp-row').length;
+  if ((Number(slotsEl.value) || 0) < totalRows) slotsEl.value = totalRows;
+}
+// ไล่เลขลำดับรางวัลใหม่ 1,2,3,... (ถ้ามีช่องที่พิมพ์เป็นช่วง เช่น 6-20 จะไม่แตะ)
+function renumberPrizeRows() {
+  const rows = [...document.querySelectorAll('#gachaPrizeList .gp-row')];
+  if (rows.some(r => r.querySelector('.gp-num').value.includes('-'))) return;
+  rows.forEach((r, i) => { r.querySelector('.gp-num').value = i + 1; });
 }
 function addPrizeRow() {
   const list = document.getElementById('gachaPrizeList');
@@ -2915,6 +2950,7 @@ function addPrizeRow() {
 }
 function removePrizeRow(btn) {
   btn.closest('.gp-row').remove();
+  renumberPrizeRows();
 }
 // พิมพ์ "จำนวนใบในตู้" → ปรับจำนวนช่องรางวัลให้เท่ากัน (เก็บค่าที่กรอกไว้เดิม · เลขลำดับช่องใหม่ไล่ต่อ)
 function syncPrizeRowsToSlots() {
