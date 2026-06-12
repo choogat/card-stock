@@ -2817,8 +2817,10 @@ function renderGacha() {
     let drawn = realPrizes.filter(p => p.drawn).reduce((s, p) => s + gachaNoCount(p.no), 0);
     if (slots) drawn = Math.min(drawn, slots);
     const sales = drawn * price;          // ยอดขาย = จำนวนจุ่ม × ราคาต่อครั้ง
-    const cost = prizeValue;              // ทุน = รวมยอดรางวัลทั้งตู้
-    const profit = sales - cost;          // กำไร = ยอดขาย − ทุน
+    // ทุน = นับเฉพาะรางวัลที่ "ออกแล้ว" (ติ๊กหน้าลำดับ) — ใบที่ยังไม่ออก ของยังอยู่กับเรา ไม่นับเป็นทุน
+    const cost = realPrizes.filter(p => p.drawn)
+      .reduce((s, p) => s + (Number(p.value != null ? p.value : p.qty) || 0) * gachaNoCount(p.no), 0);
+    const profit = sales - cost;          // กำไร = ยอดขาย − ทุน (ที่ออกแล้ว)
     totDraws += drawn; totSales += sales; totCost += cost;
     const pcls = profit >= 0 ? 'pos' : 'neg';
     const statsHTML = `<div class="gb-stats">
