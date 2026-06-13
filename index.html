@@ -3696,6 +3696,34 @@ function logout() {
   updateAuthGate();
 }
 
+// รีเฟรชสิทธิ์จากเซิร์ฟเวอร์โดยไม่ต้องโหลดแอปใหม่ — เผื่อแอดมินเปลี่ยนสิทธิ์ระหว่างที่เปิดค้างไว้
+let authRefreshing = false;
+async function refreshAuth() {
+  if (!passcode || !loginId || authRefreshing) return;
+  authRefreshing = true;
+  const prev = userRole + '|' + JSON.stringify(userTabs) + '|' + userSeeProfit + '|' + userGachaReadonly;
+  try {
+    const lr = await fetch(LOGIN_API, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: loginId, password: passcode }) });
+    if (lr.status === 401) {
+      passcode = ''; loginId = ''; userRole = ''; userTabs = [];
+      ['app_pass', 'app_id', 'app_role', 'app_tabs'].forEach(k => localStorage.removeItem(k));
+      updateAuthBtn(); applyPermissions(); updateAuthGate(); return;
+    }
+    if (lr.ok) {
+      const a = await lr.json();
+      userRole = a.role || userRole; userTabs = a.tabs || userTabs;
+      userSeeProfit = a.seeProfit !== false;
+      userGachaReadonly = a.gachaReadonly === true;
+      localStorage.setItem('app_role', userRole);
+      localStorage.setItem('app_tabs', JSON.stringify(userTabs));
+      localStorage.setItem('app_seeprofit', userSeeProfit ? '1' : '0');
+      localStorage.setItem('app_gacha_ro', userGachaReadonly ? '1' : '0');
+    }
+  } catch (e) { return; } finally { authRefreshing = false; }
+  // สิทธิ์เปลี่ยน → อัปเดตเมนู/ปุ่มให้ตรง (applyPermissions จะ re-render แท็บปัจจุบันเอง)
+  if ((userRole + '|' + JSON.stringify(userTabs) + '|' + userSeeProfit + '|' + userGachaReadonly) !== prev) applyPermissions();
+}
+
 // ---- ซิงก์ตอนเปิดแอป ----
 async function syncOnStart() {
   updateAuthBtn();
@@ -3891,10 +3919,10 @@ function flushPendingSave() {
 }
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'hidden') { flushPendingSave(); }
-  else { flushPendingSave(); refreshGacha(); } // กลับมาที่แอป → ดันของค้าง + ดึงยอดจุ่มสด
+  else { flushPendingSave(); refreshAuth(); refreshGacha(); } // กลับมาที่แอป → ดันของค้าง + รีเฟรชสิทธิ์ + ดึงยอดจุ่มสด
 });
 window.addEventListener('pagehide', flushPendingSave);
-window.addEventListener('focus', refreshGacha);
+window.addEventListener('focus', () => { refreshAuth(); refreshGacha(); });
 </script>
 </body>
 </html>
