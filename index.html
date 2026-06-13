@@ -608,7 +608,12 @@
       </div>
     </div>
     <div class="product-section">
-      <div class="daily-title">📥 รายการรับซื้อล่าสุด</div>
+      <div class="daily-title">📥 รายการรับซื้อ</div>
+      <div class="report-controls">
+        <label>เลือกวัน</label>
+        <input type="date" id="buyDate" onchange="renderBuyList()">
+        <button class="btn btn-ghost btn-sm" onclick="buyToday()">วันนี้</button>
+      </div>
       <div id="buyListArea"></div>
     </div>
   </div><!-- /viewBuy -->
@@ -641,6 +646,11 @@
       </div>
     </div>
     <div class="product-section">
+      <div class="report-controls">
+        <label>เลือกวัน</label>
+        <input type="date" id="gachaDate" onchange="renderGacha()">
+        <button class="btn btn-ghost btn-sm" onclick="gachaToday()">วันนี้</button>
+      </div>
       <div id="gachaList"></div>
     </div>
   </div><!-- /viewGacha -->
@@ -1737,65 +1747,54 @@ function confirmBuy() {
   closeBuyConfirm();
   closeBuyPopup();
   document.getElementById('buySearch').value = '';
+  const bd = document.getElementById('buyDate'); if (bd) bd.value = todayISO(); // เด้งไปวันนี้ ให้เห็นรายการที่เพิ่งรับซื้อ
   render();
   renderBuyList();
   alert(`รับซื้อ "${rep.name}" เข้าสต็อกแล้ว · ${money(amount)}`);
 }
-// รายการที่รับซื้อผ่านแถบนี้ (ใหม่สุดก่อน)
+function buyToday() { const el = document.getElementById('buyDate'); if (el) el.value = todayISO(); renderBuyList(); }
+// รายการรับซื้อของวันที่เลือก (เลือกวันที่ + ปุ่มวันนี้ แบบหน้ารายงานการขาย)
 function renderBuyList() {
   const area = document.getElementById('buyListArea');
   if (!area) return;
+  const dateEl = document.getElementById('buyDate');
+  if (dateEl && !dateEl.value) dateEl.value = todayISO();
+  const sel = dateEl ? dateEl.value : todayISO();
   const idx = new Map(cards.map((c, i) => [c.id, i]));
-  const list = cards.filter(c => c.viaBuy).sort((a, b) => idx.get(b.id) - idx.get(a.id));
+  const list = cards.filter(c => c.viaBuy && (c.buyDate || '') === sel).sort((a, b) => idx.get(b.id) - idx.get(a.id));
   if (!list.length) {
-    area.innerHTML = `<div class="empty"><div class="big">📥</div>ยังไม่มีรายการรับซื้อ — ค้นหาการ์ดด้านบนเพื่อเริ่มรับซื้อ</div>`;
+    area.innerHTML = `<div class="empty"><div class="big">📥</div>วันที่ ${fmtDate(sel)} ยังไม่มีรายการรับซื้อ</div>`;
     return;
   }
-  // กล่องสรุป 4 ช่อง (จำนวน · เงินสด · เงินโอน · รวม) — buyPayment ที่ไม่ระบุ นับเป็นเงินสด
-  const summaryBox = (n, cash, transfer) => `<div class="buy-summary">
+  const canEdit = canEditBuy(); // แอดมิน/ผู้ช่วยที่ได้รับอนุญาต — โชว์ปุ่มแก้ไข/ลบ
+  let n = 0, cash = 0, transfer = 0;
+  const rows = list.map(c => {
+    const amt = Number(c.buy) || 0;
+    n++; if (c.buyPayment === 'transfer') transfer += amt; else cash += amt;
+    const img = c.image ? `<img class="thumb" src="${c.image}" onclick="openLightbox('${c.id}')" alt="">` : `<div class="thumb-empty">🃏</div>`;
+    const actions = canEdit ? `<td class="center"><button class="icon-btn" onclick="openBuyEdit('${c.id}')" title="แก้ไข">✏️</button></td>` : '';
+    return `<tr>
+      <td>${img}</td>
+      <td class="name">${c.topic ? `<div class="topic">${esc(c.topic)}</div>` : ''}${esc(c.name)}${c.lang ? ` <span class="lang-badge">${esc(c.lang)}</span>` : ''}</td>
+      <td class="center"><span class="pay-tag ${c.buyPayment || 'cash'}">${PAYMENT[c.buyPayment] || 'เงินสด'}</span></td>
+      <td class="num">${money(amt)}</td>
+      ${actions}
+    </tr>`;
+  }).join('');
+  const summaryBox = `<div class="buy-summary">
       <div class="bs-item"><span class="bs-label">จำนวนที่ซื้อ</span><span class="bs-val">${n} รายการ</span></div>
       <div class="bs-item"><span class="bs-label">💵 ซื้อเงินสด</span><span class="bs-val">${money(cash)}</span></div>
       <div class="bs-item"><span class="bs-label">🏦 ซื้อเงินโอน</span><span class="bs-val" style="color:var(--accent)">${money(transfer)}</span></div>
       <div class="bs-item"><span class="bs-label">ยอดซื้อรวม</span><span class="bs-val">${money(cash + transfer)}</span></div>
     </div>`;
-  // จัดกลุ่มตามวันที่ซื้อ (ใหม่ → เก่า)
-  const groups = new Map();
-  for (const c of list) {
-    const d = c.buyDate || '';
-    if (!groups.has(d)) groups.set(d, []);
-    groups.get(d).push(c);
-  }
-  const dates = [...groups.keys()].sort((a, b) => (b || '').localeCompare(a || ''));
-  const canEdit = canEditBuy(); // แอดมิน/ผู้ช่วยที่ได้รับอนุญาต — โชว์ปุ่มแก้ไข/ลบ
-  let allN = 0, allCash = 0, allTransfer = 0;
-  const daysHTML = dates.map(d => {
-    const items = groups.get(d);
-    let n = 0, cash = 0, transfer = 0;
-    const rows = items.map(c => {
-      const amt = Number(c.buy) || 0;
-      n++; if (c.buyPayment === 'transfer') transfer += amt; else cash += amt;
-      const img = c.image ? `<img class="thumb" src="${c.image}" onclick="openLightbox('${c.id}')" alt="">` : `<div class="thumb-empty">🃏</div>`;
-      const actions = canEdit ? `<td class="center"><button class="icon-btn" onclick="openBuyEdit('${c.id}')" title="แก้ไข">✏️</button></td>` : '';
-      return `<tr>
-        <td>${img}</td>
-        <td class="name">${c.topic ? `<div class="topic">${esc(c.topic)}</div>` : ''}${esc(c.name)}${c.lang ? ` <span class="lang-badge">${esc(c.lang)}</span>` : ''}</td>
-        <td class="center"><span class="pay-tag ${c.buyPayment || 'cash'}">${PAYMENT[c.buyPayment] || 'เงินสด'}</span></td>
-        <td class="num">${money(amt)}</td>
-        ${actions}
-      </tr>`;
-    }).join('');
-    allN += n; allCash += cash; allTransfer += transfer;
-    return `<div class="buy-day">
-      <div class="bd-head"><span class="bd-date">📅 ${d ? fmtDate(d) : 'ไม่ระบุวันที่'}</span><span class="bd-sub">${n} รายการ</span></div>
-      ${summaryBox(n, cash, transfer)}
-      <table>
-        <thead><tr><th>รูป</th><th>ชื่อการ์ด</th><th class="center">ชำระ</th><th class="num">ราคารับซื้อ</th>${canEdit ? '<th class="center">แก้ไข</th>' : ''}</tr></thead>
-        <tbody>${rows}</tbody>
-      </table>
-    </div>`;
-  }).join('');
-  const overallHTML = dates.length > 1 ? `<div class="buy-total"><div class="bt-title">📊 รวมทั้งหมด</div>${summaryBox(allN, allCash, allTransfer)}</div>` : '';
-  area.innerHTML = overallHTML + daysHTML;
+  area.innerHTML = `<div class="buy-day">
+    <div class="bd-head"><span class="bd-date">📅 ${fmtDate(sel)}</span><span class="bd-sub">${n} รายการ</span></div>
+    ${summaryBox}
+    <table>
+      <thead><tr><th>รูป</th><th>ชื่อการ์ด</th><th class="center">ชำระ</th><th class="num">ราคารับซื้อ</th>${canEdit ? '<th class="center">แก้ไข</th>' : ''}</tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+  </div>`;
 }
 
 // ---- แก้ไข/ลบ รายการรับซื้อ (เฉพาะแอดมิน/ผู้ช่วยที่ได้รับอนุญาต) ----
@@ -2964,30 +2963,8 @@ async function refreshGacha() {
 function startGachaPoll() { stopGachaPoll(); gachaPollTimer = setInterval(refreshGacha, 6000); }
 function stopGachaPoll() { if (gachaPollTimer) { clearInterval(gachaPollTimer); gachaPollTimer = null; } }
 
-// ---- วันที่ของตู้จุ่ม (จัดกลุ่มรายวัน · เลือกได้หลายวัน) ----
-let gachaSelectedDates = null;            // Set ของวันที่ที่เลือก (ตั้งต้นที่ "วันนี้")
-// ตั้งค่าวันที่ที่เลือก: ตั้งต้นเป็นวันนี้ (ถ้าไม่มีตู้วันนี้ ใช้วันล่าสุด) · ตัดวันที่ที่ไม่มีแล้วทิ้ง
-function initGachaDates(dates) {
-  if (gachaSelectedDates) {
-    [...gachaSelectedDates].forEach(d => { if (!dates.includes(d)) gachaSelectedDates.delete(d); });
-    if (gachaSelectedDates.size) return;
-  }
-  gachaSelectedDates = new Set();
-  const today = todayStr();
-  if (dates.includes(today)) gachaSelectedDates.add(today);
-  else if (dates.length) gachaSelectedDates.add(dates[0]);
-  // ตู้เก่าที่ยังไม่มีวันที่ — โชว์ตั้งแต่เปิดหน้า ไม่ให้ดูเหมือนหายไป
-  if (dates.includes('0000-00-00')) gachaSelectedDates.add('0000-00-00');
-}
-// แตะชิปวันที่เพื่อเลือก/ยกเลิก — ต้องเหลืออย่างน้อย 1 วันเสมอ
-function toggleGachaDate(d) {
-  if (!gachaSelectedDates) gachaSelectedDates = new Set();
-  if (gachaSelectedDates.has(d)) {
-    if (gachaSelectedDates.size <= 1) return;
-    gachaSelectedDates.delete(d);
-  } else gachaSelectedDates.add(d);
-  renderGacha();
-}
+// ---- วันที่ของตู้จุ่ม (เลือกวันที่ + ปุ่มวันนี้ แบบหน้ารายงานการขาย) ----
+function gachaToday() { const el = document.getElementById('gachaDate'); if (el) el.value = todayStr(); renderGacha(); }
 // กล่องสรุป 4 ช่อง (จำนวนจุ่ม · ยอดขาย · ทุน · กำไร)
 function gachaSummaryHTML(draws, sales, cost) {
   const profit = sales - cost, cls = profit >= 0 ? 'pos' : 'neg';
@@ -3081,6 +3058,20 @@ function gachaBoxHTML(b, i, canUp, canDown) {
   </div>`;
 }
 
+// สร้าง HTML กลุ่มตู้จุ่มของชุด index หนึ่ง ๆ พร้อมหัวข้อ + กล่องสรุป
+function gachaDayBlockHTML(idxs, label, subNote) {
+  let d = 0, s = 0, c = 0;
+  const boxesHTML = idxs.map((i, pos) => {
+    const st = gachaBoxStats(gachaBoxes[i]);
+    d += st.drawn; s += st.sales; c += st.cost;
+    return gachaBoxHTML(gachaBoxes[i], i, pos > 0, pos < idxs.length - 1);
+  }).join('');
+  return `<div class="gacha-day">
+    <div class="gd-head"><span class="gd-date">📅 ${esc(label)}</span><span class="gd-sub">${idxs.length} ตู้${subNote ? ' · ' + subNote : ''}</span></div>
+    ${gachaSummaryHTML(d, s, c)}
+    ${boxesHTML}
+  </div>`;
+}
 function renderGacha() {
   const area = document.getElementById('gachaList');
   if (!area) return;
@@ -3091,38 +3082,20 @@ function renderGacha() {
     area.innerHTML = '<div class="empty"><div class="big">🎲</div>ยังไม่มีตู้จุ่ม — กด “+ สร้างตู้จุ่ม” เพื่อเริ่ม</div>';
     return;
   }
-  // วันที่ทั้งหมด (ใหม่ → เก่า)
-  const dates = [...new Set(gachaBoxes.map(gachaDateKey))].sort().reverse();
-  initGachaDates(dates);
-  // ชิปเลือกวันที่ (เลือกได้หลายวัน · ตั้งต้นที่วันนี้)
-  const chipsHTML = dates.map(d => `<button class="chip${gachaSelectedDates.has(d) ? ' selected' : ''}" onclick="toggleGachaDate('${d}')">${esc(gachaDateLabel(d))}</button>`).join('');
-  const filterHTML = `<div class="gacha-filter"><label>วันที่</label><div class="date-chips">${chipsHTML}</div></div>`;
+  // วันที่ที่เลือก (ตั้งต้นวันนี้ — แบบหน้ารายงานการขาย)
+  const dateEl = document.getElementById('gachaDate');
+  if (dateEl && !dateEl.value) dateEl.value = todayStr();
+  const sel = dateEl ? dateEl.value : todayStr();
 
-  // วันที่ที่เลือก (เรียงใหม่ → เก่า)
-  const selected = dates.filter(d => gachaSelectedDates.has(d));
-  let gTotDraws = 0, gTotSales = 0, gTotCost = 0;
-  let daysHTML = '';
-  selected.forEach(dk => {
-    const idxs = gachaBoxes.map((b, i) => gachaDateKey(b) === dk ? i : -1).filter(i => i >= 0);
-    let dDraws = 0, dSales = 0, dCost = 0;
-    const boxesHTML = idxs.map((i, pos) => {
-      const st = gachaBoxStats(gachaBoxes[i]);
-      dDraws += st.drawn; dSales += st.sales; dCost += st.cost;
-      return gachaBoxHTML(gachaBoxes[i], i, pos > 0, pos < idxs.length - 1);
-    }).join('');
-    gTotDraws += dDraws; gTotSales += dSales; gTotCost += dCost;
-    daysHTML += `<div class="gacha-day">
-      <div class="gd-head"><span class="gd-date">📅 ${esc(gachaDateLabel(dk))}</span><span class="gd-sub">${idxs.length} ตู้</span></div>
-      ${gachaSummaryHTML(dDraws, dSales, dCost)}
-      ${boxesHTML}
-    </div>`;
-  });
+  const dayIdxs = gachaBoxes.map((b, i) => gachaDateKey(b) === sel ? i : -1).filter(i => i >= 0);
+  const undatedIdxs = gachaBoxes.map((b, i) => gachaDateKey(b) === '0000-00-00' ? i : -1).filter(i => i >= 0);
 
-  // กล่องสรุป "รวม" — แสดงเฉพาะตอนเลือกหลายวัน (รวมยอดข้ามวัน)
-  const totalHTML = selected.length > 1
-    ? `<div class="gacha-total"><div class="gt-title">📊 รวม ${selected.length} วัน</div>${gachaSummaryHTML(gTotDraws, gTotSales, gTotCost)}</div>`
-    : '';
-  area.innerHTML = filterHTML + totalHTML + daysHTML;
+  let html = dayIdxs.length
+    ? gachaDayBlockHTML(dayIdxs, gachaDateLabel(sel))
+    : `<div class="empty"><div class="big">🎲</div>วันที่ ${esc(gachaDateLabel(sel))} ยังไม่มีตู้จุ่ม</div>`;
+  // ตู้ที่ยังไม่ระบุวันที่ (เก่า) — โชว์ด้านล่างเสมอ ไม่ให้ข้อมูลหาย
+  if (undatedIdxs.length) html += gachaDayBlockHTML(undatedIdxs, 'ไม่ระบุวันที่', 'กดแก้ไขเพื่อใส่วันที่');
+  area.innerHTML = html;
 }
 // นับจำนวนใบจากช่องลำดับ: ช่วง "6-20" = 15 ใบ, ค่าเดี่ยว/ว่าง = 1 ใบ
 function gachaNoCount(no) {
