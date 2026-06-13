@@ -474,17 +474,40 @@
   @media (max-width: 640px) {
     th.hide-sm, td.hide-sm { display: none; }
     .stat .value { font-size: 1.5rem; }
-    /* มือถือ/จอเล็ก: กระชับขึ้น สมส่วนขึ้น */
-    .view-title { font-size: 1.15rem; margin-bottom: 12px; }
-    .product-section { margin-bottom: 16px; }
-    .daily-title { font-size: .9rem; }
-    .buy-summary, .gacha-summary { padding: 10px 8px; gap: 6px; }
+    /* ===== มือถือ/จอเล็ก: กระชับ ลดช่องว่างที่ไม่จำเป็น ทุกหน้า ===== */
+    body { padding: 12px 12px 56px; }
+    .layout { gap: 12px; }
+    header { margin-bottom: 14px; gap: 8px; }
+    h1 { font-size: 1.3rem; }
+    .view-title { font-size: 1.15rem; margin-bottom: 10px; }
+    .product-section { margin-bottom: 14px; }
+    .daily-title { font-size: .9rem; margin-bottom: 8px; }
+    /* การ์ดสรุปยอด (สต็อก/รายงาน) */
+    .stats { gap: 10px; margin-bottom: 16px; }
+    .stat { padding: 14px 16px; border-radius: 14px; }
+    .stat .label { font-size: .78rem; margin-bottom: 5px; }
+    .stat .value { font-size: 1.3rem; }
+    /* กล่องสรุปรับซื้อ/ยอดจุ่ม */
+    .buy-summary, .gacha-summary { padding: 10px 8px; gap: 6px; margin-bottom: 10px; }
     .buy-summary .bs-val, .gacha-summary .gs-val { font-size: .98rem; }
     .buy-summary .bs-label, .gacha-summary .gs-label { font-size: .72rem; }
-    .report-controls { gap: 8px; margin-bottom: 14px; }
+    /* แถบเลือกวันที่ */
+    .report-controls { gap: 8px; margin-bottom: 12px; }
     .report-controls input[type=date] { padding: 8px 10px; font-size: .9rem; }
-    table th, table td { padding-left: 6px; padding-right: 6px; }
+    /* ตาราง: ชิดขึ้น อ่านง่าย */
+    table { border-spacing: 0 5px; }
+    th { font-size: .66rem; padding: 2px 6px 4px; }
+    td { padding: 7px 6px; font-size: .82rem; }
     .thumb, .thumb-empty { width: 34px; height: 48px; }
+    /* ฟอร์ม/โมดัล */
+    .modal { padding: 18px 16px; border-radius: 16px; }
+    .modal h2 { font-size: 1.1rem; margin-bottom: 14px; }
+    .field { margin-bottom: 11px; }
+    .field label { font-size: .8rem; margin-bottom: 4px; }
+    .field input, .field select, .field textarea { padding: 9px 12px; font-size: .9rem; }
+    .grid2 { gap: 10px; }
+    .empty { padding: 32px 16px; }
+    .sales-summary { font-size: .85rem; }
   }
 </style>
 </head>
