@@ -1762,10 +1762,6 @@ function renderBuyList() {
   const sel = dateEl ? dateEl.value : todayISO();
   const idx = new Map(cards.map((c, i) => [c.id, i]));
   const list = cards.filter(c => c.viaBuy && (c.buyDate || '') === sel).sort((a, b) => idx.get(b.id) - idx.get(a.id));
-  if (!list.length) {
-    area.innerHTML = `<div class="empty"><div class="big">📥</div>วันที่ ${fmtDate(sel)} ยังไม่มีรายการรับซื้อ</div>`;
-    return;
-  }
   const canEdit = canEditBuy(); // แอดมิน/ผู้ช่วยที่ได้รับอนุญาต — โชว์ปุ่มแก้ไข/ลบ
   let n = 0, cash = 0, transfer = 0;
   const rows = list.map(c => {
@@ -1787,13 +1783,17 @@ function renderBuyList() {
       <div class="bs-item"><span class="bs-label">🏦 ซื้อเงินโอน</span><span class="bs-val" style="color:var(--accent)">${money(transfer)}</span></div>
       <div class="bs-item"><span class="bs-label">ยอดซื้อรวม</span><span class="bs-val">${money(cash + transfer)}</span></div>
     </div>`;
+  // แสดงกล่องสรุปเสมอ (แม้วันนั้นยังไม่มีรายการ → ขึ้น 0 ทุกช่อง)
+  const tableOrEmpty = list.length
+    ? `<table>
+        <thead><tr><th>รูป</th><th>ชื่อการ์ด</th><th class="center">ชำระ</th><th class="num">ราคารับซื้อ</th>${canEdit ? '<th class="center">แก้ไข</th>' : ''}</tr></thead>
+        <tbody>${rows}</tbody>
+      </table>`
+    : `<div class="empty" style="padding:18px 0">📥 วันนี้ยังไม่มีรายการรับซื้อ</div>`;
   area.innerHTML = `<div class="buy-day">
     <div class="bd-head"><span class="bd-date">📅 ${fmtDate(sel)}</span><span class="bd-sub">${n} รายการ</span></div>
     ${summaryBox}
-    <table>
-      <thead><tr><th>รูป</th><th>ชื่อการ์ด</th><th class="center">ชำระ</th><th class="num">ราคารับซื้อ</th>${canEdit ? '<th class="center">แก้ไข</th>' : ''}</tr></thead>
-      <tbody>${rows}</tbody>
-    </table>
+    ${tableOrEmpty}
   </div>`;
 }
 
