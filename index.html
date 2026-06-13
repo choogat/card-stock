@@ -815,6 +815,30 @@
   </div>
 </div>
 
+<!-- รายงานการขาย: แก้ไขรายการขายย้อนหลัง (เฉพาะแอดมิน) -->
+<div class="overlay" id="saleEditOverlay">
+  <div class="modal" style="max-width:380px">
+    <h2>✏️ แก้ไขรายการขาย</h2>
+    <p id="saleEditName" style="color:var(--muted);font-size:.9rem;margin-bottom:16px"></p>
+    <input type="hidden" id="se_id">
+    <div class="grid2">
+      <div class="field"><label>ราคาขาย (฿)</label><input id="se_gross" type="number" inputmode="decimal" placeholder="0"></div>
+      <div class="field"><label>ส่วนลด (฿)</label><input id="se_discount" type="number" inputmode="decimal" placeholder="0"></div>
+    </div>
+    <div class="grid2">
+      <div class="field"><label>ทุน/รับซื้อ (฿)</label><input id="se_buy" type="number" inputmode="decimal" placeholder="0"></div>
+      <div class="field"><label>ชำระเงิน</label>
+        <select id="se_payment"><option value="cash">เงินสด</option><option value="transfer">เงินโอน</option></select>
+      </div>
+    </div>
+    <div class="field"><label>วันที่ขาย</label><input id="se_date" type="date"></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeSaleEdit()">ยกเลิก</button>
+      <button class="btn btn-primary" onclick="saveSaleEdit()">บันทึก</button>
+    </div>
+  </div>
+</div>
+
 <!-- รับซื้อสินค้า: ใส่ยอดเงิน -->
 <div class="overlay" id="buyConfirmOverlay">
   <div class="modal" style="max-width:360px">
@@ -1173,6 +1197,8 @@ function canEditGacha() { return userRole === 'admin' || !passcode || userGachaE
 function canUntickGacha() { return userRole === 'admin' || !passcode; }
 // แก้ไข/ลบ รายการรับซื้อได้ไหม — แอดมิน/เจ้าของเครื่อง หรือผู้ช่วยที่ได้รับอนุญาต
 function canEditBuy() { return userRole === 'admin' || !passcode || userBuyEdit; }
+// แก้ไขรายการขายย้อนหลังได้ไหม — เฉพาะแอดมิน/เจ้าของเครื่อง
+function canEditSales() { return userRole === 'admin' || !passcode; }
 function authHeaders(extra) { return Object.assign({ 'x-app-id': loginId, 'x-app-pass': passcode }, extra || {}); }
 let syncTimer = null;
 // กันข้อมูลหาย: จำว่ามีการแก้ที่ยังไม่ขึ้นเซิร์ฟเวอร์ (dirty) + กัน push ยิงซ้อน
@@ -2075,7 +2101,7 @@ function renderReport() {
       <td class="num">${money(net)}</td>
       ${canSeeProfit() ? `<td class="num">${cx ? '<span class="muted">—</span>' : `<span class="${p > 0 ? 'profit-pos' : p < 0 ? 'profit-neg' : 'muted'}">${p > 0 ? '+' : ''}${money(p)}</span>`}</td>` : ''}
       <td class="center">${cx ? '<span class="badge-cancelled">ยกเลิก</span>' : '<span class="badge-ok">สำเร็จ</span>'}</td>
-      <td class="center">${(isToday && !cx) ? `<button class="lock-btn" onclick="cancelSale('${c.id}')" title="กดเพื่อยกเลิกการขาย (ต้องใส่รหัส)">🔒</button>` : ''}</td>
+      <td class="center" style="white-space:nowrap">${(canEditSales() && !cx) ? `<button class="icon-btn" onclick="openSaleEdit('${c.id}')" title="แก้ไขรายการ (ย้อนหลังได้)">✏️</button> ` : ''}${(isToday && !cx) ? `<button class="lock-btn" onclick="cancelSale('${c.id}')" title="กดเพื่อยกเลิกการขาย (ต้องใส่รหัส)">🔒</button>` : ''}</td>
     </tr>`;
   }).join('');
   area.innerHTML = `<table>
@@ -2105,6 +2131,39 @@ function cancelSale(id) {
   renderSales();   // ให้ใบที่คืนกลับมาโผล่ในหน้าสินค้าขายแน่นอน
   renderReport();
   alert(`ยกเลิกการขาย "${c.name}" แล้ว — ใบนี้กลับไปเป็น "รอขาย" ในหน้าสินค้าขาย`);
+}
+
+// ---- แก้ไขรายการขายย้อนหลัง (เฉพาะแอดมิน) ----
+function openSaleEdit(id) {
+  if (!canEditSales()) { alert('เฉพาะแอดมินเท่านั้นที่แก้ไขรายการขายได้'); return; }
+  const c = cards.find(x => x.id === id);
+  if (!c) return;
+  const disc = Number(c.discount) || 0;
+  document.getElementById('se_id').value = id;
+  document.getElementById('saleEditName').textContent = (c.topic ? c.topic + ' · ' : '') + c.name + (c.lang ? ' (' + c.lang + ')' : '');
+  document.getElementById('se_gross').value = (Number(c.sell) || 0) + disc; // ราคาขายก่อนหักส่วนลด
+  document.getElementById('se_discount').value = disc;
+  document.getElementById('se_buy').value = c.buy ?? '';
+  document.getElementById('se_payment').value = c.payment || 'cash';
+  document.getElementById('se_date').value = c.sellDate || todayISO();
+  document.getElementById('saleEditOverlay').classList.add('open');
+}
+function closeSaleEdit() { document.getElementById('saleEditOverlay').classList.remove('open'); }
+function saveSaleEdit() {
+  if (!canEditSales()) return;
+  const c = cards.find(x => x.id === document.getElementById('se_id').value);
+  if (!c) return;
+  const gross = parseFloat(document.getElementById('se_gross').value) || 0;
+  const disc = parseFloat(document.getElementById('se_discount').value) || 0;
+  c.discount = disc;
+  c.sell = Math.max(0, gross - disc);       // ยอดขายสุทธิ = ราคาขาย − ส่วนลด
+  c.buy = parseFloat(document.getElementById('se_buy').value) || 0;
+  c.payment = document.getElementById('se_payment').value || 'cash';
+  c.sellDate = document.getElementById('se_date').value || c.sellDate;
+  save();
+  render();
+  renderReport();
+  closeSaleEdit();
 }
 
 // ---- เมนูย่อย "สต็อกการ์ดขายแล้ว" — รายการที่ขายแล้วทั้งหมด (อ่านอย่างเดียว) ----
@@ -4132,6 +4191,9 @@ document.getElementById('buyEditOverlay').addEventListener('click', e => {
 document.getElementById('newBuyOverlay').addEventListener('click', e => {
   if (e.target.id === 'newBuyOverlay') closeNewBuy();
 });
+document.getElementById('saleEditOverlay').addEventListener('click', e => {
+  if (e.target.id === 'saleEditOverlay') closeSaleEdit();
+});
 // ปิด popup รับซื้อเมื่อคลิกนอกกล่องค้นหา
 document.addEventListener('click', e => {
   if (!e.target.closest('.buy-search-wrap')) closeBuyPopup();
@@ -4139,7 +4201,7 @@ document.addEventListener('click', e => {
 document.getElementById('gachaOverlay').addEventListener('click', e => {
   if (e.target.id === 'gachaOverlay') closeGachaForm();
 });
-document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeLogin(); closePSASearch(); closeSale(); closeSplit(); closeProductEdit(); closeBuyConfirm(); closeBuyPopup(); closeGachaForm(); closeBuyEdit(); closeNewBuy(); } });
+document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeLogin(); closePSASearch(); closeSale(); closeSplit(); closeProductEdit(); closeBuyConfirm(); closeBuyPopup(); closeGachaForm(); closeBuyEdit(); closeNewBuy(); closeSaleEdit(); } });
 
 render();
 applyPermissions(); // ตั้งเมนู/แถบตามสิทธิ์ + คงแถบเดิมหลัง F5
