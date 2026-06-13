@@ -110,6 +110,18 @@
   .gd-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; padding: 4px 4px 9px; }
   .gd-date { font-weight: 800; font-size: 1rem; }
   .gd-sub { color: var(--muted); font-size: .85rem; }
+  /* รับซื้อสินค้า: สรุป + กลุ่มรายวัน */
+  .buy-total { margin-bottom: 16px; }
+  .bt-title { font-weight: 800; font-size: 1rem; margin-bottom: 8px; }
+  .buy-summary { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 14px 18px; margin-bottom: 12px; }
+  .buy-summary .bs-item { text-align: center; }
+  .buy-summary .bs-label { display: block; color: var(--muted); font-size: .78rem; margin-bottom: 3px; }
+  .buy-summary .bs-val { font-size: 1.1rem; font-weight: 800; }
+  @media (max-width: 560px) { .buy-summary { grid-template-columns: repeat(2, 1fr); } }
+  .buy-day { margin-bottom: 18px; }
+  .bd-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; padding: 4px 4px 9px; }
+  .bd-date { font-weight: 800; font-size: 1rem; }
+  .bd-sub { color: var(--muted); font-size: .85rem; }
   .gb-prize-title { font-weight: 600; font-size: .9rem; margin: 12px 0 6px; }
   table.gb-prizes { width: 100%; border-collapse: collapse; }
   table.gb-prizes td { padding: 6px 8px; border-top: 1px solid var(--border); font-size: .9rem; }
@@ -724,6 +736,13 @@
     <div class="field">
       <label>ยอดเงินรับซื้อ (฿)</label>
       <input id="bc_amount" type="number" inputmode="decimal" placeholder="0" onkeydown="if(event.key==='Enter')confirmBuy()">
+    </div>
+    <div class="field">
+      <label>ชำระโดย</label>
+      <select id="bc_payment">
+        <option value="cash">เงินสด</option>
+        <option value="transfer">เงินโอน</option>
+      </select>
     </div>
     <p style="color:var(--muted);font-size:.78rem;margin-bottom:4px">* ตั้งต้นจากราคารับซื้อในข้อมูลสินค้า · กดตกลงแล้วการ์ดจะเข้าสต็อก 1 ใบ</p>
     <div class="modal-actions">
@@ -1666,6 +1685,7 @@ function startBuy(i) {
   closeBuyPopup(); // ปิด popup ก่อน เปิดหน้าต่างใส่ยอด
   document.getElementById('buyConfirmName').textContent = (c.topic ? c.topic + ' · ' : '') + c.name + (g.lang ? ' (' + g.lang + ')' : '');
   document.getElementById('bc_amount').value = c.buy ?? '';
+  document.getElementById('bc_payment').value = 'cash';
   document.getElementById('buyConfirmOverlay').classList.add('open');
   setTimeout(() => document.getElementById('bc_amount').focus(), 30);
 }
@@ -1675,8 +1695,9 @@ function confirmBuy() {
   if (!g) return;
   const rep = g.repLive || g.rep;
   const amount = parseFloat(document.getElementById('bc_amount').value) || 0;
+  const buyPayment = document.getElementById('bc_payment').value || 'cash';
   // สร้างการ์ดใหม่ 1 ใบเข้าสต็อก (สถานะ "สะสม") — ราคารับซื้อ = ยอดที่กรอก
-  const newCard = { ...rep, id: uid(), status: 'show', qty: 1, buy: amount, buyDate: todayISO(), viaBuy: true, discount: 0 };
+  const newCard = { ...rep, id: uid(), status: 'show', qty: 1, buy: amount, buyDate: todayISO(), buyPayment, viaBuy: true, discount: 0 };
   if (rep.type === 'collect') { newCard.unitBuy = amount; newCard.median = Number(rep.unitMedian) || 0; newCard.sell = Number(rep.unitSell) || 0; }
   delete newCard.sellDate; delete newCard.sellTime; delete newCard.payment; delete newCard.cancelled; delete newCard._i; delete newCard.productOnly;
   cards.push(newCard);
@@ -1698,20 +1719,48 @@ function renderBuyList() {
     area.innerHTML = `<div class="empty"><div class="big">📥</div>ยังไม่มีรายการรับซื้อ — ค้นหาการ์ดด้านบนเพื่อเริ่มรับซื้อ</div>`;
     return;
   }
-  const rows = list.map(c => {
-    const img = c.image ? `<img class="thumb" src="${c.image}" onclick="openLightbox('${c.id}')" alt="">` : `<div class="thumb-empty">🃏</div>`;
-    return `<tr>
-      <td>${img}</td>
-      <td class="name">${c.topic ? `<div class="topic">${esc(c.topic)}</div>` : ''}${esc(c.name)}${c.lang ? ` <span class="lang-badge">${esc(c.lang)}</span>` : ''}</td>
-      <td class="center muted">${c.buyDate ? fmtDate(c.buyDate) : '-'}</td>
-      <td class="num">${money(c.buy)}</td>
-    </tr>`;
+  // กล่องสรุป 4 ช่อง (จำนวน · เงินสด · เงินโอน · รวม) — buyPayment ที่ไม่ระบุ นับเป็นเงินสด
+  const summaryBox = (n, cash, transfer) => `<div class="buy-summary">
+      <div class="bs-item"><span class="bs-label">จำนวนที่ซื้อ</span><span class="bs-val">${n} รายการ</span></div>
+      <div class="bs-item"><span class="bs-label">💵 ซื้อเงินสด</span><span class="bs-val">${money(cash)}</span></div>
+      <div class="bs-item"><span class="bs-label">🏦 ซื้อเงินโอน</span><span class="bs-val" style="color:var(--accent)">${money(transfer)}</span></div>
+      <div class="bs-item"><span class="bs-label">ยอดซื้อรวม</span><span class="bs-val">${money(cash + transfer)}</span></div>
+    </div>`;
+  // จัดกลุ่มตามวันที่ซื้อ (ใหม่ → เก่า)
+  const groups = new Map();
+  for (const c of list) {
+    const d = c.buyDate || '';
+    if (!groups.has(d)) groups.set(d, []);
+    groups.get(d).push(c);
+  }
+  const dates = [...groups.keys()].sort((a, b) => (b || '').localeCompare(a || ''));
+  let allN = 0, allCash = 0, allTransfer = 0;
+  const daysHTML = dates.map(d => {
+    const items = groups.get(d);
+    let n = 0, cash = 0, transfer = 0;
+    const rows = items.map(c => {
+      const amt = Number(c.buy) || 0;
+      n++; if (c.buyPayment === 'transfer') transfer += amt; else cash += amt;
+      const img = c.image ? `<img class="thumb" src="${c.image}" onclick="openLightbox('${c.id}')" alt="">` : `<div class="thumb-empty">🃏</div>`;
+      return `<tr>
+        <td>${img}</td>
+        <td class="name">${c.topic ? `<div class="topic">${esc(c.topic)}</div>` : ''}${esc(c.name)}${c.lang ? ` <span class="lang-badge">${esc(c.lang)}</span>` : ''}</td>
+        <td class="center"><span class="pay-tag ${c.buyPayment || 'cash'}">${PAYMENT[c.buyPayment] || 'เงินสด'}</span></td>
+        <td class="num">${money(amt)}</td>
+      </tr>`;
+    }).join('');
+    allN += n; allCash += cash; allTransfer += transfer;
+    return `<div class="buy-day">
+      <div class="bd-head"><span class="bd-date">📅 ${d ? fmtDate(d) : 'ไม่ระบุวันที่'}</span><span class="bd-sub">${n} รายการ</span></div>
+      ${summaryBox(n, cash, transfer)}
+      <table>
+        <thead><tr><th>รูป</th><th>ชื่อการ์ด</th><th class="center">ชำระ</th><th class="num">ราคารับซื้อ</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`;
   }).join('');
-  area.innerHTML = `<div class="sales-summary" style="margin:10px 0">รับซื้อแล้ว ${list.length} รายการ · รวม ${money(list.reduce((s, c) => s + (Number(c.buy) || 0), 0))}</div>
-    <table>
-      <thead><tr><th>รูป</th><th>ชื่อการ์ด</th><th class="center">วันที่</th><th class="num">ราคารับซื้อ</th></tr></thead>
-      <tbody>${rows}</tbody>
-    </table>`;
+  const overallHTML = dates.length > 1 ? `<div class="buy-total"><div class="bt-title">📊 รวมทั้งหมด</div>${summaryBox(allN, allCash, allTransfer)}</div>` : '';
+  area.innerHTML = overallHTML + daysHTML;
 }
 
 function reportToday() {
