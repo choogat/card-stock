@@ -20,7 +20,7 @@ export default async function handler(req, res) {
 
     if (req.method === 'GET') {
       const users = await loadUsers(opts);
-      res.status(200).json({ users: users.map(u => ({ id: u.id, tabs: u.tabs || [], seeProfit: u.seeProfit !== false, gachaReadonly: u.gachaReadonly === true })) });
+      res.status(200).json({ users: users.map(u => ({ id: u.id, tabs: u.tabs || [], seeProfit: u.seeProfit !== false, gachaReadonly: u.gachaReadonly === true, buyEdit: u.buyEdit === true })) });
       return;
     }
 
@@ -33,6 +33,7 @@ export default async function handler(req, res) {
       const tabs = Array.isArray(body.tabs) ? body.tabs.filter(t => ALL_TABS.includes(t)) : [];
       const seeProfit = body.seeProfit !== false;
       const gachaReadonly = body.gachaReadonly === true;
+      const buyEdit = body.buyEdit === true;
       const users = await loadUsers(opts);
       const existing = users.find(u => u.id === id);
       if (existing) {
@@ -40,9 +41,10 @@ export default async function handler(req, res) {
         existing.tabs = tabs;
         existing.seeProfit = seeProfit;
         existing.gachaReadonly = gachaReadonly;
+        existing.buyEdit = buyEdit;
       } else {
         if (!body.password) { res.status(400).json({ error: 'กรุณาตั้งรหัสผ่าน' }); return; }
-        users.push({ id, password: body.password, tabs, seeProfit, gachaReadonly });
+        users.push({ id, password: body.password, tabs, seeProfit, gachaReadonly, buyEdit });
       }
       await saveUsers(users, opts);
       res.status(200).json({ ok: true });
