@@ -1484,7 +1484,7 @@ function switchView(view) {
   if (view === 'soldstock') renderSoldStock();
   if (view === 'buy') { closeBuyPopup(); renderBuyList(); }
   if (view === 'product') { const ps = document.getElementById('productSearch'); if (ps) ps.value = ''; renderProductSearch(); }
-  if (view === 'gacha') renderGacha();
+  if (view === 'gacha') { renderGacha(); refreshGacha(); startGachaPoll(); } else { stopGachaPoll(); }
   if (view === 'users') renderUsers();
   localStorage.setItem('app_view', view); // จำแถบล่าสุด ไว้คงหน้าตอน F5
 }
@@ -2799,10 +2799,11 @@ function checkPriceFromBuy() {
 // แต่ละตู้: { id, name, slots(จำนวนใบ), price(ราคาต่อครั้ง), note, prizes:[{name, qty}] }
 const KEY_GACHA = 'psa_gacha_v1';
 let gachaBoxes = (() => { try { return JSON.parse(localStorage.getItem(KEY_GACHA)) || []; } catch (e) { return []; } })();
-let gachaPushing = false, gachaQueued = false, gachaTimer = null;
+let gachaPushing = false, gachaQueued = false, gachaTimer = null, gachaDirty = false, gachaPollTimer = null;
 
 function saveGacha() {
   try { localStorage.setItem(KEY_GACHA, JSON.stringify(gachaBoxes)); } catch (e) {}
+  gachaDirty = true;
   if (passcode) { clearTimeout(gachaTimer); gachaTimer = setTimeout(pushGacha, 500); }
 }
 async function pushGacha() {
@@ -2810,7 +2811,8 @@ async function pushGacha() {
   if (gachaPushing) { gachaQueued = true; return; }
   gachaPushing = true;
   try {
-    await fetch(GACHA_API, { method: 'POST', headers: authHeaders({ 'Content-Type': 'application/json' }), body: JSON.stringify(gachaBoxes) });
+    const r = await fetch(GACHA_API, { method: 'POST', headers: authHeaders({ 'Content-Type': 'application/json' }), body: JSON.stringify(gachaBoxes) });
+    if (r.ok) gachaDirty = false; // ซิงก์ขึ้นเซิร์ฟเวอร์สำเร็จ
   } catch (e) { /* ออฟไลน์ — ไว้ดันใหม่ตอนแก้ครั้งหน้า */ }
   finally { gachaPushing = false; if (gachaQueued) { gachaQueued = false; pushGacha(); } }
 }
@@ -2824,6 +2826,18 @@ async function pullGacha() {
     try { localStorage.setItem(KEY_GACHA, JSON.stringify(gachaBoxes)); } catch (e) {}
   } catch (e) { /* ออฟไลน์ — ใช้ค่าในเครื่อง */ }
 }
+// ดึงข้อมูลยอดจุ่มสดจากเซิร์ฟเวอร์ให้ทุกคนเห็นตรงกัน — กันไม่ทับยอดที่เพิ่งแก้แต่ยังไม่ซิงก์
+async function refreshGacha() {
+  if (!passcode) return;
+  if (gachaDirty || gachaPushing || gachaQueued || gachaTimer) return; // มีของค้างในเครื่อง — ดันขึ้นก่อน อย่าดึงทับ
+  const before = JSON.stringify(gachaBoxes);
+  await pullGacha();
+  if (JSON.stringify(gachaBoxes) === before) return; // ไม่มีอะไรเปลี่ยน — ไม่ต้อง re-render (กันยุบกล่องที่เปิดอยู่)
+  const gv = document.getElementById('viewGacha');
+  if (gv && gv.style.display !== 'none') renderGacha();
+}
+function startGachaPoll() { stopGachaPoll(); gachaPollTimer = setInterval(refreshGacha, 20000); }
+function stopGachaPoll() { if (gachaPollTimer) { clearInterval(gachaPollTimer); gachaPollTimer = null; } }
 
 // ---- วันที่ของตู้จุ่ม (จัดกลุ่มรายวัน · เลือกได้หลายวัน) ----
 let gachaSelectedDates = null;            // Set ของวันที่ที่เลือก (ตั้งต้นที่ "วันนี้")
@@ -3874,8 +3888,12 @@ window.addEventListener('hashchange', maybeOpenAdd);
 function flushPendingSave() {
   if (passcode && isDirty() && !pushing) { clearTimeout(syncTimer); pushToServer(); }
 }
-document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') flushPendingSave(); });
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'hidden') { flushPendingSave(); }
+  else { flushPendingSave(); refreshGacha(); } // กลับมาที่แอป → ดันของค้าง + ดึงยอดจุ่มสด
+});
 window.addEventListener('pagehide', flushPendingSave);
+window.addEventListener('focus', refreshGacha);
 </script>
 </body>
 </html>
