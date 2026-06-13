@@ -1856,7 +1856,7 @@ function renderReport() {
 
   // รายการที่ขายในวันนั้น — ผู้ช่วยเห็นเฉพาะที่ตัวเองขาย / แอดมินเห็นทั้งหมด
   let sold = cards.filter(c => c.status === 'sold' && (c.sellDate || '') === day);
-  if (userRole !== 'admin') sold = sold.filter(c => (c.seller || '') === (loginId || ''));
+  // ทุกคนเห็นรายการขายครบเหมือนแอดมิน (เดิมผู้ช่วยเห็นเฉพาะที่ตัวเองขาย)
   const counted = sold.filter(c => !c.cancelled);
   const cancelledN = sold.length - counted.length;
   const revenue = counted.reduce((s, c) => s + (Number(c.sell) || 0), 0);
@@ -1984,7 +1984,7 @@ function renderSoldStock() {
   if (!area) return;
   const q = (document.getElementById('soldStockSearch').value || '').trim().toLowerCase();
   let list = cards.filter(c => c.status === 'sold' && !c.cancelled && !c.productOnly); // ไม่รวมที่ยกเลิก/ข้อมูลสินค้าอย่างเดียว
-  if (userRole !== 'admin') list = list.filter(c => (c.seller || '') === (loginId || '')); // ผู้ช่วยเห็นเฉพาะที่ตัวเองขาย
+  // ทุกคนเห็นการ์ดที่ขายแล้วครบเหมือนแอดมิน (เดิมผู้ช่วยเห็นเฉพาะที่ตัวเองขาย)
   if (q) {
     const terms = q.split(/\s+/).filter(Boolean);
     list = list.filter(c => {
