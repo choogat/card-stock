@@ -678,7 +678,7 @@
         <label>สิทธิ์ดูข้อมูล</label>
         <div class="tab-perms">
           <label><input type="checkbox" id="u_seeProfit" checked> 💰 ดูกำไรได้</label>
-          <label><input type="checkbox" id="u_gachaReadonly"> 🎲 ยอดจุ่ม: ดูอย่างเดียว (แก้ไขไม่ได้)</label>
+          <label><input type="checkbox" id="u_gachaEdit"> 🎲 ยอดจุ่ม: แก้ไข/ลบตู้ได้</label>
           <label><input type="checkbox" id="u_buyEdit"> 🛒 รับซื้อ: แก้ไข/ลบรายการได้</label>
         </div>
       </div>
@@ -1088,11 +1088,11 @@ let loginId = localStorage.getItem('app_id') || '';
 let userRole = localStorage.getItem('app_role') || '';
 let userTabs = (() => { try { return JSON.parse(localStorage.getItem('app_tabs')) || []; } catch (e) { return []; } })();
 let userSeeProfit = localStorage.getItem('app_seeprofit') !== '0';
-let userGachaReadonly = localStorage.getItem('app_gacha_ro') === '1';
+let userGachaEdit = localStorage.getItem('app_gacha_edit') === '1';
 let userBuyEdit = localStorage.getItem('app_buy_edit') === '1';
 function canSeeProfit() { return userRole === 'admin' || !passcode || userSeeProfit; }
 // แก้ไขยอดจุ่มได้ไหม — แอดมิน/เจ้าของเครื่อง (ไม่ล็อกอิน) ได้เสมอ · ผู้ช่วยที่ตั้ง "ดูอย่างเดียว" = ไม่ได้
-function canEditGacha() { return userRole === 'admin' || !passcode || !userGachaReadonly; }
+function canEditGacha() { return userRole === 'admin' || !passcode || userGachaEdit; }
 // ยกเลิกติ๊ก "ออกแล้ว" ได้ไหม — เฉพาะแอดมิน/เจ้าของเครื่องเท่านั้น (คนอื่นติ๊กได้ทางเดียว)
 function canUntickGacha() { return userRole === 'admin' || !passcode; }
 // แก้ไข/ลบ รายการรับซื้อได้ไหม — แอดมิน/เจ้าของเครื่อง หรือผู้ช่วยที่ได้รับอนุญาต
@@ -3009,7 +3009,7 @@ function gachaBoxHTML(b, i, canUp, canDown) {
   const st = gachaBoxStats(b);
   const { realPrizes, prizeValue, slots, price, total, drawn, sales, cost, profit } = st;
   const pcls = profit >= 0 ? 'pos' : 'neg';
-  const ro = !canEditGacha();   // ผู้ช่วยที่ตั้ง "ดูอย่างเดียว" — ซ่อนปุ่มแก้ไข + ปิดการติ๊ก
+  const ro = !canEditGacha();   // ไม่มีสิทธิ์แก้ไขตู้ — ซ่อนปุ่ม เลื่อน/ก็อปปี้/แก้ไข/ลบ
   const statsHTML = `<div class="gb-stats">
       <div class="gb-stat"><span class="s-label">จำนวนจุ่ม</span><span class="s-val">${drawn}${slots ? '<span class="s-sub">/ ' + slots + ' ใบ</span>' : ''}</span></div>
       <div class="gb-stat"><span class="s-label">ยอดขาย</span><span class="s-val">${money(sales)}</span></div>
@@ -3247,7 +3247,7 @@ function collectPrizes() {
 }
 
 function openGachaForm(idx) {
-  if (!canEditGacha()) { alert('คุณมีสิทธิ์ดูยอดจุ่มอย่างเดียว ไม่สามารถแก้ไขได้'); return; }
+  if (!canEditGacha()) { alert('คุณไม่มีสิทธิ์แก้ไขตู้จุ่ม'); return; }
   const editing = typeof idx === 'number';
   const b = editing ? gachaBoxes[idx] : null;
   document.getElementById('gachaModalTitle').textContent = editing ? '🎰 แก้ไขตู้จุ่ม' : '🎰 สร้างตู้จุ่ม';
@@ -3755,14 +3755,14 @@ async function doLogin() {
   // บันทึกข้อมูลผู้ใช้
   loginId = id; passcode = val; userRole = auth.role || 'assistant'; userTabs = auth.tabs || [];
   userSeeProfit = auth.seeProfit !== false;
-  userGachaReadonly = auth.gachaReadonly === true;
+  userGachaEdit = auth.gachaEdit === true;
   userBuyEdit = auth.buyEdit === true;
   localStorage.setItem('app_pass', passcode);
   localStorage.setItem('app_id', id);
   localStorage.setItem('app_role', userRole);
   localStorage.setItem('app_tabs', JSON.stringify(userTabs));
   localStorage.setItem('app_seeprofit', userSeeProfit ? '1' : '0');
-  localStorage.setItem('app_gacha_ro', userGachaReadonly ? '1' : '0');
+  localStorage.setItem('app_gacha_edit', userGachaEdit ? '1' : '0');
   localStorage.setItem('app_buy_edit', userBuyEdit ? '1' : '0');
   const res = await pullFromServer();
   if (res.ok && res.cards.length) {
@@ -3800,7 +3800,7 @@ let authRefreshing = false;
 async function refreshAuth() {
   if (!passcode || !loginId || authRefreshing) return;
   authRefreshing = true;
-  const prev = userRole + '|' + JSON.stringify(userTabs) + '|' + userSeeProfit + '|' + userGachaReadonly + '|' + userBuyEdit;
+  const prev = userRole + '|' + JSON.stringify(userTabs) + '|' + userSeeProfit + '|' + userGachaEdit + '|' + userBuyEdit;
   try {
     const lr = await fetch(LOGIN_API, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: loginId, password: passcode }) });
     if (lr.status === 401) {
@@ -3812,17 +3812,17 @@ async function refreshAuth() {
       const a = await lr.json();
       userRole = a.role || userRole; userTabs = a.tabs || userTabs;
       userSeeProfit = a.seeProfit !== false;
-      userGachaReadonly = a.gachaReadonly === true;
+      userGachaEdit = a.gachaEdit === true;
       userBuyEdit = a.buyEdit === true;
       localStorage.setItem('app_role', userRole);
       localStorage.setItem('app_tabs', JSON.stringify(userTabs));
       localStorage.setItem('app_seeprofit', userSeeProfit ? '1' : '0');
-      localStorage.setItem('app_gacha_ro', userGachaReadonly ? '1' : '0');
+      localStorage.setItem('app_gacha_edit', userGachaEdit ? '1' : '0');
       localStorage.setItem('app_buy_edit', userBuyEdit ? '1' : '0');
     }
   } catch (e) { return; } finally { authRefreshing = false; }
   // สิทธิ์เปลี่ยน → อัปเดตเมนู/ปุ่มให้ตรง (applyPermissions จะ re-render แท็บปัจจุบันเอง)
-  if ((userRole + '|' + JSON.stringify(userTabs) + '|' + userSeeProfit + '|' + userGachaReadonly + '|' + userBuyEdit) !== prev) applyPermissions();
+  if ((userRole + '|' + JSON.stringify(userTabs) + '|' + userSeeProfit + '|' + userGachaEdit + '|' + userBuyEdit) !== prev) applyPermissions();
 }
 
 // ---- ซิงก์ตอนเปิดแอป ----
@@ -3841,12 +3841,12 @@ async function syncOnStart() {
       const a = await lr.json();
       userRole = a.role || userRole; userTabs = a.tabs || userTabs;
       userSeeProfit = a.seeProfit !== false;
-      userGachaReadonly = a.gachaReadonly === true;
+      userGachaEdit = a.gachaEdit === true;
       userBuyEdit = a.buyEdit === true;
       localStorage.setItem('app_role', userRole);
       localStorage.setItem('app_tabs', JSON.stringify(userTabs));
       localStorage.setItem('app_seeprofit', userSeeProfit ? '1' : '0');
-      localStorage.setItem('app_gacha_ro', userGachaReadonly ? '1' : '0');
+      localStorage.setItem('app_gacha_edit', userGachaEdit ? '1' : '0');
       localStorage.setItem('app_buy_edit', userBuyEdit ? '1' : '0');
     }
   } catch (e) { /* ออฟไลน์ — ใช้สิทธิ์ที่เก็บไว้ */ }
@@ -3886,7 +3886,7 @@ function renderUsersList() {
   list.innerHTML = usersCache.length ? usersCache.map(u => `
     <div class="user-row">
       <span class="uid">${esc(u.id)}</span>
-      <span class="utabs">${(u.tabs || []).map(t => TAB_NAME[t] || t).join(' · ') || '— ไม่มีสิทธิ์แถบใด'}${u.seeProfit === false ? ' · 🚫กำไร' : ' · 💰กำไร'}${u.gachaReadonly === true ? ' · 🔒ยอดจุ่มดูอย่างเดียว' : ''}${u.buyEdit === true ? ' · ✏️แก้รับซื้อได้' : ''}</span>
+      <span class="utabs">${(u.tabs || []).map(t => TAB_NAME[t] || t).join(' · ') || '— ไม่มีสิทธิ์แถบใด'}${u.seeProfit === false ? ' · 🚫กำไร' : ' · 💰กำไร'}${u.gachaEdit === true ? ' · ✏️แก้ยอดจุ่มได้' : ''}${u.buyEdit === true ? ' · ✏️แก้รับซื้อได้' : ''}</span>
       <button class="btn btn-ghost btn-sm" onclick="editUser('${esc(u.id).replace(/'/g, "\\'")}')">แก้ไข</button>
       <button class="icon-btn del" onclick="deleteUser('${esc(u.id).replace(/'/g, "\\'")}')" title="ลบ">🗑️</button>
     </div>`).join('') : '<div class="sales-summary">ยังไม่มีผู้ช่วย</div>';
@@ -3912,7 +3912,7 @@ function editUser(id) {
   document.getElementById('u_pass').placeholder = 'เว้นว่าง = ไม่เปลี่ยนรหัส';
   ALL_TABS.forEach(t => { document.getElementById('u_tab_' + t).checked = (u.tabs || []).includes(t); });
   document.getElementById('u_seeProfit').checked = u.seeProfit !== false;
-  document.getElementById('u_gachaReadonly').checked = u.gachaReadonly === true;
+  document.getElementById('u_gachaEdit').checked = u.gachaEdit === true;
   document.getElementById('u_buyEdit').checked = u.buyEdit === true;
   usersMsg('กำลังแก้ไข "' + u.id + '" — เว้นรหัสว่างถ้าไม่เปลี่ยน', '');
 }
@@ -3923,7 +3923,7 @@ function clearUserForm() {
   document.getElementById('u_pass').placeholder = 'รหัสผ่าน';
   ALL_TABS.forEach(t => { document.getElementById('u_tab_' + t).checked = false; });
   document.getElementById('u_seeProfit').checked = true;
-  document.getElementById('u_gachaReadonly').checked = false;
+  document.getElementById('u_gachaEdit').checked = false;
   document.getElementById('u_buyEdit').checked = false;
   usersMsg('');
 }
@@ -3933,17 +3933,17 @@ async function saveUser() {
   const pass = document.getElementById('u_pass').value;
   const tabs = ALL_TABS.filter(t => document.getElementById('u_tab_' + t).checked);
   const seeProfit = document.getElementById('u_seeProfit').checked;
-  const gachaReadonly = document.getElementById('u_gachaReadonly').checked;
+  const gachaEdit = document.getElementById('u_gachaEdit').checked;
   const buyEdit = document.getElementById('u_buyEdit').checked;
   if (!id) { usersMsg('กรุณาระบุ ID', 'err'); return; }
   try {
-    const r = await fetch(USERS_API, { method: 'POST', headers: authHeaders({ 'Content-Type': 'application/json' }), body: JSON.stringify({ id, password: pass, tabs, seeProfit, gachaReadonly, buyEdit }) });
+    const r = await fetch(USERS_API, { method: 'POST', headers: authHeaders({ 'Content-Type': 'application/json' }), body: JSON.stringify({ id, password: pass, tabs, seeProfit, gachaEdit, buyEdit }) });
     const d = await r.json().catch(() => ({}));
     if (!r.ok) { usersMsg(d.error || 'บันทึกไม่สำเร็จ', 'err'); return; }
     usersMsg('✓ บันทึกผู้ใช้แล้ว (ผู้ใช้ใหม่อาจล็อกอินได้หลัง ~15 วินาที)', 'ok');
     // อัปเดตรายการในเครื่องทันที (เซิร์ฟเวอร์มี cache หน่วงเล็กน้อย)
     const ex = usersCache.find(u => u.id === id);
-    if (ex) { ex.tabs = tabs; ex.seeProfit = seeProfit; ex.gachaReadonly = gachaReadonly; ex.buyEdit = buyEdit; } else { usersCache.push({ id, tabs, seeProfit, gachaReadonly, buyEdit }); }
+    if (ex) { ex.tabs = tabs; ex.seeProfit = seeProfit; ex.gachaEdit = gachaEdit; ex.buyEdit = buyEdit; } else { usersCache.push({ id, tabs, seeProfit, gachaEdit, buyEdit }); }
     clearUserForm();
     renderUsersList();
   } catch (e) { usersMsg('เชื่อมต่อไม่ได้', 'err'); }
