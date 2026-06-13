@@ -121,6 +121,8 @@
   table.gb-prizes td.gb-check { width: 30px; text-align: center; cursor: pointer; padding-right: 2px; }
   .gb-tick { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; border: 1.5px solid var(--border); border-radius: 6px; color: transparent; font-size: .8rem; font-weight: 800; user-select: none; transition: .12s; }
   td.gb-check:hover .gb-tick { border-color: var(--accent2); }
+  table.gb-prizes td.gb-check.ro { cursor: default; }
+  td.gb-check.ro:hover .gb-tick { border-color: var(--border); }
   tr.gb-prow.drawn .gb-tick { background: var(--accent2); border-color: var(--accent2); color: #fff; }
   tr.gb-prow.drawn td { color: var(--muted); opacity: .55; }
   tr.gb-prow.drawn td.gb-check { opacity: 1; }
@@ -622,7 +624,7 @@
     <div class="product-section">
       <div class="daily-title">🎰 ตู้จุ่ม</div>
       <p style="color:var(--muted);font-size:.88rem;margin-bottom:12px">สร้างตู้จุ่ม กำหนดจำนวนใบในตู้ · ราคาต่อครั้ง · และรางวัลในแต่ละตู้</p>
-      <div class="toolbar">
+      <div class="toolbar" id="gachaTools">
         <button class="btn btn-primary" onclick="openGachaForm()">+ สร้างตู้จุ่ม</button>
       </div>
     </div>
@@ -654,6 +656,7 @@
         <label>สิทธิ์ดูข้อมูล</label>
         <div class="tab-perms">
           <label><input type="checkbox" id="u_seeProfit" checked> 💰 ดูกำไรได้</label>
+          <label><input type="checkbox" id="u_gachaReadonly"> 🎲 ยอดจุ่ม: ดูอย่างเดียว (แก้ไขไม่ได้)</label>
         </div>
       </div>
       <div class="usersMsg" id="usersMsg"></div>
@@ -1027,7 +1030,10 @@ let loginId = localStorage.getItem('app_id') || '';
 let userRole = localStorage.getItem('app_role') || '';
 let userTabs = (() => { try { return JSON.parse(localStorage.getItem('app_tabs')) || []; } catch (e) { return []; } })();
 let userSeeProfit = localStorage.getItem('app_seeprofit') !== '0';
+let userGachaReadonly = localStorage.getItem('app_gacha_ro') === '1';
 function canSeeProfit() { return userRole === 'admin' || !passcode || userSeeProfit; }
+// แก้ไขยอดจุ่มได้ไหม — แอดมิน/เจ้าของเครื่อง (ไม่ล็อกอิน) ได้เสมอ · ผู้ช่วยที่ตั้ง "ดูอย่างเดียว" = ไม่ได้
+function canEditGacha() { return userRole === 'admin' || !passcode || !userGachaReadonly; }
 function authHeaders(extra) { return Object.assign({ 'x-app-id': loginId, 'x-app-pass': passcode }, extra || {}); }
 let syncTimer = null;
 // กันข้อมูลหาย: จำว่ามีการแก้ที่ยังไม่ขึ้นเซิร์ฟเวอร์ (dirty) + กัน push ยิงซ้อน
@@ -2885,6 +2891,7 @@ function gachaBoxHTML(b, i, canUp, canDown) {
   const st = gachaBoxStats(b);
   const { realPrizes, prizeValue, slots, price, total, drawn, sales, cost, profit } = st;
   const pcls = profit >= 0 ? 'pos' : 'neg';
+  const ro = !canEditGacha();   // ผู้ช่วยที่ตั้ง "ดูอย่างเดียว" — ซ่อนปุ่มแก้ไข + ปิดการติ๊ก
   const statsHTML = `<div class="gb-stats">
       <div class="gb-stat"><span class="s-label">จำนวนจุ่ม</span><span class="s-val">${drawn}${slots ? '<span class="s-sub">/ ' + slots + ' ใบ</span>' : ''}</span></div>
       <div class="gb-stat"><span class="s-label">ยอดขาย</span><span class="s-val">${money(sales)}</span></div>
@@ -2900,8 +2907,11 @@ function gachaBoxHTML(b, i, canUp, canDown) {
           : '<span class="gb-pimg gb-noimg">—</span>';
         const v = Number(p.value != null ? p.value : p.qty) || 0;
         const noShow = (p.no != null && p.no !== '') ? p.no : (k + 1);
+        const checkCell = ro
+          ? `<td class="gb-check ro"><span class="gb-tick">✓</span></td>`
+          : `<td class="gb-check" onclick="toggleGachaPrize(this, ${i}, ${oi})" title="ทำเครื่องหมายว่าออกแล้ว"><span class="gb-tick">✓</span></td>`;
         return `<tr class="gb-prow${p.drawn ? ' drawn' : ''}">`
-          + `<td class="gb-check" onclick="toggleGachaPrize(this, ${i}, ${oi})" title="ทำเครื่องหมายว่าออกแล้ว"><span class="gb-tick">✓</span></td>`
+          + checkCell
           + `<td class="gb-pnum">${esc(String(noShow))}</td><td>${thumb}</td><td>${esc(p.name || '-')}</td><td class="num">${money(v)}</td></tr>`;
       }).join('')
     : '<tr><td colspan="5" style="color:var(--muted)">ยังไม่กำหนดรางวัล</td></tr>';
@@ -2911,13 +2921,13 @@ function gachaBoxHTML(b, i, canUp, canDown) {
       <div class="gb-name">🎰 ${esc(b.name || '(ไม่มีชื่อ)')}</div>
       <span class="gb-hp ${pcls}">${profit >= 0 ? 'กำไร' : 'ขาดทุน'} ${money(profit)}</span>
       <span class="gb-count">${realPrizes.length} รางวัล</span>
-      <div class="gb-actions">
+      ${ro ? '' : `<div class="gb-actions">
         <button class="icon-btn" onclick="event.stopPropagation();moveGachaBox(${i},-1)" title="เลื่อนขึ้น"${canUp ? '' : ' disabled'}>⬆️</button>
         <button class="icon-btn" onclick="event.stopPropagation();moveGachaBox(${i},1)" title="เลื่อนลง"${canDown ? '' : ' disabled'}>⬇️</button>
         <button class="icon-btn" onclick="event.stopPropagation();copyGachaBox(${i})" title="ก็อปปี้ตู้นี้">📋</button>
         <button class="icon-btn" onclick="event.stopPropagation();openGachaForm(${i})" title="แก้ไข">✏️</button>
         <button class="icon-btn del" onclick="event.stopPropagation();deleteGachaBox(${i})" title="ลบ">🗑️</button>
-      </div>
+      </div>`}
     </div>
     <div class="gb-body" style="display:none">
       ${statsHTML}
@@ -2932,6 +2942,9 @@ function gachaBoxHTML(b, i, canUp, canDown) {
 function renderGacha() {
   const area = document.getElementById('gachaList');
   if (!area) return;
+  // ผู้ช่วยที่ตั้ง "ดูอย่างเดียว" — ซ่อนปุ่มสร้างตู้
+  const tools = document.getElementById('gachaTools');
+  if (tools) tools.style.display = canEditGacha() ? '' : 'none';
   if (!gachaBoxes.length) {
     area.innerHTML = '<div class="empty"><div class="big">🎲</div>ยังไม่มีตู้จุ่ม — กด “+ สร้างตู้จุ่ม” เพื่อเริ่ม</div>';
     return;
@@ -2983,6 +2996,7 @@ function toggleGachaBox(head) {
 }
 // สลับลำดับตู้จุ่มขึ้น/ลง — สลับเฉพาะภายในวันเดียวกัน (dir = -1 ขึ้น, +1 ลง)
 function moveGachaBox(i, dir) {
+  if (!canEditGacha()) return;
   const b = gachaBoxes[i]; if (!b) return;
   const key = gachaDateKey(b);
   let j = i + dir;
@@ -2994,6 +3008,7 @@ function moveGachaBox(i, dir) {
 }
 // ติ๊ก/ยกเลิกติ๊ก รางวัลที่ "ออกแล้ว" → แถวเป็นสีเทา + บันทึก
 function toggleGachaPrize(el, boxIdx, prizeIdx) {
+  if (!canEditGacha()) return;
   const b = gachaBoxes[boxIdx];
   if (!b || !b.prizes || !b.prizes[prizeIdx]) return;
   const p = b.prizes[prizeIdx];
@@ -3106,6 +3121,7 @@ function collectPrizes() {
 }
 
 function openGachaForm(idx) {
+  if (!canEditGacha()) { alert('คุณมีสิทธิ์ดูยอดจุ่มอย่างเดียว ไม่สามารถแก้ไขได้'); return; }
   const editing = typeof idx === 'number';
   const b = editing ? gachaBoxes[idx] : null;
   document.getElementById('gachaModalTitle').textContent = editing ? '🎰 แก้ไขตู้จุ่ม' : '🎰 สร้างตู้จุ่ม';
@@ -3123,6 +3139,7 @@ function openGachaForm(idx) {
 function closeGachaForm() { document.getElementById('gachaOverlay').classList.remove('open'); }
 
 function saveGachaBox() {
+  if (!canEditGacha()) return;
   const name = document.getElementById('g_name').value.trim();
   if (!name) { alert('กรุณาใส่ชื่อตู้ก่อน'); document.getElementById('g_name').focus(); return; }
   const box = {
@@ -3145,6 +3162,7 @@ function saveGachaBox() {
 }
 // ก็อปปี้ตู้จุ่ม — สร้างตู้ใหม่จากตู้เดิมทั้งหมด (ชื่อ · จำนวนใบ · ราคา · รางวัลทุกใบ) วางต่อท้ายตู้เดิม
 function copyGachaBox(i) {
+  if (!canEditGacha()) return;
   const src = gachaBoxes[i];
   if (!src) return;
   const copy = JSON.parse(JSON.stringify(src));
@@ -3155,6 +3173,7 @@ function copyGachaBox(i) {
   renderGacha();
 }
 function deleteGachaBox(i) {
+  if (!canEditGacha()) return;
   if (!gachaBoxes[i]) return;
   if (!confirm('ลบตู้จุ่ม "' + (gachaBoxes[i].name || '') + '" ?')) return;
   gachaBoxes.splice(i, 1);
@@ -3610,11 +3629,13 @@ async function doLogin() {
   // บันทึกข้อมูลผู้ใช้
   loginId = id; passcode = val; userRole = auth.role || 'assistant'; userTabs = auth.tabs || [];
   userSeeProfit = auth.seeProfit !== false;
+  userGachaReadonly = auth.gachaReadonly === true;
   localStorage.setItem('app_pass', passcode);
   localStorage.setItem('app_id', id);
   localStorage.setItem('app_role', userRole);
   localStorage.setItem('app_tabs', JSON.stringify(userTabs));
   localStorage.setItem('app_seeprofit', userSeeProfit ? '1' : '0');
+  localStorage.setItem('app_gacha_ro', userGachaReadonly ? '1' : '0');
   const res = await pullFromServer();
   if (res.ok && res.cards.length) {
     // เซิร์ฟเวอร์มีข้อมูล
@@ -3662,9 +3683,11 @@ async function syncOnStart() {
       const a = await lr.json();
       userRole = a.role || userRole; userTabs = a.tabs || userTabs;
       userSeeProfit = a.seeProfit !== false;
+      userGachaReadonly = a.gachaReadonly === true;
       localStorage.setItem('app_role', userRole);
       localStorage.setItem('app_tabs', JSON.stringify(userTabs));
       localStorage.setItem('app_seeprofit', userSeeProfit ? '1' : '0');
+      localStorage.setItem('app_gacha_ro', userGachaReadonly ? '1' : '0');
     }
   } catch (e) { /* ออฟไลน์ — ใช้สิทธิ์ที่เก็บไว้ */ }
   applyPermissions();
@@ -3703,7 +3726,7 @@ function renderUsersList() {
   list.innerHTML = usersCache.length ? usersCache.map(u => `
     <div class="user-row">
       <span class="uid">${esc(u.id)}</span>
-      <span class="utabs">${(u.tabs || []).map(t => TAB_NAME[t] || t).join(' · ') || '— ไม่มีสิทธิ์แถบใด'}${u.seeProfit === false ? ' · 🚫กำไร' : ' · 💰กำไร'}</span>
+      <span class="utabs">${(u.tabs || []).map(t => TAB_NAME[t] || t).join(' · ') || '— ไม่มีสิทธิ์แถบใด'}${u.seeProfit === false ? ' · 🚫กำไร' : ' · 💰กำไร'}${u.gachaReadonly === true ? ' · 🔒ยอดจุ่มดูอย่างเดียว' : ''}</span>
       <button class="btn btn-ghost btn-sm" onclick="editUser('${esc(u.id).replace(/'/g, "\\'")}')">แก้ไข</button>
       <button class="icon-btn del" onclick="deleteUser('${esc(u.id).replace(/'/g, "\\'")}')" title="ลบ">🗑️</button>
     </div>`).join('') : '<div class="sales-summary">ยังไม่มีผู้ช่วย</div>';
@@ -3729,6 +3752,7 @@ function editUser(id) {
   document.getElementById('u_pass').placeholder = 'เว้นว่าง = ไม่เปลี่ยนรหัส';
   ALL_TABS.forEach(t => { document.getElementById('u_tab_' + t).checked = (u.tabs || []).includes(t); });
   document.getElementById('u_seeProfit').checked = u.seeProfit !== false;
+  document.getElementById('u_gachaReadonly').checked = u.gachaReadonly === true;
   usersMsg('กำลังแก้ไข "' + u.id + '" — เว้นรหัสว่างถ้าไม่เปลี่ยน', '');
 }
 
@@ -3738,6 +3762,7 @@ function clearUserForm() {
   document.getElementById('u_pass').placeholder = 'รหัสผ่าน';
   ALL_TABS.forEach(t => { document.getElementById('u_tab_' + t).checked = false; });
   document.getElementById('u_seeProfit').checked = true;
+  document.getElementById('u_gachaReadonly').checked = false;
   usersMsg('');
 }
 
@@ -3746,15 +3771,16 @@ async function saveUser() {
   const pass = document.getElementById('u_pass').value;
   const tabs = ALL_TABS.filter(t => document.getElementById('u_tab_' + t).checked);
   const seeProfit = document.getElementById('u_seeProfit').checked;
+  const gachaReadonly = document.getElementById('u_gachaReadonly').checked;
   if (!id) { usersMsg('กรุณาระบุ ID', 'err'); return; }
   try {
-    const r = await fetch(USERS_API, { method: 'POST', headers: authHeaders({ 'Content-Type': 'application/json' }), body: JSON.stringify({ id, password: pass, tabs, seeProfit }) });
+    const r = await fetch(USERS_API, { method: 'POST', headers: authHeaders({ 'Content-Type': 'application/json' }), body: JSON.stringify({ id, password: pass, tabs, seeProfit, gachaReadonly }) });
     const d = await r.json().catch(() => ({}));
     if (!r.ok) { usersMsg(d.error || 'บันทึกไม่สำเร็จ', 'err'); return; }
     usersMsg('✓ บันทึกผู้ใช้แล้ว (ผู้ใช้ใหม่อาจล็อกอินได้หลัง ~15 วินาที)', 'ok');
     // อัปเดตรายการในเครื่องทันที (เซิร์ฟเวอร์มี cache หน่วงเล็กน้อย)
     const ex = usersCache.find(u => u.id === id);
-    if (ex) { ex.tabs = tabs; ex.seeProfit = seeProfit; } else { usersCache.push({ id, tabs, seeProfit }); }
+    if (ex) { ex.tabs = tabs; ex.seeProfit = seeProfit; ex.gachaReadonly = gachaReadonly; } else { usersCache.push({ id, tabs, seeProfit, gachaReadonly }); }
     clearUserForm();
     renderUsersList();
   } catch (e) { usersMsg('เชื่อมต่อไม่ได้', 'err'); }

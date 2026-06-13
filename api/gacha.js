@@ -38,6 +38,7 @@ export default async function handler(req, res) {
     }
 
     if (req.method === 'POST') {
+      if (auth.gachaReadonly === true) { res.status(403).json({ error: 'มีสิทธิ์ดูยอดจุ่มอย่างเดียว' }); return; }
       let body = req.body;
       if (typeof body === 'string') body = JSON.parse(body || '[]');
       if (!Array.isArray(body)) { res.status(400).json({ error: 'ข้อมูลต้องเป็น array' }); return; }
