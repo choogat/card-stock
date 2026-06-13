@@ -3544,6 +3544,11 @@ function copyGachaBox(i) {
   const copy = JSON.parse(JSON.stringify(src));
   copy.id = uid();
   copy.name = (src.name || '') + ' (สำเนา)';
+  // ถามว่าจะเอาเครื่องหมาย "ออกแล้ว" ออกทั้งหมดไหม (เริ่มนับจุ่มใหม่เป็น 0)
+  const hasDrawn = (copy.prizes || []).some(p => p && p.drawn);
+  if (hasDrawn && confirm('เอาเครื่องหมายติ๊ก "ออกแล้ว" ออกทั้งหมดด้วยไหม?\n\nOK = ล้างเครื่องหมาย (เริ่มนับจุ่มใหม่เป็น 0)\nCancel = ก็อปปี้เหมือนเดิมทั้งหมด')) {
+    (copy.prizes || []).forEach(p => { if (p) p.drawn = false; });
+  }
   gachaBoxes.splice(i + 1, 0, copy);
   saveGacha();
   renderGacha();
