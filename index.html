@@ -3009,7 +3009,7 @@ function prizeRowHTML(no, p) {
   const img = p.image || '';
   const val = (p.value != null && p.value !== '') ? Number(p.value) : (p.qty != null && p.qty !== '' ? Number(p.qty) : '');
   const noVal = (p.no != null && p.no !== '') ? p.no : no;
-  return `<div class="gp-row" data-img="${esc(img)}">
+  return `<div class="gp-row" data-img="${esc(img)}" data-drawn="${p.drawn ? '1' : ''}">
     <input class="gp-num" value="${esc(String(noVal))}" title="ลำดับ — พิมพ์ช่วงได้ เช่น 6 - 20">
     <input class="gp-cert" inputmode="numeric" placeholder="cert PSA" value="${esc(p.cert || '')}" title="ใส่เลข cert แล้วกด 🔍 เพื่อดึงชื่อ+รูป" onkeydown="if(event.key==='Enter'){event.preventDefault();fetchPrizePSA(this.nextElementSibling)}">
     <button type="button" class="gp-psa" title="ค้นหาการ์ด PSA" onclick="fetchPrizePSA(this)">🔍</button>
@@ -3101,6 +3101,7 @@ function collectPrizes() {
     name: r.querySelector('.gp-name').value.trim(),
     image: r.dataset.img || '',
     value: Number(r.querySelector('.gp-qty').value) || 0,
+    drawn: r.dataset.drawn === '1',   // คงสถานะ "ออกแล้ว" ไว้ตอนแก้ไข (กันยอดจุ่มหาย)
   })).filter(p => p.name || p.cert || p.value);
 }
 
