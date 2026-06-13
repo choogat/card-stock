@@ -156,10 +156,15 @@
   .gp-row .si-del:hover { border-color: var(--danger); color: var(--danger); }
   /* รับซื้อสินค้า: popup ผลค้นหา (ลอยใต้ช่องค้นหา) */
   .buy-search-wrap { position: relative; }
-  /* รับซื้อ: เช็คราคา + ค้นหา + สร้างรายการ อยู่บรรทัดเดียวกัน แบ่งพื้นที่เท่ากัน */
-  .buy-cols { display: flex; flex-wrap: wrap; gap: 14px; align-items: stretch; }
-  .buy-cols > .product-section { flex: 1 1 220px; min-width: 0; }
-  @media (max-width: 640px) { .buy-cols { flex-direction: column; gap: 0; } }
+  /* รับซื้อ: เช็คราคา + ค้นหา + สร้างรายการ อยู่บรรทัดเดียวกัน แบ่งพื้นที่เท่ากัน (เป็นการ์ด) */
+  .buy-cols { display: flex; flex-wrap: wrap; gap: 12px; align-items: stretch; }
+  .buy-cols > .product-section { flex: 1 1 200px; min-width: 0; background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 14px 16px; margin-bottom: 0; }
+  .buy-cols > .product-section .daily-title { margin-bottom: 8px; }
+  @media (max-width: 640px) {
+    .buy-cols { flex-direction: column; gap: 10px; }
+    .buy-cols > .product-section { padding: 12px 14px; }
+    .buy-cols > .product-section p { font-size: .8rem; margin-bottom: 8px; }
+  }
   .buy-popup { position: absolute; top: calc(100% + 6px); left: 0; right: 0; z-index: 40; background: var(--card); border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 12px 32px rgba(0,0,0,.35); max-height: 60vh; overflow-y: auto; padding: 6px; }
   .buy-popup .bp-item { display: flex; align-items: center; gap: 10px; padding: 8px; border-radius: 9px; }
   .buy-popup .bp-item:hover { background: var(--card2); }
@@ -469,6 +474,17 @@
   @media (max-width: 640px) {
     th.hide-sm, td.hide-sm { display: none; }
     .stat .value { font-size: 1.5rem; }
+    /* มือถือ/จอเล็ก: กระชับขึ้น สมส่วนขึ้น */
+    .view-title { font-size: 1.15rem; margin-bottom: 12px; }
+    .product-section { margin-bottom: 16px; }
+    .daily-title { font-size: .9rem; }
+    .buy-summary, .gacha-summary { padding: 10px 8px; gap: 6px; }
+    .buy-summary .bs-val, .gacha-summary .gs-val { font-size: .98rem; }
+    .buy-summary .bs-label, .gacha-summary .gs-label { font-size: .72rem; }
+    .report-controls { gap: 8px; margin-bottom: 14px; }
+    .report-controls input[type=date] { padding: 8px 10px; font-size: .9rem; }
+    table th, table td { padding-left: 6px; padding-right: 6px; }
+    .thumb, .thumb-empty { width: 34px; height: 48px; }
   }
 </style>
 </head>
