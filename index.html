@@ -2804,7 +2804,8 @@ let gachaPushing = false, gachaQueued = false, gachaTimer = null, gachaDirty = f
 function saveGacha() {
   try { localStorage.setItem(KEY_GACHA, JSON.stringify(gachaBoxes)); } catch (e) {}
   gachaDirty = true;
-  if (passcode) { clearTimeout(gachaTimer); gachaTimer = setTimeout(pushGacha, 500); }
+  // ดันขึ้นเซิร์ฟเวอร์เร็ว ๆ (กันรัวหลายครั้งติด ๆ ด้วย debounce สั้น) เพื่อให้คนอื่นเห็นไว
+  if (passcode) { clearTimeout(gachaTimer); gachaTimer = setTimeout(pushGacha, 150); }
 }
 async function pushGacha() {
   if (!passcode) return;
@@ -2836,7 +2837,7 @@ async function refreshGacha() {
   const gv = document.getElementById('viewGacha');
   if (gv && gv.style.display !== 'none') renderGacha();
 }
-function startGachaPoll() { stopGachaPoll(); gachaPollTimer = setInterval(refreshGacha, 20000); }
+function startGachaPoll() { stopGachaPoll(); gachaPollTimer = setInterval(refreshGacha, 6000); }
 function stopGachaPoll() { if (gachaPollTimer) { clearInterval(gachaPollTimer); gachaPollTimer = null; } }
 
 // ---- วันที่ของตู้จุ่ม (จัดกลุ่มรายวัน · เลือกได้หลายวัน) ----
