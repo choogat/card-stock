@@ -1034,6 +1034,8 @@ let userGachaReadonly = localStorage.getItem('app_gacha_ro') === '1';
 function canSeeProfit() { return userRole === 'admin' || !passcode || userSeeProfit; }
 // แก้ไขยอดจุ่มได้ไหม — แอดมิน/เจ้าของเครื่อง (ไม่ล็อกอิน) ได้เสมอ · ผู้ช่วยที่ตั้ง "ดูอย่างเดียว" = ไม่ได้
 function canEditGacha() { return userRole === 'admin' || !passcode || !userGachaReadonly; }
+// ยกเลิกติ๊ก "ออกแล้ว" ได้ไหม — เฉพาะแอดมิน/เจ้าของเครื่องเท่านั้น (คนอื่นติ๊กได้ทางเดียว)
+function canUntickGacha() { return userRole === 'admin' || !passcode; }
 function authHeaders(extra) { return Object.assign({ 'x-app-id': loginId, 'x-app-pass': passcode }, extra || {}); }
 let syncTimer = null;
 // กันข้อมูลหาย: จำว่ามีการแก้ที่ยังไม่ขึ้นเซิร์ฟเวอร์ (dirty) + กัน push ยิงซ้อน
@@ -2907,17 +2909,10 @@ function gachaBoxHTML(b, i, canUp, canDown) {
           : '<span class="gb-pimg gb-noimg">—</span>';
         const v = Number(p.value != null ? p.value : p.qty) || 0;
         const noShow = (p.no != null && p.no !== '') ? p.no : (k + 1);
-        let checkCell;
-        if (!ro) {
-          // ผู้แก้ไขได้ (แอดมิน/เจ้าของ) — ติ๊ก/ยกเลิกได้อิสระ
-          checkCell = `<td class="gb-check" onclick="toggleGachaPrize(this, ${i}, ${oi})" title="ทำเครื่องหมายว่าออกแล้ว"><span class="gb-tick">✓</span></td>`;
-        } else if (p.drawn) {
-          // ผู้ช่วยดูอย่างเดียว — ออกแล้ว = ล็อก แก้ไม่ได้
-          checkCell = `<td class="gb-check locked" title="ออกแล้ว — แก้ไขไม่ได้"><span class="gb-tick">✓</span></td>`;
-        } else {
-          // ผู้ช่วยดูอย่างเดียว — ติ๊กได้ทางเดียว (ต้องยืนยัน)
-          checkCell = `<td class="gb-check" onclick="markGachaPrizeDrawn(this, ${i}, ${oi})" title="แตะเพื่อยืนยันว่าออกแล้ว"><span class="gb-tick">✓</span></td>`;
-        }
+        // ทุกคนติ๊ก "ออกแล้ว" ได้ (ยืนยันก่อน) · ออกแล้ว = ล็อก ยกเว้นแอดมินที่ยกเลิกได้ (ยืนยันเช่นกัน)
+        const checkCell = (p.drawn && !canUntickGacha())
+          ? `<td class="gb-check locked" title="ออกแล้ว — แก้ไขได้เฉพาะแอดมิน"><span class="gb-tick">✓</span></td>`
+          : `<td class="gb-check" onclick="toggleGachaPrize(this, ${i}, ${oi})" title="${p.drawn ? 'ยกเลิกเครื่องหมายออกแล้ว' : 'ทำเครื่องหมายว่าออกแล้ว'}"><span class="gb-tick">✓</span></td>`;
         return `<tr class="gb-prow${p.drawn ? ' drawn' : ''}">`
           + checkCell
           + `<td class="gb-pnum">${esc(String(noShow))}</td><td>${thumb}</td><td>${esc(p.name || '-')}</td><td class="num">${money(v)}</td></tr>`;
@@ -3014,30 +3009,26 @@ function moveGachaBox(i, dir) {
   saveGacha();
   renderGacha();
 }
-// ติ๊ก/ยกเลิกติ๊ก รางวัลที่ "ออกแล้ว" → แถวเป็นสีเทา + บันทึก
+// ติ๊ก "ออกแล้ว": ทุกคนทำได้ (ยืนยันก่อน) แล้วล็อก · ยกเลิก: เฉพาะแอดมิน (ยืนยันก่อนเช่นกัน)
 function toggleGachaPrize(el, boxIdx, prizeIdx) {
-  if (!canEditGacha()) return;
   const b = gachaBoxes[boxIdx];
   if (!b || !b.prizes || !b.prizes[prizeIdx]) return;
   const p = b.prizes[prizeIdx];
-  p.drawn = !p.drawn;
+  if (!p.drawn) {
+    if (!confirm('ยืนยันว่ารางวัลนี้ "ออกแล้ว"?\n\nเมื่อยืนยันแล้วจะล็อก แก้ไขได้เฉพาะแอดมิน')) return;
+    p.drawn = true;
+  } else {
+    if (!canUntickGacha()) return; // ออกแล้ว — คนที่ไม่ใช่แอดมินยกเลิกไม่ได้
+    if (!confirm('ยกเลิกเครื่องหมาย "ออกแล้ว" ของรางวัลนี้?')) return;
+    p.drawn = false;
+  }
   const row = el.closest('tr');
   if (row) row.classList.toggle('drawn', !!p.drawn);
-  saveGacha();
-}
-// ผู้ช่วยดูอย่างเดียว — ติ๊ก "ออกแล้ว" ได้ทางเดียว: ต้องยืนยัน แล้วล็อก แก้ไม่ได้
-function markGachaPrizeDrawn(el, boxIdx, prizeIdx) {
-  const b = gachaBoxes[boxIdx];
-  if (!b || !b.prizes || !b.prizes[prizeIdx]) return;
-  const p = b.prizes[prizeIdx];
-  if (p.drawn) return; // ออกแล้ว = ล็อก
-  if (!confirm('ยืนยันว่ารางวัลนี้ "ออกแล้ว"?\n\nเมื่อยืนยันแล้วจะยกเลิก/แก้ไขไม่ได้')) return;
-  p.drawn = true;
-  const row = el.closest('tr');
-  if (row) row.classList.add('drawn');
-  el.removeAttribute('onclick');
-  el.classList.add('locked');
-  el.title = 'ออกแล้ว — แก้ไขไม่ได้';
+  // ออกแล้ว + ไม่ใช่แอดมิน → ล็อกช่องนี้ทันที (ไม่ต้องรอ re-render)
+  if (p.drawn && !canUntickGacha()) {
+    el.classList.add('locked'); el.removeAttribute('onclick');
+    el.title = 'ออกแล้ว — แก้ไขได้เฉพาะแอดมิน';
+  }
   saveGacha();
 }
 
