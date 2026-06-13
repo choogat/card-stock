@@ -156,9 +156,9 @@
   .gp-row .si-del:hover { border-color: var(--danger); color: var(--danger); }
   /* รับซื้อสินค้า: popup ผลค้นหา (ลอยใต้ช่องค้นหา) */
   .buy-search-wrap { position: relative; }
-  /* รับซื้อ: เช็คราคา + ค้นหา อยู่บรรทัดเดียวกัน คนละครึ่ง */
-  .buy-cols { display: flex; gap: 14px; align-items: stretch; }
-  .buy-cols > .product-section { flex: 1; min-width: 0; }
+  /* รับซื้อ: เช็คราคา + ค้นหา + สร้างรายการ อยู่บรรทัดเดียวกัน แบ่งพื้นที่เท่ากัน */
+  .buy-cols { display: flex; flex-wrap: wrap; gap: 14px; align-items: stretch; }
+  .buy-cols > .product-section { flex: 1 1 220px; min-width: 0; }
   @media (max-width: 640px) { .buy-cols { flex-direction: column; gap: 0; } }
   .buy-popup { position: absolute; top: calc(100% + 6px); left: 0; right: 0; z-index: 40; background: var(--card); border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 12px 32px rgba(0,0,0,.35); max-height: 60vh; overflow-y: auto; padding: 6px; }
   .buy-popup .bp-item { display: flex; align-items: center; gap: 10px; padding: 8px; border-radius: 9px; }
@@ -612,6 +612,25 @@
           <input class="search" id="buySearch" placeholder="พิมพ์ชื่อ / เรื่อง / รุ่น แล้วเลือกการ์ด..." oninput="openBuyPopup()" autocomplete="off" style="width:100%">
           <div id="buyPopup" class="buy-popup" style="display:none"></div>
         </div>
+      </div>
+      <div class="product-section">
+        <div class="daily-title">➕ สร้างรายการรับซื้อ</div>
+        <p style="color:var(--muted);font-size:.86rem;margin-bottom:10px">กรอกรายการรับซื้อเองทีละใบ แล้วกดบันทึก</p>
+        <input type="hidden" id="nb_image">
+        <input type="file" id="nb_imageFile" accept="image/*" style="display:none" onchange="onPickNewBuyImage(event)">
+        <div class="field">
+          <label>รูป</label>
+          <div style="display:flex;align-items:center;gap:8px">
+            <img id="nb_thumb" alt="" style="display:none;width:48px;height:48px;object-fit:cover;border-radius:8px;border:1px solid var(--border)">
+            <button type="button" class="btn btn-ghost btn-sm" onclick="document.getElementById('nb_imageFile').click()">📷 เลือกรูป</button>
+          </div>
+        </div>
+        <div class="field"><label>ชื่อการ์ด</label><input id="nb_name" placeholder="ชื่อการ์ด"></div>
+        <div class="field"><label>ชำระโดย</label>
+          <select id="nb_payment"><option value="cash">เงินสด</option><option value="transfer">เงินโอน</option></select>
+        </div>
+        <div class="field"><label>ราคารับซื้อ (฿)</label><input id="nb_amount" type="number" inputmode="decimal" placeholder="0" onkeydown="if(event.key==='Enter')saveNewBuy()"></div>
+        <button class="btn btn-primary" onclick="saveNewBuy()" style="width:100%">บันทึก</button>
       </div>
     </div>
     <div class="product-section">
@@ -1756,6 +1775,59 @@ function confirmBuy() {
   render();
   renderBuyList();
   alert(`รับซื้อ "${rep.name}" เข้าสต็อกแล้ว · ${money(amount)}`);
+}
+// ---- สร้างรายการรับซื้อเอง (กรอกรูป/ชื่อ/ชำระ/ราคา แล้วบันทึก) ----
+function onPickNewBuyImage(e) {
+  const file = e.target.files && e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    const img = new Image();
+    img.onload = async () => {
+      const MAX = 700;
+      let { width, height } = img;
+      if (width > height && width > MAX) { height = Math.round(height * MAX / width); width = MAX; }
+      else if (height > MAX) { width = Math.round(width * MAX / height); height = MAX; }
+      const canvas = document.createElement('canvas');
+      canvas.width = width; canvas.height = height;
+      canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+      const th = document.getElementById('nb_thumb');
+      document.getElementById('nb_image').value = dataUrl;
+      if (th) { th.src = dataUrl; th.style.display = ''; }
+      setSync('⏳ กำลังอัปโหลดรูป...', 'load');
+      const url = await uploadImageToBlob(dataUrl);
+      if (url && url !== dataUrl) { document.getElementById('nb_image').value = url; if (th) th.src = url; setSync('✓ อัปโหลดรูปแล้ว', 'ok'); }
+      else setSync('⚠️ อัปโหลดรูปไม่สำเร็จ — เก็บแบบเดิมชั่วคราว', 'err');
+    };
+    img.src = ev.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+function saveNewBuy() {
+  const name = document.getElementById('nb_name').value.trim();
+  if (!name) { alert('กรุณาใส่ชื่อการ์ด'); document.getElementById('nb_name').focus(); return; }
+  const amount = parseFloat(document.getElementById('nb_amount').value) || 0;
+  const payment = document.getElementById('nb_payment').value || 'cash';
+  const image = document.getElementById('nb_image').value || '';
+  const newCard = {
+    id: uid(), type: 'card', name, image,
+    buy: amount, buyPayment: payment, buyDate: todayISO(),
+    viaBuy: true, status: 'show', qty: 1, discount: 0,
+  };
+  cards.push(newCard);
+  save();
+  // เคลียร์ฟอร์ม
+  document.getElementById('nb_name').value = '';
+  document.getElementById('nb_amount').value = '';
+  document.getElementById('nb_payment').value = 'cash';
+  document.getElementById('nb_image').value = '';
+  document.getElementById('nb_imageFile').value = '';
+  const th = document.getElementById('nb_thumb'); if (th) { th.src = ''; th.style.display = 'none'; }
+  const bd = document.getElementById('buyDate'); if (bd) bd.value = todayISO(); // เด้งไปวันนี้ ให้เห็นรายการที่เพิ่งเพิ่ม
+  render();
+  renderBuyList();
+  alert(`เพิ่มรายการรับซื้อ "${name}" แล้ว · ${money(amount)}`);
 }
 function buyToday() { const el = document.getElementById('buyDate'); if (el) el.value = todayISO(); renderBuyList(); }
 // รายการรับซื้อของวันที่เลือก (เลือกวันที่ + ปุ่มวันนี้ แบบหน้ารายงานการขาย)
