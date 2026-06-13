@@ -1443,6 +1443,7 @@ function render() {
       <th class="num">ราคากลาง</th>
       <th class="hide-sm num">รับซื้อ</th>
       <th class="hide-sm num">ขาย</th>
+      <th class="hide-sm center">ซื้อเมื่อ</th>
       ${canSeeProfit() ? '<th class="num">กำไร</th>' : ''}
       <th class="center">สถานะ</th>
       <th class="center">สินค้าขาย</th>
@@ -1508,7 +1509,7 @@ function setCardsRow(c) {
     return `<div class="sc-card">${pic}<div class="sc-name">${i + 1}. ${esc(name)}</div></div>`;
   }).join('');
   const body = cells || '<span class="muted">ยังไม่มีรายการการ์ดในชุด</span>';
-  return `<tr class="set-cards-row"><td colspan="9"><div class="set-cards">${body}</div></td></tr>`;
+  return `<tr class="set-cards-row"><td colspan="10"><div class="set-cards">${body}</div></td></tr>`;
 }
 // สรุปสถานะเป็นป้ายสี (เหมือนป้ายชำระเงิน)
 function statPills(cnt) {
@@ -1544,6 +1545,7 @@ function stockRow(c, isChild) {
     <td class="num">${money(c.median)}</td>
     <td class="num hide-sm">${money(c.buy)}</td>
     <td class="num hide-sm">${money(c.sell)}</td>
+    <td class="center muted hide-sm" style="white-space:nowrap;font-size:.8rem">${c.buyDate ? fmtDate(c.buyDate) + (c.buyTime ? ' ' + c.buyTime : '') : '-'}</td>
     ${canSeeProfit() ? `<td class="num">${profitCell}</td>` : ''}
     <td class="center"><span class="badge ${st.cls}">${st.label}</span></td>
     <td class="center">
@@ -1585,6 +1587,7 @@ function groupRow(g) {
     <td class="num">${money(avgMedian)}</td>
     <td class="num hide-sm">${money(rep.buy)}</td>
     <td class="num hide-sm">${money(rep.sell)}</td>
+    <td class="center muted hide-sm" style="white-space:nowrap;font-size:.8rem">${rep.buyDate ? fmtDate(rep.buyDate) + (rep.buyTime ? ' ' + rep.buyTime : '') : '—'}</td>
     ${canSeeProfit() ? `<td class="num"><span class="${pCls}">${totProfit > 0 ? '+' : ''}${money(totProfit)}</span></td>` : ''}
     <td class="center">${stSummary}</td>
     <td class="center">—</td>
@@ -1841,7 +1844,7 @@ function confirmBuy() {
   const amount = parseFloat(document.getElementById('bc_amount').value) || 0;
   const buyPayment = document.getElementById('bc_payment').value || 'cash';
   // สร้างการ์ดใหม่ 1 ใบเข้าสต็อก (สถานะ "สะสม") — ราคารับซื้อ = ยอดที่กรอก
-  const newCard = { ...rep, id: uid(), status: 'show', qty: 1, buy: amount, buyDate: todayISO(), buyPayment, viaBuy: true, discount: 0 };
+  const newCard = { ...rep, id: uid(), status: 'show', qty: 1, buy: amount, buyDate: todayISO(), buyTime: nowHM(), buyPayment, viaBuy: true, discount: 0 };
   if (rep.type === 'collect') { newCard.unitBuy = amount; newCard.median = Number(rep.unitMedian) || 0; newCard.sell = Number(rep.unitSell) || 0; }
   delete newCard.sellDate; delete newCard.sellTime; delete newCard.payment; delete newCard.cancelled; delete newCard._i; delete newCard.productOnly;
   cards.push(newCard);
@@ -1901,7 +1904,7 @@ function saveNewBuy() {
   const image = document.getElementById('nb_image').value || '';
   const newCard = {
     id: uid(), type: 'card', name, image,
-    buy: amount, buyPayment: payment, buyDate: todayISO(),
+    buy: amount, buyPayment: payment, buyDate: todayISO(), buyTime: nowHM(),
     viaBuy: true, status: 'show', qty: 1, discount: 0,
   };
   cards.push(newCard);
@@ -2395,6 +2398,7 @@ function todayISO() {
   const p = n => String(n).padStart(2, '0');
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
 }
+function nowHM() { const d = new Date(); const p = n => String(n).padStart(2, '0'); return `${p(d.getHours())}:${p(d.getMinutes())}`; }
 
 const PAYMENT = { cash: 'เงินสด', transfer: 'เงินโอน' };
 function nowDatetimeLocal() {
