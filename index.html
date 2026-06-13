@@ -329,6 +329,8 @@
   }
   .icon-btn:hover { border-color: var(--accent); }
   .icon-btn.del:hover { border-color: var(--danger); color: var(--danger); }
+  .icon-btn:disabled { opacity: .35; cursor: default; }
+  .icon-btn:disabled:hover { border-color: var(--border); }
 
   .empty { text-align: center; padding: 60px 20px; color: var(--muted); }
   .empty .big { font-size: 3rem; margin-bottom: 12px; }
@@ -2850,6 +2852,8 @@ function renderGacha() {
         <span class="gb-hp ${pcls}">${profit >= 0 ? 'กำไร' : 'ขาดทุน'} ${money(profit)}</span>
         <span class="gb-count">${realPrizes.length} รางวัล</span>
         <div class="gb-actions">
+          <button class="icon-btn" onclick="event.stopPropagation();moveGachaBox(${i},-1)" title="เลื่อนขึ้น"${i === 0 ? ' disabled' : ''}>⬆️</button>
+          <button class="icon-btn" onclick="event.stopPropagation();moveGachaBox(${i},1)" title="เลื่อนลง"${i === gachaBoxes.length - 1 ? ' disabled' : ''}>⬇️</button>
           <button class="icon-btn" onclick="event.stopPropagation();openGachaForm(${i})" title="แก้ไข">✏️</button>
           <button class="icon-btn del" onclick="event.stopPropagation();deleteGachaBox(${i})" title="ลบ">🗑️</button>
         </div>
@@ -2884,6 +2888,14 @@ function toggleGachaBox(head) {
   const box = head.closest('.gacha-box');
   const open = box.classList.toggle('open');
   box.querySelector('.gb-body').style.display = open ? '' : 'none';
+}
+// สลับลำดับตู้จุ่มขึ้น/ลง (dir = -1 ขึ้น, +1 ลง)
+function moveGachaBox(i, dir) {
+  const j = i + dir;
+  if (j < 0 || j >= gachaBoxes.length) return;
+  const t = gachaBoxes[i]; gachaBoxes[i] = gachaBoxes[j]; gachaBoxes[j] = t;
+  saveGacha();
+  renderGacha();
 }
 // ติ๊ก/ยกเลิกติ๊ก รางวัลที่ "ออกแล้ว" → แถวเป็นสีเทา + บันทึก
 function toggleGachaPrize(el, boxIdx, prizeIdx) {
@@ -3024,7 +3036,10 @@ function saveGachaBox() {
     prizes: collectPrizes(),
   };
   const idxRaw = document.getElementById('g_idx').value;
-  if (idxRaw !== '' && gachaBoxes[idxRaw]) { box.id = gachaBoxes[idxRaw].id; gachaBoxes[idxRaw] = box; }
+  if (idxRaw !== '' && gachaBoxes[idxRaw]) {
+    if (!confirm('ยืนยันการแก้ไขตู้จุ่ม "' + (gachaBoxes[idxRaw].name || '') + '" ?')) return;
+    box.id = gachaBoxes[idxRaw].id; gachaBoxes[idxRaw] = box;
+  }
   else { box.id = uid(); gachaBoxes.push(box); }
   saveGacha();
   renderGacha();
