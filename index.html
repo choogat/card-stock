@@ -615,22 +615,8 @@
       </div>
       <div class="product-section">
         <div class="daily-title">➕ สร้างรายการรับซื้อ</div>
-        <p style="color:var(--muted);font-size:.86rem;margin-bottom:10px">กรอกรายการรับซื้อเองทีละใบ แล้วกดบันทึก</p>
-        <input type="hidden" id="nb_image">
-        <input type="file" id="nb_imageFile" accept="image/*" style="display:none" onchange="onPickNewBuyImage(event)">
-        <div class="field">
-          <label>รูป</label>
-          <div style="display:flex;align-items:center;gap:8px">
-            <img id="nb_thumb" alt="" style="display:none;width:48px;height:48px;object-fit:cover;border-radius:8px;border:1px solid var(--border)">
-            <button type="button" class="btn btn-ghost btn-sm" onclick="document.getElementById('nb_imageFile').click()">📷 เลือกรูป</button>
-          </div>
-        </div>
-        <div class="field"><label>ชื่อการ์ด</label><input id="nb_name" placeholder="ชื่อการ์ด"></div>
-        <div class="field"><label>ชำระโดย</label>
-          <select id="nb_payment"><option value="cash">เงินสด</option><option value="transfer">เงินโอน</option></select>
-        </div>
-        <div class="field"><label>ราคารับซื้อ (฿)</label><input id="nb_amount" type="number" inputmode="decimal" placeholder="0" onkeydown="if(event.key==='Enter')saveNewBuy()"></div>
-        <button class="btn btn-primary" onclick="saveNewBuy()" style="width:100%">บันทึก</button>
+        <p style="color:var(--muted);font-size:.86rem;margin-bottom:10px">กรอกรายการรับซื้อเองทีละใบ</p>
+        <button class="btn btn-primary" onclick="openNewBuy()" style="width:100%">+ สร้างรายการรับซื้อ</button>
       </div>
     </div>
     <div class="product-section">
@@ -759,6 +745,33 @@
     <div class="modal-actions">
       <button class="btn btn-ghost" onclick="closeGachaForm()">ยกเลิก</button>
       <button class="btn btn-primary" onclick="saveGachaBox()">บันทึก</button>
+    </div>
+  </div>
+</div>
+
+<!-- รับซื้อสินค้า: สร้างรายการรับซื้อเอง -->
+<div class="overlay" id="newBuyOverlay">
+  <div class="modal" style="max-width:380px">
+    <h2>➕ สร้างรายการรับซื้อ</h2>
+    <input type="hidden" id="nb_image">
+    <input type="file" id="nb_imageFile" accept="image/*" style="display:none" onchange="onPickNewBuyImage(event)">
+    <div class="field">
+      <label>รูป</label>
+      <div style="display:flex;align-items:center;gap:8px">
+        <img id="nb_thumb" alt="" style="display:none;width:54px;height:54px;object-fit:cover;border-radius:8px;border:1px solid var(--border)">
+        <button type="button" class="btn btn-ghost btn-sm" onclick="document.getElementById('nb_imageFile').click()">📷 เลือกรูป</button>
+      </div>
+    </div>
+    <div class="field"><label>ชื่อการ์ด</label><input id="nb_name" placeholder="ชื่อการ์ด"></div>
+    <div class="grid2">
+      <div class="field"><label>ชำระโดย</label>
+        <select id="nb_payment"><option value="cash">เงินสด</option><option value="transfer">เงินโอน</option></select>
+      </div>
+      <div class="field"><label>ราคารับซื้อ (฿)</label><input id="nb_amount" type="number" inputmode="decimal" placeholder="0" onkeydown="if(event.key==='Enter')saveNewBuy()"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeNewBuy()">ยกเลิก</button>
+      <button class="btn btn-primary" onclick="saveNewBuy()">บันทึก</button>
     </div>
   </div>
 </div>
@@ -1777,6 +1790,17 @@ function confirmBuy() {
   alert(`รับซื้อ "${rep.name}" เข้าสต็อกแล้ว · ${money(amount)}`);
 }
 // ---- สร้างรายการรับซื้อเอง (กรอกรูป/ชื่อ/ชำระ/ราคา แล้วบันทึก) ----
+function openNewBuy() {
+  document.getElementById('nb_name').value = '';
+  document.getElementById('nb_amount').value = '';
+  document.getElementById('nb_payment').value = 'cash';
+  document.getElementById('nb_image').value = '';
+  document.getElementById('nb_imageFile').value = '';
+  const th = document.getElementById('nb_thumb'); if (th) { th.src = ''; th.style.display = 'none'; }
+  document.getElementById('newBuyOverlay').classList.add('open');
+  setTimeout(() => document.getElementById('nb_name').focus(), 30);
+}
+function closeNewBuy() { document.getElementById('newBuyOverlay').classList.remove('open'); }
 function onPickNewBuyImage(e) {
   const file = e.target.files && e.target.files[0];
   if (!file) return;
@@ -1817,13 +1841,7 @@ function saveNewBuy() {
   };
   cards.push(newCard);
   save();
-  // เคลียร์ฟอร์ม
-  document.getElementById('nb_name').value = '';
-  document.getElementById('nb_amount').value = '';
-  document.getElementById('nb_payment').value = 'cash';
-  document.getElementById('nb_image').value = '';
-  document.getElementById('nb_imageFile').value = '';
-  const th = document.getElementById('nb_thumb'); if (th) { th.src = ''; th.style.display = 'none'; }
+  closeNewBuy();
   const bd = document.getElementById('buyDate'); if (bd) bd.value = todayISO(); // เด้งไปวันนี้ ให้เห็นรายการที่เพิ่งเพิ่ม
   render();
   renderBuyList();
@@ -4072,6 +4090,9 @@ document.getElementById('buyConfirmOverlay').addEventListener('click', e => {
 document.getElementById('buyEditOverlay').addEventListener('click', e => {
   if (e.target.id === 'buyEditOverlay') closeBuyEdit();
 });
+document.getElementById('newBuyOverlay').addEventListener('click', e => {
+  if (e.target.id === 'newBuyOverlay') closeNewBuy();
+});
 // ปิด popup รับซื้อเมื่อคลิกนอกกล่องค้นหา
 document.addEventListener('click', e => {
   if (!e.target.closest('.buy-search-wrap')) closeBuyPopup();
@@ -4079,7 +4100,7 @@ document.addEventListener('click', e => {
 document.getElementById('gachaOverlay').addEventListener('click', e => {
   if (e.target.id === 'gachaOverlay') closeGachaForm();
 });
-document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeLogin(); closePSASearch(); closeSale(); closeSplit(); closeProductEdit(); closeBuyConfirm(); closeBuyPopup(); closeGachaForm(); closeBuyEdit(); } });
+document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeLogin(); closePSASearch(); closeSale(); closeSplit(); closeProductEdit(); closeBuyConfirm(); closeBuyPopup(); closeGachaForm(); closeBuyEdit(); closeNewBuy(); } });
 
 render();
 applyPermissions(); // ตั้งเมนู/แถบตามสิทธิ์ + คงแถบเดิมหลัง F5
