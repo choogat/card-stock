@@ -2829,6 +2829,8 @@ function initGachaDates(dates) {
   const today = todayStr();
   if (dates.includes(today)) gachaSelectedDates.add(today);
   else if (dates.length) gachaSelectedDates.add(dates[0]);
+  // ตู้เก่าที่ยังไม่มีวันที่ — โชว์ตั้งแต่เปิดหน้า ไม่ให้ดูเหมือนหายไป
+  if (dates.includes('0000-00-00')) gachaSelectedDates.add('0000-00-00');
 }
 // แตะชิปวันที่เพื่อเลือก/ยกเลิก — ต้องเหลืออย่างน้อย 1 วันเสมอ
 function toggleGachaDate(d) {
