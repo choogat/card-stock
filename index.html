@@ -97,6 +97,16 @@
   .gacha-summary .gs-val.pos { color: var(--green); }
   .gacha-summary .gs-val.neg { color: var(--danger); }
   @media (max-width: 560px) { .gacha-summary { grid-template-columns: repeat(2, 1fr); } }
+  /* ยอดจุ่ม: ตัวเลือกวันที่ + กลุ่มรายวัน */
+  .gacha-filter { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+  .gacha-filter label { color: var(--muted); font-size: .85rem; }
+  .gacha-filter select { background: var(--card2); border: 1px solid var(--border); color: var(--text); border-radius: 9px; padding: 7px 10px; font-size: .9rem; }
+  .gacha-day { margin-bottom: 18px; }
+  .gd-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; padding: 4px 4px 9px; border-bottom: 1px dashed var(--border); margin-bottom: 10px; }
+  .gd-date { font-weight: 800; font-size: 1rem; }
+  .gd-sub { color: var(--muted); font-size: .85rem; }
+  .gd-sub b.pos { color: var(--green); }
+  .gd-sub b.neg { color: var(--danger); }
   .gb-prize-title { font-weight: 600; font-size: .9rem; margin: 12px 0 6px; }
   table.gb-prizes { width: 100%; border-collapse: collapse; }
   table.gb-prizes td { padding: 6px 8px; border-top: 1px solid var(--border); font-size: .9rem; }
@@ -679,7 +689,10 @@
   <div class="modal" style="max-width:600px">
     <h2 id="gachaModalTitle">🎰 สร้างตู้จุ่ม</h2>
     <input type="hidden" id="g_idx">
-    <div class="field"><label>ชื่อตู้</label><input id="g_name" placeholder="เช่น ตู้จุ่ม One Piece OP09"></div>
+    <div class="grid2">
+      <div class="field"><label>ชื่อตู้</label><input id="g_name" placeholder="เช่น ตู้จุ่ม One Piece OP09"></div>
+      <div class="field"><label>วันที่</label><input id="g_date" type="date"></div>
+    </div>
     <div class="grid2">
       <div class="field"><label>จำนวนใบในตู้</label><input id="g_slots" type="number" inputmode="numeric" min="0" placeholder="เช่น 100" oninput="syncPrizeRowsToSlots()"></div>
       <div class="field"><label>ราคาต่อครั้ง (฿)</label><input id="g_price" type="number" inputmode="decimal" placeholder="เช่น 50"></div>
@@ -2801,6 +2814,87 @@ async function pullGacha() {
   } catch (e) { /* ออฟไลน์ — ใช้ค่าในเครื่อง */ }
 }
 
+// ---- วันที่ของตู้จุ่ม (จัดกลุ่มรายวัน) ----
+let gachaDateView = 'all';                // 'all' = รวมทุกวัน, หรือ 'YYYY-MM-DD'
+function setGachaDateView(v) { gachaDateView = v; renderGacha(); }
+function pad2(n) { return String(n).padStart(2, '0'); }
+function todayStr() { const d = new Date(); return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate()); }
+function yesterdayStr() { const d = new Date(); d.setDate(d.getDate() - 1); return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate()); }
+function gachaDateKey(b) { return (b && b.date) ? b.date : '0000-00-00'; }
+function gachaDateLabel(d) {
+  if (!d || d === '0000-00-00') return 'ไม่ระบุวันที่';
+  const parts = d.split('-').map(Number);
+  const months = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
+  let label = parts[2] + ' ' + (months[parts[1] - 1] || '') + ' ' + String(parts[0] + 543).slice(-2);
+  if (d === todayStr()) label += ' (วันนี้)';
+  else if (d === yesterdayStr()) label += ' (เมื่อวาน)';
+  return label;
+}
+// คำนวณสรุปของตู้หนึ่งใบ
+function gachaBoxStats(b) {
+  const realPrizes = (b.prizes || []).filter(p => p && !p.header);
+  const prizeValue = realPrizes.reduce((s, p) => s + (Number(p.value != null ? p.value : p.qty) || 0), 0);
+  const slots = Number(b.slots) || 0;
+  const price = Number(b.price) || 0;
+  const total = price * slots;
+  // จำนวนจุ่ม = จำนวนใบที่ติ๊กว่า "ออกแล้ว" (ช่องลำดับเป็นช่วง เช่น 6-20 นับ 15 ใบ)
+  let drawn = realPrizes.filter(p => p.drawn).reduce((s, p) => s + gachaNoCount(p.no), 0);
+  if (slots) drawn = Math.min(drawn, slots);
+  const sales = drawn * price;          // ยอดขาย = จำนวนจุ่ม × ราคาต่อครั้ง
+  // ทุน = นับเฉพาะรางวัลที่ "ออกแล้ว" (ติ๊กหน้าลำดับ) — ใบที่ยังไม่ออก ของยังอยู่กับเรา ไม่นับเป็นทุน
+  const cost = realPrizes.filter(p => p.drawn)
+    .reduce((s, p) => s + (Number(p.value != null ? p.value : p.qty) || 0) * gachaNoCount(p.no), 0);
+  return { realPrizes, prizeValue, slots, price, total, drawn, sales, cost, profit: sales - cost };
+}
+// HTML ของตู้หนึ่งใบ (i = index จริงใน gachaBoxes)
+function gachaBoxHTML(b, i, canUp, canDown) {
+  const st = gachaBoxStats(b);
+  const { realPrizes, prizeValue, slots, price, total, drawn, sales, cost, profit } = st;
+  const pcls = profit >= 0 ? 'pos' : 'neg';
+  const statsHTML = `<div class="gb-stats">
+      <div class="gb-stat"><span class="s-label">จำนวนจุ่ม</span><span class="s-val">${drawn}${slots ? '<span class="s-sub">/ ' + slots + ' ใบ</span>' : ''}</span></div>
+      <div class="gb-stat"><span class="s-label">ยอดขาย</span><span class="s-val">${money(sales)}</span></div>
+      <div class="gb-stat"><span class="s-label">ทุน</span><span class="s-val">${money(cost)}</span></div>
+      <div class="gb-stat"><span class="s-label">กำไร</span><span class="s-val ${pcls}">${money(profit)}</span></div>
+    </div>`;
+  const prizeRows = realPrizes.length
+    ? realPrizes.map((p, k) => {
+        const oi = (b.prizes || []).indexOf(p);
+        const img = p.image || '';
+        const thumb = img
+          ? `<img class="gb-pimg" src="${esc(img)}" onclick="event.stopPropagation();openImgUrl('${esc(img)}')" alt="">`
+          : '<span class="gb-pimg gb-noimg">—</span>';
+        const v = Number(p.value != null ? p.value : p.qty) || 0;
+        const noShow = (p.no != null && p.no !== '') ? p.no : (k + 1);
+        return `<tr class="gb-prow${p.drawn ? ' drawn' : ''}">`
+          + `<td class="gb-check" onclick="toggleGachaPrize(this, ${i}, ${oi})" title="ทำเครื่องหมายว่าออกแล้ว"><span class="gb-tick">✓</span></td>`
+          + `<td class="gb-pnum">${esc(String(noShow))}</td><td>${thumb}</td><td>${esc(p.name || '-')}</td><td class="num">${money(v)}</td></tr>`;
+      }).join('')
+    : '<tr><td colspan="5" style="color:var(--muted)">ยังไม่กำหนดรางวัล</td></tr>';
+  return `<div class="gacha-box">
+    <div class="gb-head" onclick="toggleGachaBox(this)">
+      <span class="gb-caret">▶</span>
+      <div class="gb-name">🎰 ${esc(b.name || '(ไม่มีชื่อ)')}</div>
+      <span class="gb-hp ${pcls}">${profit >= 0 ? 'กำไร' : 'ขาดทุน'} ${money(profit)}</span>
+      <span class="gb-count">${realPrizes.length} รางวัล</span>
+      <div class="gb-actions">
+        <button class="icon-btn" onclick="event.stopPropagation();moveGachaBox(${i},-1)" title="เลื่อนขึ้น"${canUp ? '' : ' disabled'}>⬆️</button>
+        <button class="icon-btn" onclick="event.stopPropagation();moveGachaBox(${i},1)" title="เลื่อนลง"${canDown ? '' : ' disabled'}>⬇️</button>
+        <button class="icon-btn" onclick="event.stopPropagation();copyGachaBox(${i})" title="ก็อปปี้ตู้นี้">📋</button>
+        <button class="icon-btn" onclick="event.stopPropagation();openGachaForm(${i})" title="แก้ไข">✏️</button>
+        <button class="icon-btn del" onclick="event.stopPropagation();deleteGachaBox(${i})" title="ลบ">🗑️</button>
+      </div>
+    </div>
+    <div class="gb-body" style="display:none">
+      ${statsHTML}
+      <div class="gb-meta">จำนวนใบ <b>${slots}</b> · ราคาต่อครั้ง <b>${money(price)}</b> · ยอดเต็มตู้ <b>${money(total)}</b></div>
+      ${b.note ? `<div class="gb-note">${esc(b.note)}</div>` : ''}
+      <div class="gb-prize-title">รางวัล (${realPrizes.length} รายการ · รวมยอด ${money(prizeValue)})</div>
+      <table class="gb-prizes"><tbody>${prizeRows}</tbody></table>
+    </div>
+  </div>`;
+}
+
 function renderGacha() {
   const area = document.getElementById('gachaList');
   if (!area) return;
@@ -2808,75 +2902,46 @@ function renderGacha() {
     area.innerHTML = '<div class="empty"><div class="big">🎲</div>ยังไม่มีตู้จุ่ม — กด “+ สร้างตู้จุ่ม” เพื่อเริ่ม</div>';
     return;
   }
-  let totDraws = 0, totSales = 0, totCost = 0;
-  const boxesHTML = gachaBoxes.map((b, i) => {
-    const realPrizes = (b.prizes || []).filter(p => p && !p.header);
-    const prizeValue = realPrizes.reduce((s, p) => s + (Number(p.value != null ? p.value : p.qty) || 0), 0);
-    const slots = Number(b.slots) || 0;
-    const price = Number(b.price) || 0;
-    const total = price * slots;
-    // จำนวนจุ่ม = จำนวนใบที่ติ๊กว่า "ออกแล้ว" (ช่องลำดับเป็นช่วง เช่น 6-20 นับ 15 ใบ)
-    let drawn = realPrizes.filter(p => p.drawn).reduce((s, p) => s + gachaNoCount(p.no), 0);
-    if (slots) drawn = Math.min(drawn, slots);
-    const sales = drawn * price;          // ยอดขาย = จำนวนจุ่ม × ราคาต่อครั้ง
-    // ทุน = นับเฉพาะรางวัลที่ "ออกแล้ว" (ติ๊กหน้าลำดับ) — ใบที่ยังไม่ออก ของยังอยู่กับเรา ไม่นับเป็นทุน
-    const cost = realPrizes.filter(p => p.drawn)
-      .reduce((s, p) => s + (Number(p.value != null ? p.value : p.qty) || 0) * gachaNoCount(p.no), 0);
-    const profit = sales - cost;          // กำไร = ยอดขาย − ทุน (ที่ออกแล้ว)
-    totDraws += drawn; totSales += sales; totCost += cost;
-    const pcls = profit >= 0 ? 'pos' : 'neg';
-    const statsHTML = `<div class="gb-stats">
-        <div class="gb-stat"><span class="s-label">จำนวนจุ่ม</span><span class="s-val">${drawn}${slots ? '<span class="s-sub">/ ' + slots + ' ใบ</span>' : ''}</span></div>
-        <div class="gb-stat"><span class="s-label">ยอดขาย</span><span class="s-val">${money(sales)}</span></div>
-        <div class="gb-stat"><span class="s-label">ทุน</span><span class="s-val">${money(cost)}</span></div>
-        <div class="gb-stat"><span class="s-label">กำไร</span><span class="s-val ${pcls}">${money(profit)}</span></div>
-      </div>`;
-    const prizeRows = realPrizes.length
-      ? realPrizes.map((p, k) => {
-          const oi = (b.prizes || []).indexOf(p);
-          const img = p.image || '';
-          const thumb = img
-            ? `<img class="gb-pimg" src="${esc(img)}" onclick="event.stopPropagation();openImgUrl('${esc(img)}')" alt="">`
-            : '<span class="gb-pimg gb-noimg">—</span>';
-          const v = Number(p.value != null ? p.value : p.qty) || 0;
-          const noShow = (p.no != null && p.no !== '') ? p.no : (k + 1);
-          return `<tr class="gb-prow${p.drawn ? ' drawn' : ''}">`
-            + `<td class="gb-check" onclick="toggleGachaPrize(this, ${i}, ${oi})" title="ทำเครื่องหมายว่าออกแล้ว"><span class="gb-tick">✓</span></td>`
-            + `<td class="gb-pnum">${esc(String(noShow))}</td><td>${thumb}</td><td>${esc(p.name || '-')}</td><td class="num">${money(v)}</td></tr>`;
-        }).join('')
-      : '<tr><td colspan="5" style="color:var(--muted)">ยังไม่กำหนดรางวัล</td></tr>';
-    return `<div class="gacha-box">
-      <div class="gb-head" onclick="toggleGachaBox(this)">
-        <span class="gb-caret">▶</span>
-        <div class="gb-name">🎰 ${esc(b.name || '(ไม่มีชื่อ)')}</div>
-        <span class="gb-hp ${pcls}">${profit >= 0 ? 'กำไร' : 'ขาดทุน'} ${money(profit)}</span>
-        <span class="gb-count">${realPrizes.length} รางวัล</span>
-        <div class="gb-actions">
-          <button class="icon-btn" onclick="event.stopPropagation();moveGachaBox(${i},-1)" title="เลื่อนขึ้น"${i === 0 ? ' disabled' : ''}>⬆️</button>
-          <button class="icon-btn" onclick="event.stopPropagation();moveGachaBox(${i},1)" title="เลื่อนลง"${i === gachaBoxes.length - 1 ? ' disabled' : ''}>⬇️</button>
-          <button class="icon-btn" onclick="event.stopPropagation();copyGachaBox(${i})" title="ก็อปปี้ตู้นี้">📋</button>
-          <button class="icon-btn" onclick="event.stopPropagation();openGachaForm(${i})" title="แก้ไข">✏️</button>
-          <button class="icon-btn del" onclick="event.stopPropagation();deleteGachaBox(${i})" title="ลบ">🗑️</button>
-        </div>
+  // วันที่ทั้งหมด (ใหม่ → เก่า)
+  const dates = [...new Set(gachaBoxes.map(gachaDateKey))].sort().reverse();
+  if (gachaDateView !== 'all' && !dates.includes(gachaDateView)) gachaDateView = 'all';
+  // ตัวเลือกวันที่
+  const optAll = `<option value="all"${gachaDateView === 'all' ? ' selected' : ''}>📅 รวมทุกวัน</option>`;
+  const optDates = dates.map(d => `<option value="${esc(d)}"${gachaDateView === d ? ' selected' : ''}>${esc(gachaDateLabel(d))}</option>`).join('');
+  const filterHTML = `<div class="gacha-filter"><label>วันที่</label><select onchange="setGachaDateView(this.value)">${optAll}${optDates}</select></div>`;
+
+  const showDates = gachaDateView === 'all' ? dates : [gachaDateView];
+  let gTotDraws = 0, gTotSales = 0, gTotCost = 0;
+  let daysHTML = '';
+  showDates.forEach(dk => {
+    // index จริงของตู้ในวันนี้
+    const idxs = gachaBoxes.map((b, i) => gachaDateKey(b) === dk ? i : -1).filter(i => i >= 0);
+    let dDraws = 0, dSales = 0, dCost = 0;
+    const boxesHTML = idxs.map((i, pos) => {
+      const st = gachaBoxStats(gachaBoxes[i]);
+      dDraws += st.drawn; dSales += st.sales; dCost += st.cost;
+      return gachaBoxHTML(gachaBoxes[i], i, pos > 0, pos < idxs.length - 1);
+    }).join('');
+    gTotDraws += dDraws; gTotSales += dSales; gTotCost += dCost;
+    const dProfit = dSales - dCost, dcls = dProfit >= 0 ? 'pos' : 'neg';
+    daysHTML += `<div class="gacha-day">
+      <div class="gd-head">
+        <span class="gd-date">📅 ${esc(gachaDateLabel(dk))}</span>
+        <span class="gd-sub">${idxs.length} ตู้ · ${dDraws} จุ่ม · ขาย ${money(dSales)} · <b class="${dcls}">${dProfit >= 0 ? 'กำไร' : 'ขาดทุน'} ${money(dProfit)}</b></span>
       </div>
-      <div class="gb-body" style="display:none">
-        ${statsHTML}
-        <div class="gb-meta">จำนวนใบ <b>${slots}</b> · ราคาต่อครั้ง <b>${money(price)}</b> · ยอดเต็มตู้ <b>${money(total)}</b></div>
-        ${b.note ? `<div class="gb-note">${esc(b.note)}</div>` : ''}
-        <div class="gb-prize-title">รางวัล (${realPrizes.length} รายการ · รวมยอด ${money(prizeValue)})</div>
-        <table class="gb-prizes"><tbody>${prizeRows}</tbody></table>
-      </div>
+      ${boxesHTML}
     </div>`;
-  }).join('');
-  const totProfit = totSales - totCost;
-  const tcls = totProfit >= 0 ? 'pos' : 'neg';
-  const summaryHTML = gachaBoxes.length > 1 ? `<div class="gacha-summary">
-      <div class="gs-item"><span class="gs-label">จำนวนจุ่มรวม</span><span class="gs-val">${totDraws} ใบ</span></div>
-      <div class="gs-item"><span class="gs-label">ยอดขายรวม</span><span class="gs-val">${money(totSales)}</span></div>
-      <div class="gs-item"><span class="gs-label">ทุนรวม</span><span class="gs-val">${money(totCost)}</span></div>
+  });
+
+  // กล่องสรุป "รวม" — แสดงเมื่อเลือกรวมทุกวัน (รวมยอดข้ามวัน)
+  const totProfit = gTotSales - gTotCost, tcls = totProfit >= 0 ? 'pos' : 'neg';
+  const summaryHTML = (gachaDateView === 'all' && dates.length > 1) ? `<div class="gacha-summary">
+      <div class="gs-item"><span class="gs-label">จำนวนจุ่มรวม</span><span class="gs-val">${gTotDraws} ใบ</span></div>
+      <div class="gs-item"><span class="gs-label">ยอดขายรวม</span><span class="gs-val">${money(gTotSales)}</span></div>
+      <div class="gs-item"><span class="gs-label">ทุนรวม</span><span class="gs-val">${money(gTotCost)}</span></div>
       <div class="gs-item"><span class="gs-label">กำไรรวม</span><span class="gs-val ${tcls}">${money(totProfit)}</span></div>
     </div>` : '';
-  area.innerHTML = summaryHTML + boxesHTML;
+  area.innerHTML = filterHTML + summaryHTML + daysHTML;
 }
 // นับจำนวนใบจากช่องลำดับ: ช่วง "6-20" = 15 ใบ, ค่าเดี่ยว/ว่าง = 1 ใบ
 function gachaNoCount(no) {
@@ -2890,9 +2955,12 @@ function toggleGachaBox(head) {
   const open = box.classList.toggle('open');
   box.querySelector('.gb-body').style.display = open ? '' : 'none';
 }
-// สลับลำดับตู้จุ่มขึ้น/ลง (dir = -1 ขึ้น, +1 ลง)
+// สลับลำดับตู้จุ่มขึ้น/ลง — สลับเฉพาะภายในวันเดียวกัน (dir = -1 ขึ้น, +1 ลง)
 function moveGachaBox(i, dir) {
-  const j = i + dir;
+  const b = gachaBoxes[i]; if (!b) return;
+  const key = gachaDateKey(b);
+  let j = i + dir;
+  while (j >= 0 && j < gachaBoxes.length && gachaDateKey(gachaBoxes[j]) !== key) j += dir;
   if (j < 0 || j >= gachaBoxes.length) return;
   const t = gachaBoxes[i]; gachaBoxes[i] = gachaBoxes[j]; gachaBoxes[j] = t;
   saveGacha();
@@ -3016,6 +3084,7 @@ function openGachaForm(idx) {
   document.getElementById('gachaModalTitle').textContent = editing ? '🎰 แก้ไขตู้จุ่ม' : '🎰 สร้างตู้จุ่ม';
   document.getElementById('g_idx').value = editing ? idx : '';
   document.getElementById('g_name').value = b ? (b.name || '') : '';
+  document.getElementById('g_date').value = (b && b.date) ? b.date : todayStr();
   document.getElementById('g_slots').value = b && b.slots != null ? b.slots : '';
   document.getElementById('g_price').value = b && b.price != null ? b.price : '';
   document.getElementById('g_note').value = b ? (b.note || '') : '';
@@ -3031,6 +3100,7 @@ function saveGachaBox() {
   if (!name) { alert('กรุณาใส่ชื่อตู้ก่อน'); document.getElementById('g_name').focus(); return; }
   const box = {
     name,
+    date: document.getElementById('g_date').value || todayStr(),
     slots: Number(document.getElementById('g_slots').value) || 0,
     price: Number(document.getElementById('g_price').value) || 0,
     note: document.getElementById('g_note').value.trim(),
