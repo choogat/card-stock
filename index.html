@@ -121,8 +121,8 @@
   table.gb-prizes td.gb-check { width: 30px; text-align: center; cursor: pointer; padding-right: 2px; }
   .gb-tick { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; border: 1.5px solid var(--border); border-radius: 6px; color: transparent; font-size: .8rem; font-weight: 800; user-select: none; transition: .12s; }
   td.gb-check:hover .gb-tick { border-color: var(--accent2); }
-  table.gb-prizes td.gb-check.ro { cursor: default; }
-  td.gb-check.ro:hover .gb-tick { border-color: var(--border); }
+  table.gb-prizes td.gb-check.locked { cursor: not-allowed; }
+  td.gb-check.locked:hover .gb-tick { border-color: var(--accent2); }
   tr.gb-prow.drawn .gb-tick { background: var(--accent2); border-color: var(--accent2); color: #fff; }
   tr.gb-prow.drawn td { color: var(--muted); opacity: .55; }
   tr.gb-prow.drawn td.gb-check { opacity: 1; }
@@ -2907,9 +2907,17 @@ function gachaBoxHTML(b, i, canUp, canDown) {
           : '<span class="gb-pimg gb-noimg">—</span>';
         const v = Number(p.value != null ? p.value : p.qty) || 0;
         const noShow = (p.no != null && p.no !== '') ? p.no : (k + 1);
-        const checkCell = ro
-          ? `<td class="gb-check ro"><span class="gb-tick">✓</span></td>`
-          : `<td class="gb-check" onclick="toggleGachaPrize(this, ${i}, ${oi})" title="ทำเครื่องหมายว่าออกแล้ว"><span class="gb-tick">✓</span></td>`;
+        let checkCell;
+        if (!ro) {
+          // ผู้แก้ไขได้ (แอดมิน/เจ้าของ) — ติ๊ก/ยกเลิกได้อิสระ
+          checkCell = `<td class="gb-check" onclick="toggleGachaPrize(this, ${i}, ${oi})" title="ทำเครื่องหมายว่าออกแล้ว"><span class="gb-tick">✓</span></td>`;
+        } else if (p.drawn) {
+          // ผู้ช่วยดูอย่างเดียว — ออกแล้ว = ล็อก แก้ไม่ได้
+          checkCell = `<td class="gb-check locked" title="ออกแล้ว — แก้ไขไม่ได้"><span class="gb-tick">✓</span></td>`;
+        } else {
+          // ผู้ช่วยดูอย่างเดียว — ติ๊กได้ทางเดียว (ต้องยืนยัน)
+          checkCell = `<td class="gb-check" onclick="markGachaPrizeDrawn(this, ${i}, ${oi})" title="แตะเพื่อยืนยันว่าออกแล้ว"><span class="gb-tick">✓</span></td>`;
+        }
         return `<tr class="gb-prow${p.drawn ? ' drawn' : ''}">`
           + checkCell
           + `<td class="gb-pnum">${esc(String(noShow))}</td><td>${thumb}</td><td>${esc(p.name || '-')}</td><td class="num">${money(v)}</td></tr>`;
@@ -3015,6 +3023,21 @@ function toggleGachaPrize(el, boxIdx, prizeIdx) {
   p.drawn = !p.drawn;
   const row = el.closest('tr');
   if (row) row.classList.toggle('drawn', !!p.drawn);
+  saveGacha();
+}
+// ผู้ช่วยดูอย่างเดียว — ติ๊ก "ออกแล้ว" ได้ทางเดียว: ต้องยืนยัน แล้วล็อก แก้ไม่ได้
+function markGachaPrizeDrawn(el, boxIdx, prizeIdx) {
+  const b = gachaBoxes[boxIdx];
+  if (!b || !b.prizes || !b.prizes[prizeIdx]) return;
+  const p = b.prizes[prizeIdx];
+  if (p.drawn) return; // ออกแล้ว = ล็อก
+  if (!confirm('ยืนยันว่ารางวัลนี้ "ออกแล้ว"?\n\nเมื่อยืนยันแล้วจะยกเลิก/แก้ไขไม่ได้')) return;
+  p.drawn = true;
+  const row = el.closest('tr');
+  if (row) row.classList.add('drawn');
+  el.removeAttribute('onclick');
+  el.classList.add('locked');
+  el.title = 'ออกแล้ว — แก้ไขไม่ได้';
   saveGacha();
 }
 
