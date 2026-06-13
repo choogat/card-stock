@@ -123,6 +123,11 @@
   .bd-date { font-weight: 800; font-size: 1rem; }
   .bd-sub { color: var(--muted); font-size: .85rem; }
   .gb-prize-title { font-weight: 600; font-size: .9rem; margin: 12px 0 6px; }
+  /* ยอดจุ่ม: รางวัลที่เลือกค้างไว้ (ยังไม่ยืนยัน) + แถบยืนยัน */
+  tr.gb-prow.pending td { background: rgba(47,111,237,.10); }
+  tr.gb-prow.pending .gb-tick { background: var(--accent); border-color: var(--accent); color: #fff; opacity: .6; }
+  .gacha-confirm-bar { position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%); z-index: 60; display: flex; align-items: center; gap: 12px; background: var(--card); border: 1px solid var(--border); border-radius: 999px; padding: 8px 10px 8px 18px; box-shadow: 0 10px 30px rgba(0,0,0,.28); }
+  .gacha-confirm-bar > span { font-weight: 700; font-size: .9rem; }
   table.gb-prizes { width: 100%; border-collapse: collapse; }
   table.gb-prizes td { padding: 6px 8px; border-top: 1px solid var(--border); font-size: .9rem; }
   table.gb-prizes td.num { text-align: right; font-weight: 700; white-space: nowrap; }
@@ -701,6 +706,11 @@
         <button class="btn btn-ghost btn-sm" onclick="gachaToday()">วันนี้</button>
       </div>
       <div id="gachaList"></div>
+    </div>
+    <div id="gachaConfirmBar" class="gacha-confirm-bar" style="display:none">
+      <span id="gachaPendingCount">เลือก 0 รายการ</span>
+      <button class="btn btn-ghost btn-sm" onclick="cancelPendingPrizes()">ยกเลิก</button>
+      <button class="btn btn-primary btn-sm" onclick="confirmPendingPrizes()">✓ ยืนยันออกแล้ว</button>
     </div>
   </div><!-- /viewGacha -->
 
@@ -3120,6 +3130,7 @@ function checkPriceFromBuy() {
 const KEY_GACHA = 'psa_gacha_v1';
 let gachaBoxes = (() => { try { return JSON.parse(localStorage.getItem(KEY_GACHA)) || []; } catch (e) { return []; } })();
 let gachaPushing = false, gachaQueued = false, gachaTimer = null, gachaDirty = false, gachaPollTimer = null;
+let gachaPending = new Set(); // รางวัลที่เลือกติ๊กไว้ (ยังไม่ยืนยัน) — key = "boxIdx|prizeIdx"
 
 function saveGacha() {
   try { localStorage.setItem(KEY_GACHA, JSON.stringify(gachaBoxes)); } catch (e) {}
@@ -3150,6 +3161,7 @@ async function pullGacha() {
 // ดึงข้อมูลยอดจุ่มสดจากเซิร์ฟเวอร์ให้ทุกคนเห็นตรงกัน — กันไม่ทับยอดที่เพิ่งแก้แต่ยังไม่ซิงก์
 async function refreshGacha() {
   if (!passcode) return;
+  if (gachaPending.size) return; // กำลังเลือกติ๊กค้างอยู่ — อย่า re-render ทับ
   if (gachaDirty || gachaPushing || gachaQueued || gachaTimer) return; // มีของค้างในเครื่อง — ดันขึ้นก่อน อย่าดึงทับ
   const before = JSON.stringify(gachaBoxes);
   await pullGacha();
@@ -3222,10 +3234,15 @@ function gachaBoxHTML(b, i, canUp, canDown) {
           : '<span class="gb-pimg gb-noimg">—</span>';
         const v = Number(p.value != null ? p.value : p.qty) || 0;
         const noShow = (p.no != null && p.no !== '') ? p.no : (k + 1);
-        // ทุกคนติ๊ก "ออกแล้ว" ได้ (ยืนยันก่อน) · ออกแล้ว = ล็อก ยกเว้นแอดมินที่ยกเลิกได้ (ยืนยันเช่นกัน)
-        const checkCell = (p.drawn && !canUntickGacha())
-          ? `<td class="gb-check locked" title="ออกแล้ว — แก้ไขได้เฉพาะแอดมิน"><span class="gb-tick">✓</span></td>`
-          : `<td class="gb-check" onclick="toggleGachaPrize(this, ${i}, ${oi})" title="${p.drawn ? 'ยกเลิกเครื่องหมายออกแล้ว' : 'ทำเครื่องหมายว่าออกแล้ว'}"><span class="gb-tick">✓</span></td>`;
+        // ยังไม่ออก: แตะเลือกได้หลายอัน แล้วกดยืนยันทีเดียว · ออกแล้ว: แอดมินยกเลิกได้ / คนอื่นล็อก
+        let checkCell;
+        if (p.drawn) {
+          checkCell = canUntickGacha()
+            ? `<td class="gb-check" onclick="toggleGachaPrize(this, ${i}, ${oi})" title="ยกเลิกเครื่องหมายออกแล้ว"><span class="gb-tick">✓</span></td>`
+            : `<td class="gb-check locked" title="ออกแล้ว — แก้ไขได้เฉพาะแอดมิน"><span class="gb-tick">✓</span></td>`;
+        } else {
+          checkCell = `<td class="gb-check" onclick="togglePendingPrize(this, ${i}, ${oi})" title="แตะเพื่อเลือก แล้วกดยืนยันออกแล้ว"><span class="gb-tick">✓</span></td>`;
+        }
         return `<tr class="gb-prow${p.drawn ? ' drawn' : ''}">`
           + checkCell
           + `<td class="gb-pnum">${esc(String(noShow))}</td><td>${thumb}</td><td>${esc(p.name || '-')}</td><td class="num">${money(v)}</td></tr>`;
@@ -3272,6 +3289,7 @@ function gachaDayBlockHTML(idxs, label, subNote) {
 function renderGacha() {
   const area = document.getElementById('gachaList');
   if (!area) return;
+  gachaPending.clear(); updateGachaConfirmBar(); // เริ่ม render ใหม่ = ล้างการเลือกค้าง
   // ผู้ช่วยที่ตั้ง "ดูอย่างเดียว" — ซ่อนปุ่มสร้างตู้
   const tools = document.getElementById('gachaTools');
   if (tools) tools.style.display = canEditGacha() ? '' : 'none';
@@ -3318,7 +3336,42 @@ function moveGachaBox(i, dir) {
   saveGacha();
   renderGacha();
 }
-// ติ๊ก "ออกแล้ว": ทุกคนทำได้ (ยืนยันก่อน) แล้วล็อก · ยกเลิก: เฉพาะแอดมิน (ยืนยันก่อนเช่นกัน)
+// แตะเลือก/ยกเลิกเลือกรางวัลที่จะทำเครื่องหมาย "ออกแล้ว" (ยังไม่บันทึก — รอกดยืนยันทีเดียว)
+function togglePendingPrize(el, boxIdx, prizeIdx) {
+  const key = boxIdx + '|' + prizeIdx;
+  const row = el.closest('tr');
+  if (gachaPending.has(key)) { gachaPending.delete(key); if (row) row.classList.remove('pending'); }
+  else { gachaPending.add(key); if (row) row.classList.add('pending'); }
+  updateGachaConfirmBar();
+}
+function updateGachaConfirmBar() {
+  const bar = document.getElementById('gachaConfirmBar');
+  if (!bar) return;
+  const n = gachaPending.size;
+  bar.style.display = n ? '' : 'none';
+  const cnt = document.getElementById('gachaPendingCount');
+  if (cnt) cnt.textContent = 'เลือก ' + n + ' รายการ';
+}
+function cancelPendingPrizes() {
+  gachaPending.clear();
+  document.querySelectorAll('#gachaList tr.pending').forEach(r => r.classList.remove('pending'));
+  updateGachaConfirmBar();
+}
+// ยืนยัน "ออกแล้ว" ทั้งหมดที่เลือกไว้ ในครั้งเดียว
+function confirmPendingPrizes() {
+  if (!gachaPending.size) return;
+  if (!confirm('ยืนยันว่า ' + gachaPending.size + ' รายการที่เลือก "ออกแล้ว"?\n\nเมื่อยืนยันแล้วจะล็อก แก้ไขได้เฉพาะแอดมิน')) return;
+  gachaPending.forEach(key => {
+    const [bi, pi] = key.split('|').map(Number);
+    const b = gachaBoxes[bi];
+    if (b && b.prizes && b.prizes[pi]) b.prizes[pi].drawn = true;
+  });
+  gachaPending.clear();
+  saveGacha();
+  renderGacha();
+  updateGachaConfirmBar();
+}
+// ติ๊ก "ออกแล้ว" ทีละอัน (เฉพาะแอดมินกดยกเลิก) · ยืนยันก่อน
 function toggleGachaPrize(el, boxIdx, prizeIdx) {
   const b = gachaBoxes[boxIdx];
   if (!b || !b.prizes || !b.prizes[prizeIdx]) return;
