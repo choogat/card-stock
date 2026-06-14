@@ -811,7 +811,10 @@
         <button type="button" class="btn btn-ghost btn-sm" onclick="document.getElementById('nb_imageFile').click()">📷 เลือกรูป</button>
       </div>
     </div>
-    <div class="field"><label>ชื่อการ์ด</label><input id="nb_name" placeholder="ชื่อการ์ด"></div>
+    <div class="grid2">
+      <div class="field"><label>ชื่อการ์ด</label><input id="nb_name" placeholder="ชื่อการ์ด"></div>
+      <div class="field"><label>วันที่ซื้อ</label><input id="nb_date" type="date"></div>
+    </div>
     <div class="grid2">
       <div class="field"><label>ชำระโดย</label>
         <select id="nb_payment"><option value="cash">เงินสด</option><option value="transfer">เงินโอน</option></select>
@@ -1872,6 +1875,7 @@ function openNewBuy() {
   document.getElementById('nb_name').value = '';
   document.getElementById('nb_amount').value = '';
   document.getElementById('nb_payment').value = 'cash';
+  document.getElementById('nb_date').value = todayISO();
   document.getElementById('nb_image').value = '';
   document.getElementById('nb_imageFile').value = '';
   const th = document.getElementById('nb_thumb'); if (th) { th.src = ''; th.style.display = 'none'; }
@@ -1912,15 +1916,16 @@ function saveNewBuy() {
   const amount = parseFloat(document.getElementById('nb_amount').value) || 0;
   const payment = document.getElementById('nb_payment').value || 'cash';
   const image = document.getElementById('nb_image').value || '';
+  const date = document.getElementById('nb_date').value || todayISO();
   const newCard = {
     id: uid(), type: 'card', name, image,
-    buy: amount, buyPayment: payment, buyDate: todayISO(), buyTime: nowHM(),
+    buy: amount, buyPayment: payment, buyDate: date, buyTime: nowHM(),
     viaBuy: true, status: 'show', qty: 1, discount: 0,
   };
   cards.push(newCard);
   save();
   closeNewBuy();
-  const bd = document.getElementById('buyDate'); if (bd) bd.value = todayISO(); // เด้งไปวันนี้ ให้เห็นรายการที่เพิ่งเพิ่ม
+  const bd = document.getElementById('buyDate'); if (bd) bd.value = date; // เด้งไปวันที่ที่ลง ให้เห็นรายการที่เพิ่งเพิ่ม
   render();
   renderBuyList();
   alert(`เพิ่มรายการรับซื้อ "${name}" แล้ว · ${money(amount)}`);
