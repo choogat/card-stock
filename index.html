@@ -450,7 +450,7 @@
   .po-table { table-layout: fixed; }
   .po-table td { word-break: break-word; overflow-wrap: anywhere; padding: 9px 10px; }
   .po-table td.num, .po-table td.center { white-space: nowrap; }
-  .po-table th { padding: 2px 10px 6px; }
+  .po-table th { padding: 2px 8px 6px; text-align: center; }
   .po-date { white-space: nowrap; }
   .po-sortable { cursor: pointer; user-select: none; transition: color .12s; }
   .po-sortable:hover { color: var(--text); }
@@ -3503,19 +3503,19 @@ function deletePreorder(id) {
 
 // คอลัมน์ของตารางพรีออเดอร์ (key ใช้เรียง · cls = จัดชิด · w = ความกว้าง)
 const PO_COLS = [
-  { key: 'date', label: 'วันที่', cls: 'po-date center', w: '78px' },
-  { key: 'name', label: 'ชื่อสินค้า', cls: 'name', w: '15%' },
-  { key: 'set', label: 'รุ่น', cls: '', w: '8%' },
-  { key: 'lang', label: 'ภาษา', cls: 'center', w: '52px' },
-  { key: 'qty', label: 'จำนวน', cls: 'num', w: '56px' },
-  { key: 'size', label: 'ขนาด', cls: '', w: '8%' },
+  { key: 'date', label: 'วันที่', cls: 'po-date center', w: '76px' },
+  { key: 'name', label: 'ชื่อสินค้า', cls: 'name', w: '17%' },
+  { key: 'set', label: 'รุ่น', cls: '', w: '9%' },
+  { key: 'lang', label: 'ภาษา', cls: 'center', w: '46px' },
+  { key: 'qty', label: 'จำนวน', cls: 'num', w: '50px' },
+  { key: 'size', label: 'ขนาด', cls: '', w: '72px' },
   { key: 'price', label: 'ราคา', cls: 'num', w: '9%' },
-  { key: 'deposit', label: 'มัดจำ', cls: 'num', w: '92px' },
+  { key: 'deposit', label: 'มัดจำ', cls: 'num', w: '90px' },
   { key: 'remaining', label: 'คงเหลือ', cls: 'num', w: '9%' },
-  { key: 'status', label: 'สถานะ', cls: 'center', w: '118px' },
+  { key: 'status', label: 'สถานะ', cls: 'center', w: '116px' },
   { key: 'avg', label: 'ราคาเฉลี่ย', cls: 'num', w: '8%' },
-  { key: 'source', label: 'สั่งจาก', cls: '', w: '11%' },
-  { key: 'note', label: 'หมายเหตุ', cls: '', w: '12%' },
+  { key: 'source', label: 'สั่งจาก', cls: '', w: '13%' },
+  { key: 'note', label: 'หมายเหตุ', cls: '', w: '13%' },
 ];
 // poSort.key = คอลัมน์ที่กำลังเรียง (null = เรียงตามค่าเริ่มต้น: รอส่งของก่อน + วันล่าสุด)
 let poSort = { key: null, dir: 'desc' };
@@ -3616,8 +3616,7 @@ function renderPreorder() {
   const cols = PO_COLS.map(c => `<col style="width:${c.w}">`).join('') + '<col style="width:56px">';
   const ths = PO_COLS.map(c => {
     const arrow = poSort.key === c.key ? `<span class="po-arrow">${poSort.dir === 'asc' ? ' ▲' : ' ▼'}</span>` : '';
-    const cls = ('po-sortable ' + (c.cls.includes('num') ? 'num' : c.cls.includes('center') ? 'center' : '')).trim();
-    return `<th class="${cls}" onclick="poSortBy('${c.key}')" title="กดเพื่อเรียงลำดับ">${c.label}${arrow}</th>`;
+    return `<th class="po-sortable" onclick="poSortBy('${c.key}')" title="กดเพื่อเรียงลำดับ">${c.label}${arrow}</th>`;
   }).join('');
 
   area.innerHTML = `<table class="po-table">
