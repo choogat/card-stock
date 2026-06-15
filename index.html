@@ -438,6 +438,15 @@
   tr.child-row td { background: rgba(108,92,231,.06); }
   .grp-price { width: 84px; background: var(--bg); border: 1px solid var(--border); color: var(--text); padding: 6px 8px; border-radius: 8px; font-size: .85rem; text-align: right; font-variant-numeric: tabular-nums; }
   .grp-price:focus { outline: none; border-color: var(--accent); }
+  .po-dep { width: 78px; background: var(--bg); border: 1px solid var(--border); color: var(--text); padding: 6px 8px; border-radius: 8px; font-size: .85rem; text-align: right; font-variant-numeric: tabular-nums; }
+  .po-dep:focus { outline: none; border-color: var(--accent); }
+  .po-status { background: var(--bg); border: 1px solid var(--border); color: var(--text); padding: 6px 8px; border-radius: 8px; font-size: .82rem; cursor: pointer; }
+  .po-status:focus { outline: none; border-color: var(--accent); }
+  .po-status-wait { border-color: var(--accent); color: var(--accent); }
+  .po-status-received { border-color: #2bbf7a; color: #2bbf7a; }
+  .po-status-cancel { border-color: var(--danger); color: var(--danger); }
+  .po-icon { background: none; border: none; cursor: pointer; font-size: 1rem; padding: 2px 4px; opacity: .8; }
+  .po-icon:hover { opacity: 1; }
   .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
   .grid-topic-lang { display: grid; grid-template-columns: 3fr 1fr; gap: 12px; }
   .grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
@@ -523,6 +532,7 @@
     <nav class="nav">
       <button class="nav-item active" data-view="stock" onclick="switchView('stock')">📦 สต็อกการ์ด</button>
       <button class="nav-sub" id="navSoldStock" onclick="switchView('soldstock')" style="display:none">↳ สต็อกการ์ดขายแล้ว</button>
+      <button class="nav-item" data-view="preorder" onclick="switchView('preorder')">📝 พรีออเดอร์</button>
       <button class="nav-item" data-view="sales" onclick="switchView('sales')">🏷️ สินค้าขาย</button>
       <button class="nav-item" data-view="report" onclick="switchView('report')">📊 รายงานการขาย</button>
       <button class="nav-item" data-view="buy" onclick="switchView('buy')">🛒 รับซื้อสินค้า</button>
@@ -597,6 +607,38 @@
     </div>
     <div id="soldStockArea"></div>
   </div><!-- /viewSoldStock -->
+
+  <div id="viewPreorder" style="display:none">
+    <h2 class="view-title">📝 พรีออเดอร์</h2>
+    <div class="stats">
+      <div class="stat">
+        <div class="label">ยอด Pre Order</div>
+        <div class="value num" id="poStatTotal">฿0</div>
+        <div class="sub" id="poStatCount">รอส่งของ 0 รายการ</div>
+      </div>
+      <div class="stat">
+        <div class="label">ยอดเงินมัดจำ</div>
+        <div class="value num" id="poStatDeposit">฿0</div>
+        <div class="sub">เฉพาะรายการที่รอส่งของ</div>
+      </div>
+      <div class="stat">
+        <div class="label">ยอดเงินค้าง</div>
+        <div class="value num" id="poStatDue">฿0</div>
+        <div class="sub">ราคา − มัดจำ (เฉพาะรอส่งของ)</div>
+      </div>
+    </div>
+    <div class="toolbar">
+      <button class="btn btn-primary" onclick="openPreorderForm()">+ Pre Order</button>
+      <input class="search" id="poSearch" placeholder="ค้นหา ชื่อสินค้า / รุ่น / ภาษา / สั่งจาก..." oninput="renderPreorder()">
+      <select class="filter" id="poStatusFilter" onchange="renderPreorder()">
+        <option value="">ทุกสถานะ</option>
+        <option value="wait">รอส่งของ</option>
+        <option value="received">รับสินค้าแล้ว</option>
+        <option value="cancel">ยกเลิก</option>
+      </select>
+    </div>
+    <div id="preorderArea"></div>
+  </div><!-- /viewPreorder -->
 
   <div id="viewSales" style="display:none">
     <div class="sales-head">
@@ -726,6 +768,7 @@
         <label>สิทธิ์เข้าแถบ</label>
         <div class="tab-perms">
           <label><input type="checkbox" id="u_tab_stock" value="stock"> 📦 สต็อกการ์ด</label>
+          <label><input type="checkbox" id="u_tab_preorder" value="preorder"> 📝 พรีออเดอร์</label>
           <label><input type="checkbox" id="u_tab_sales" value="sales"> 🏷️ สินค้าขาย</label>
           <label><input type="checkbox" id="u_tab_report" value="report"> 📊 รายงานการขาย</label>
           <label><input type="checkbox" id="u_tab_buy" value="buy"> 🛒 รับซื้อสินค้า</label>
@@ -794,6 +837,43 @@
     <div class="modal-actions">
       <button class="btn btn-ghost" onclick="closeGachaForm()">ยกเลิก</button>
       <button class="btn btn-primary" onclick="saveGachaBox()">บันทึก</button>
+    </div>
+  </div>
+</div>
+
+<!-- พรีออเดอร์: สร้าง/แก้ไขรายการ -->
+<div class="overlay" id="preorderOverlay">
+  <div class="modal" style="max-width:480px">
+    <h2 id="poModalTitle">📝 สร้าง Pre Order</h2>
+    <input type="hidden" id="po_id">
+    <div class="grid2">
+      <div class="field"><label>วันที่</label><input id="po_date" type="date"></div>
+      <div class="field"><label>ภาษา</label>
+        <select id="po_lang">
+          <option value="JP">JP</option>
+          <option value="Eng">Eng</option>
+          <option value="CN">CN</option>
+        </select>
+      </div>
+    </div>
+    <div class="field"><label>ชื่อสินค้า *</label><input id="po_name" placeholder="ชื่อสินค้า"></div>
+    <div class="grid2">
+      <div class="field"><label>รุ่น</label><input id="po_set" placeholder="เช่น OP09"></div>
+      <div class="field"><label>ขนาด</label><input id="po_size" placeholder="เช่น Booster Box"></div>
+    </div>
+    <div class="grid2">
+      <div class="field"><label>จำนวน</label><input id="po_qty" type="number" inputmode="numeric" min="1" placeholder="1"></div>
+      <div class="field"><label>ราคา (฿)</label><input id="po_price" type="number" inputmode="decimal" placeholder="0"></div>
+    </div>
+    <div class="grid2">
+      <div class="field"><label>มัดจำ (฿)</label><input id="po_deposit" type="number" inputmode="decimal" placeholder="0"></div>
+      <div class="field"><label>สั่งจาก</label><input id="po_source" placeholder="ร้าน/แหล่งที่สั่ง"></div>
+    </div>
+    <div class="field"><label>หมายเหตุ</label><input id="po_note" placeholder="(ไม่บังคับ)"></div>
+    <div class="psa-msg" id="poFormMsg"></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closePreorderForm()">ยกเลิก</button>
+      <button class="btn btn-primary" onclick="submitPreorder()">บันทึก</button>
     </div>
   </div>
 </div>
@@ -1194,8 +1274,9 @@ const TRANSLATE_API = API_BASE + '/translate';
 const NAMTCG_API = API_BASE + '/namtcg';
 const OPIMG_API = API_BASE + '/opimg';
 const GACHA_API = API_BASE + '/gacha';
+const PREORDER_API = API_BASE + '/preorder';
 function opImgUrl(u) { return `${OPIMG_API}?url=${encodeURIComponent(u)}`; }
-const ALL_TABS = ['stock', 'sales', 'report', 'buy', 'product', 'gacha'];
+const ALL_TABS = ['stock', 'preorder', 'sales', 'report', 'buy', 'product', 'gacha'];
 let passcode = localStorage.getItem('app_pass') || '';
 let loginId = localStorage.getItem('app_id') || '';
 let userRole = localStorage.getItem('app_role') || '';
@@ -1644,6 +1725,7 @@ function switchView(view) {
   document.querySelectorAll('.nav-item').forEach(b => b.classList.toggle('active', b.dataset.view === view));
   document.getElementById('viewStock').style.display = view === 'stock' ? '' : 'none';
   document.getElementById('viewSoldStock').style.display = view === 'soldstock' ? '' : 'none';
+  document.getElementById('viewPreorder').style.display = view === 'preorder' ? '' : 'none';
   document.getElementById('viewSales').style.display = view === 'sales' ? '' : 'none';
   document.getElementById('viewReport').style.display = view === 'report' ? '' : 'none';
   document.getElementById('viewBuy').style.display = view === 'buy' ? '' : 'none';
@@ -1658,6 +1740,7 @@ function switchView(view) {
     navSold.classList.toggle('active', view === 'soldstock');
     if (view === 'soldstock') document.querySelector('.nav-item[data-view="stock"]').classList.add('active');
   }
+  if (view === 'preorder') { renderPreorder(); refreshPreorder(); startPreorderPoll(); } else { stopPreorderPoll(); }
   if (view === 'sales') renderSales();
   if (view === 'report') renderReport();
   if (view === 'soldstock') renderSoldStock();
@@ -3130,6 +3213,209 @@ function checkPriceFromBuy() {
   if (cert) { document.getElementById('ps_cert').value = cert; searchPSA(); }
 }
 
+// ================= พรีออเดอร์ (Pre Order) =================
+// แต่ละรายการ: { id, date, name, set, lang, qty, size, price, deposit, source, note, status }
+//   status: 'wait' (รอส่งของ) | 'received' (รับสินค้าแล้ว) | 'cancel' (ยกเลิก)
+//   คงเหลือ = price - deposit · ราคาเฉลี่ย = price / qty
+const KEY_PREORDER = 'psa_preorder_v1';
+let preorders = (() => { try { return JSON.parse(localStorage.getItem(KEY_PREORDER)) || []; } catch (e) { return []; } })();
+let poPushing = false, poQueued = false, poTimer = null, poDirty = false, poPollTimer = null;
+const PO_STATUS = { wait: 'รอส่งของ', received: 'รับสินค้าแล้ว', cancel: 'ยกเลิก' };
+
+function savePreorder() {
+  try { localStorage.setItem(KEY_PREORDER, JSON.stringify(preorders)); } catch (e) {}
+  poDirty = true;
+  if (passcode) { clearTimeout(poTimer); poTimer = setTimeout(pushPreorder, 150); }
+}
+async function pushPreorder() {
+  if (!passcode) return;
+  if (poPushing) { poQueued = true; return; }
+  poPushing = true;
+  try {
+    const r = await fetch(PREORDER_API, { method: 'POST', headers: authHeaders({ 'Content-Type': 'application/json' }), body: JSON.stringify(preorders) });
+    if (r.ok) poDirty = false;
+  } catch (e) { /* ออฟไลน์ — ไว้ดันใหม่ตอนแก้ครั้งหน้า */ }
+  finally { poPushing = false; if (poQueued) { poQueued = false; pushPreorder(); } }
+}
+async function pullPreorder() {
+  if (!passcode) return;
+  try {
+    const r = await fetch(PREORDER_API, { headers: authHeaders(), cache: 'no-store' });
+    if (!r.ok) return;
+    const d = await r.json();
+    preorders = Array.isArray(d.orders) ? d.orders : [];
+    try { localStorage.setItem(KEY_PREORDER, JSON.stringify(preorders)); } catch (e) {}
+  } catch (e) { /* ออฟไลน์ — ใช้ค่าในเครื่อง */ }
+}
+async function refreshPreorder() {
+  if (!passcode) return;
+  if (poDirty || poPushing || poQueued || poTimer) return; // มีของค้างในเครื่อง — ดันขึ้นก่อน
+  const before = JSON.stringify(preorders);
+  await pullPreorder();
+  if (JSON.stringify(preorders) === before) return;
+  const pv = document.getElementById('viewPreorder');
+  if (pv && pv.style.display !== 'none') renderPreorder();
+}
+function startPreorderPoll() { stopPreorderPoll(); poPollTimer = setInterval(refreshPreorder, 6000); }
+function stopPreorderPoll() { if (poPollTimer) { clearInterval(poPollTimer); poPollTimer = null; } }
+
+function poDateLabel(d) {
+  if (!d) return '—';
+  const parts = d.split('-').map(Number);
+  if (parts.length !== 3) return d;
+  const months = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
+  return parts[2] + ' ' + (months[parts[1] - 1] || '') + ' ' + String(parts[0] + 543).slice(-2);
+}
+function poNum(n) { return (Number(n) || 0).toLocaleString('th-TH', { maximumFractionDigits: 2 }); }
+function poRemaining(o) { return (Number(o.price) || 0) - (Number(o.deposit) || 0); }
+function poAvg(o) { const q = Number(o.qty) || 0; return q > 0 ? (Number(o.price) || 0) / q : 0; }
+
+// ---- ฟอร์มสร้าง/แก้ไข ----
+function openPreorderForm(id) {
+  const o = id ? preorders.find(x => x.id === id) : null;
+  document.getElementById('poModalTitle').textContent = o ? '✏️ แก้ไข Pre Order' : '📝 สร้าง Pre Order';
+  document.getElementById('po_id').value = o ? o.id : '';
+  document.getElementById('po_date').value = o ? (o.date || '') : todayStr();
+  document.getElementById('po_name').value = o ? (o.name || '') : '';
+  document.getElementById('po_set').value = o ? (o.set || '') : '';
+  document.getElementById('po_lang').value = o ? (o.lang || 'JP') : 'JP';
+  document.getElementById('po_qty').value = o ? (o.qty || '') : '1';
+  document.getElementById('po_size').value = o ? (o.size || '') : '';
+  document.getElementById('po_price').value = o ? (o.price ?? '') : '';
+  document.getElementById('po_deposit').value = o ? (o.deposit ?? '') : '';
+  document.getElementById('po_source').value = o ? (o.source || '') : '';
+  document.getElementById('po_note').value = o ? (o.note || '') : '';
+  document.getElementById('poFormMsg').textContent = '';
+  document.getElementById('preorderOverlay').classList.add('open');
+}
+function closePreorderForm() { document.getElementById('preorderOverlay').classList.remove('open'); }
+function submitPreorder() {
+  const name = document.getElementById('po_name').value.trim();
+  if (!name) { document.getElementById('poFormMsg').textContent = 'กรุณาใส่ชื่อสินค้า'; return; }
+  const idRaw = document.getElementById('po_id').value;
+  const data = {
+    date: document.getElementById('po_date').value || todayStr(),
+    name,
+    set: document.getElementById('po_set').value.trim(),
+    lang: document.getElementById('po_lang').value,
+    qty: Number(document.getElementById('po_qty').value) || 1,
+    size: document.getElementById('po_size').value.trim(),
+    price: Number(document.getElementById('po_price').value) || 0,
+    deposit: Number(document.getElementById('po_deposit').value) || 0,
+    source: document.getElementById('po_source').value.trim(),
+    note: document.getElementById('po_note').value.trim(),
+  };
+  const existing = idRaw ? preorders.find(x => x.id === idRaw) : null;
+  if (existing) { Object.assign(existing, data); }
+  else { preorders.push(Object.assign({ id: uid(), status: 'wait' }, data)); }
+  savePreorder();
+  closePreorderForm();
+  renderPreorder();
+}
+function updatePreorderDeposit(id, val) {
+  const o = preorders.find(x => x.id === id); if (!o) return;
+  o.deposit = Number(val) || 0;
+  savePreorder();
+  renderPreorder();
+}
+function updatePreorderStatus(id, val) {
+  const o = preorders.find(x => x.id === id); if (!o) return;
+  o.status = val;
+  savePreorder();
+  renderPreorder();
+}
+function deletePreorder(id) {
+  const o = preorders.find(x => x.id === id); if (!o) return;
+  if (!confirm('ลบรายการพรีออเดอร์ "' + (o.name || '') + '" ?')) return;
+  preorders = preorders.filter(x => x.id !== id);
+  savePreorder();
+  renderPreorder();
+}
+
+function renderPreorder() {
+  const area = document.getElementById('preorderArea');
+  if (!area) return;
+  // สรุปยอด — เฉพาะรายการที่ "รอส่งของ"
+  const waiting = preorders.filter(o => (o.status || 'wait') === 'wait');
+  const total = waiting.reduce((s, o) => s + (Number(o.price) || 0), 0);
+  const dep = waiting.reduce((s, o) => s + (Number(o.deposit) || 0), 0);
+  const due = waiting.reduce((s, o) => s + poRemaining(o), 0);
+  const sT = document.getElementById('poStatTotal'); if (sT) sT.textContent = money(total);
+  const sD = document.getElementById('poStatDeposit'); if (sD) sD.textContent = money(dep);
+  const sU = document.getElementById('poStatDue'); if (sU) sU.textContent = money(due);
+  const sC = document.getElementById('poStatCount'); if (sC) sC.textContent = 'รอส่งของ ' + waiting.length + ' รายการ';
+
+  const q = (document.getElementById('poSearch')?.value || '').trim().toLowerCase();
+  const sf = document.getElementById('poStatusFilter')?.value || '';
+  let list = preorders.map((o, i) => ({ o, i }));
+  if (sf) list = list.filter(x => (x.o.status || 'wait') === sf);
+  if (q) {
+    const terms = q.split(/\s+/).filter(Boolean);
+    list = list.filter(x => {
+      const o = x.o;
+      const hay = [o.name, o.set, o.lang, o.size, o.source, o.note].filter(Boolean).join(' ').toLowerCase();
+      return terms.every(t => hay.includes(t));
+    });
+  }
+  // ลำดับ: รอส่งของ อยู่บน → รับแล้ว/ยกเลิก อยู่ล่าง · ภายในกลุ่มเดียวกัน วันล่าสุดอยู่บน
+  const rank = o => ((o.status || 'wait') === 'wait' ? 0 : 1);
+  list.sort((a, b) => {
+    const ra = rank(a.o), rb = rank(b.o);
+    if (ra !== rb) return ra - rb;
+    const da = a.o.date || '', db = b.o.date || '';
+    if (da !== db) return db.localeCompare(da); // วันล่าสุดก่อน
+    return b.i - a.i; // เพิ่มล่าสุดก่อน
+  });
+
+  if (list.length === 0) {
+    area.innerHTML = `<div class="empty"><div class="big">📝</div>
+      ${preorders.length === 0 ? 'ยังไม่มีรายการพรีออเดอร์ — กดปุ่ม “+ Pre Order” เพื่อเริ่มต้น' : 'ไม่พบรายการที่ตรงกับเงื่อนไข'}</div>`;
+    return;
+  }
+
+  const rows = list.map(({ o }) => {
+    const st = o.status || 'wait';
+    const rowCls = st === 'cancel' ? ' style="opacity:.55"' : '';
+    const opts = Object.keys(PO_STATUS).map(k => `<option value="${k}"${k === st ? ' selected' : ''}>${PO_STATUS[k]}</option>`).join('');
+    return `<tr${rowCls}>
+      <td class="center">${esc(poDateLabel(o.date))}</td>
+      <td class="name">${esc(o.name)}</td>
+      <td>${o.set ? esc(o.set) : '<span class="muted">—</span>'}</td>
+      <td class="center">${o.lang ? `<span class="lang-badge">${esc(o.lang)}</span>` : '—'}</td>
+      <td class="num">${Number(o.qty) || 1}</td>
+      <td>${o.size ? esc(o.size) : '<span class="muted">—</span>'}</td>
+      <td class="num">${money(o.price)}</td>
+      <td class="num"><input class="po-dep" type="number" inputmode="decimal" value="${Number(o.deposit) || 0}" onchange="updatePreorderDeposit('${o.id}', this.value)"></td>
+      <td class="num">${money(poRemaining(o))}</td>
+      <td class="center"><select class="po-status po-status-${st}" onchange="updatePreorderStatus('${o.id}', this.value)">${opts}</select></td>
+      <td class="num">${poNum(poAvg(o))}</td>
+      <td>${o.source ? esc(o.source) : '<span class="muted">—</span>'}</td>
+      <td>${o.note ? esc(o.note) : '<span class="muted">—</span>'}</td>
+      <td class="center"><button class="po-icon" title="แก้ไข" onclick="openPreorderForm('${o.id}')">✏️</button><button class="po-icon" title="ลบ" onclick="deletePreorder('${o.id}')">🗑️</button></td>
+    </tr>`;
+  }).join('');
+
+  area.innerHTML = `<table>
+    <thead><tr>
+      <th class="center">วันที่</th>
+      <th>ชื่อสินค้า</th>
+      <th>รุ่น</th>
+      <th class="center">ภาษา</th>
+      <th class="num">จำนวน</th>
+      <th>ขนาด</th>
+      <th class="num">ราคา</th>
+      <th class="num">มัดจำ</th>
+      <th class="num">คงเหลือ</th>
+      <th class="center">สถานะ</th>
+      <th class="num">ราคาเฉลี่ย</th>
+      <th>สั่งจาก</th>
+      <th>หมายเหตุ</th>
+      <th></th>
+    </tr></thead>
+    <tbody>${rows}</tbody>
+  </table>`;
+}
+
 // ================= ยอดจุ่ม (ตู้จุ่ม) =================
 // แต่ละตู้: { id, name, slots(จำนวนใบ), price(ราคาต่อครั้ง), note, prizes:[{name, qty}] }
 const KEY_GACHA = 'psa_gacha_v1';
@@ -4134,12 +4420,15 @@ async function syncOnStart() {
   // ดึงข้อมูลตู้จุ่มจากเซิร์ฟเวอร์ (เก็บแยกจาก cards.json)
   await pullGacha();
   renderGacha();
+  // ดึงข้อมูลพรีออเดอร์จากเซิร์ฟเวอร์ (เก็บแยกจาก cards.json)
+  await pullPreorder();
+  renderPreorder();
 }
 
 // ---- จัดการผู้ใช้ (แอดมิน) ----
 let usersCache = [];
 function usersMsg(t, cls) { const e = document.getElementById('usersMsg'); e.textContent = t || ''; e.className = 'usersMsg ' + (cls || ''); }
-const TAB_NAME = { stock: 'สต็อก', sales: 'สินค้าขาย', report: 'รายงาน', buy: 'รับซื้อสินค้า', product: 'ข้อมูลสินค้า', gacha: 'ยอดจุ่ม' };
+const TAB_NAME = { stock: 'สต็อก', preorder: 'พรีออเดอร์', sales: 'สินค้าขาย', report: 'รายงาน', buy: 'รับซื้อสินค้า', product: 'ข้อมูลสินค้า', gacha: 'ยอดจุ่ม' };
 
 function renderUsersList() {
   const list = document.getElementById('usersList');
@@ -4268,7 +4557,10 @@ document.addEventListener('click', e => {
 document.getElementById('gachaOverlay').addEventListener('click', e => {
   if (e.target.id === 'gachaOverlay') closeGachaForm();
 });
-document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeLogin(); closePSASearch(); closeSale(); closeSplit(); closeProductEdit(); closeBuyConfirm(); closeBuyPopup(); closeGachaForm(); closeBuyEdit(); closeNewBuy(); closeSaleEdit(); } });
+document.getElementById('preorderOverlay').addEventListener('click', e => {
+  if (e.target.id === 'preorderOverlay') closePreorderForm();
+});
+document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeLogin(); closePSASearch(); closeSale(); closeSplit(); closeProductEdit(); closeBuyConfirm(); closeBuyPopup(); closeGachaForm(); closeBuyEdit(); closeNewBuy(); closeSaleEdit(); closePreorderForm(); } });
 
 render();
 applyPermissions(); // ตั้งเมนู/แถบตามสิทธิ์ + คงแถบเดิมหลัง F5
