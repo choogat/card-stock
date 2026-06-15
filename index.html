@@ -447,6 +447,16 @@
   .po-status-cancel { border-color: var(--danger); color: var(--danger); }
   .po-icon { background: none; border: none; cursor: pointer; font-size: 1rem; padding: 2px 4px; opacity: .8; }
   .po-icon:hover { opacity: 1; }
+  .po-table { table-layout: fixed; }
+  .po-table td { word-break: break-word; overflow-wrap: anywhere; padding: 9px 10px; }
+  .po-table td.num, .po-table td.center { white-space: nowrap; }
+  .po-table th { padding: 2px 10px 6px; }
+  .po-date { white-space: nowrap; }
+  .po-sortable { cursor: pointer; user-select: none; transition: color .12s; }
+  .po-sortable:hover { color: var(--text); }
+  .po-sortable .po-arrow { color: var(--accent); font-size: .7rem; }
+  .po-dep { width: 100%; box-sizing: border-box; }
+  .po-status { width: 100%; box-sizing: border-box; }
   .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
   .grid-topic-lang { display: grid; grid-template-columns: 3fr 1fr; gap: 12px; }
   .grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
@@ -3491,6 +3501,42 @@ function deletePreorder(id) {
   renderPreorder();
 }
 
+// คอลัมน์ของตารางพรีออเดอร์ (key ใช้เรียง · cls = จัดชิด · w = ความกว้าง)
+const PO_COLS = [
+  { key: 'date', label: 'วันที่', cls: 'po-date center', w: '78px' },
+  { key: 'name', label: 'ชื่อสินค้า', cls: 'name', w: '15%' },
+  { key: 'set', label: 'รุ่น', cls: '', w: '8%' },
+  { key: 'lang', label: 'ภาษา', cls: 'center', w: '52px' },
+  { key: 'qty', label: 'จำนวน', cls: 'num', w: '56px' },
+  { key: 'size', label: 'ขนาด', cls: '', w: '8%' },
+  { key: 'price', label: 'ราคา', cls: 'num', w: '9%' },
+  { key: 'deposit', label: 'มัดจำ', cls: 'num', w: '92px' },
+  { key: 'remaining', label: 'คงเหลือ', cls: 'num', w: '9%' },
+  { key: 'status', label: 'สถานะ', cls: 'center', w: '118px' },
+  { key: 'avg', label: 'ราคาเฉลี่ย', cls: 'num', w: '8%' },
+  { key: 'source', label: 'สั่งจาก', cls: '', w: '11%' },
+  { key: 'note', label: 'หมายเหตุ', cls: '', w: '12%' },
+];
+// poSort.key = คอลัมน์ที่กำลังเรียง (null = เรียงตามค่าเริ่มต้น: รอส่งของก่อน + วันล่าสุด)
+let poSort = { key: null, dir: 'desc' };
+function poSortBy(key) {
+  if (poSort.key === key) poSort.dir = (poSort.dir === 'desc' ? 'asc' : 'desc');
+  else { poSort.key = key; poSort.dir = 'desc'; } // กดครั้งแรก = สูงไปต่ำ
+  renderPreorder();
+}
+function poCellValue(o, key) {
+  switch (key) {
+    case 'qty': return Number(o.qty) || 0;
+    case 'price': return Number(o.price) || 0;
+    case 'deposit': return Number(o.deposit) || 0;
+    case 'remaining': return poRemaining(o);
+    case 'avg': return poAvg(o);
+    case 'status': return PO_STATUS[o.status || 'wait'] || '';
+    case 'date': return o.date || '';
+    default: return String(o[key] || '');
+  }
+}
+
 function renderPreorder() {
   const area = document.getElementById('preorderArea');
   if (!area) return;
@@ -3516,15 +3562,28 @@ function renderPreorder() {
       return terms.every(t => hay.includes(t));
     });
   }
-  // ลำดับ: รอส่งของ อยู่บน → รับแล้ว/ยกเลิก อยู่ล่าง · ภายในกลุ่มเดียวกัน วันล่าสุดอยู่บน
-  const rank = o => ((o.status || 'wait') === 'wait' ? 0 : 1);
-  list.sort((a, b) => {
-    const ra = rank(a.o), rb = rank(b.o);
-    if (ra !== rb) return ra - rb;
-    const da = a.o.date || '', db = b.o.date || '';
-    if (da !== db) return db.localeCompare(da); // วันล่าสุดก่อน
-    return b.i - a.i; // เพิ่มล่าสุดก่อน
-  });
+  if (poSort.key) {
+    // เรียงตามคอลัมน์ที่กดเลือก — เลขนับเป็นเลข, ตัวอักษรนับเป็นอักษร (รองรับไทย)
+    const mul = poSort.dir === 'asc' ? 1 : -1;
+    list.sort((a, b) => {
+      const va = poCellValue(a.o, poSort.key), vb = poCellValue(b.o, poSort.key);
+      let c;
+      if (typeof va === 'number' && typeof vb === 'number') c = va - vb;
+      else c = String(va).localeCompare(String(vb), 'th', { numeric: true });
+      if (c !== 0) return c * mul;
+      return b.i - a.i;
+    });
+  } else {
+    // ค่าเริ่มต้น: รอส่งของ อยู่บน → รับแล้ว/ยกเลิก อยู่ล่าง · ภายในกลุ่มเดียวกัน วันล่าสุดอยู่บน
+    const rank = o => ((o.status || 'wait') === 'wait' ? 0 : 1);
+    list.sort((a, b) => {
+      const ra = rank(a.o), rb = rank(b.o);
+      if (ra !== rb) return ra - rb;
+      const da = a.o.date || '', db = b.o.date || '';
+      if (da !== db) return db.localeCompare(da); // วันล่าสุดก่อน
+      return b.i - a.i; // เพิ่มล่าสุดก่อน
+    });
+  }
 
   if (list.length === 0) {
     area.innerHTML = `<div class="empty"><div class="big">📝</div>
@@ -3537,7 +3596,7 @@ function renderPreorder() {
     const rowCls = st === 'cancel' ? ' style="opacity:.55"' : '';
     const opts = Object.keys(PO_STATUS).map(k => `<option value="${k}"${k === st ? ' selected' : ''}>${PO_STATUS[k]}</option>`).join('');
     return `<tr${rowCls}>
-      <td class="center">${esc(poDateLabel(o.date))}</td>
+      <td class="po-date center">${esc(poDateLabel(o.date))}</td>
       <td class="name">${esc(o.name)}</td>
       <td>${o.set ? esc(o.set) : '<span class="muted">—</span>'}</td>
       <td class="center">${o.lang ? `<span class="lang-badge">${esc(o.lang)}</span>` : '—'}</td>
@@ -3554,23 +3613,16 @@ function renderPreorder() {
     </tr>`;
   }).join('');
 
-  area.innerHTML = `<table>
-    <thead><tr>
-      <th class="center">วันที่</th>
-      <th>ชื่อสินค้า</th>
-      <th>รุ่น</th>
-      <th class="center">ภาษา</th>
-      <th class="num">จำนวน</th>
-      <th>ขนาด</th>
-      <th class="num">ราคา</th>
-      <th class="num">มัดจำ</th>
-      <th class="num">คงเหลือ</th>
-      <th class="center">สถานะ</th>
-      <th class="num">ราคาเฉลี่ย</th>
-      <th>สั่งจาก</th>
-      <th>หมายเหตุ</th>
-      <th></th>
-    </tr></thead>
+  const cols = PO_COLS.map(c => `<col style="width:${c.w}">`).join('') + '<col style="width:56px">';
+  const ths = PO_COLS.map(c => {
+    const arrow = poSort.key === c.key ? `<span class="po-arrow">${poSort.dir === 'asc' ? ' ▲' : ' ▼'}</span>` : '';
+    const cls = ('po-sortable ' + (c.cls.includes('num') ? 'num' : c.cls.includes('center') ? 'center' : '')).trim();
+    return `<th class="${cls}" onclick="poSortBy('${c.key}')" title="กดเพื่อเรียงลำดับ">${c.label}${arrow}</th>`;
+  }).join('');
+
+  area.innerHTML = `<table class="po-table">
+    <colgroup>${cols}</colgroup>
+    <thead><tr>${ths}<th></th></tr></thead>
     <tbody>${rows}</tbody>
   </table>`;
 }
