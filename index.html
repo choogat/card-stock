@@ -3317,17 +3317,35 @@ function submitPreorder() {
 }
 // ---- โหลด/บันทึกจากไฟล์ Excel ----
 // โหลด SheetJS แบบ lazy เฉพาะตอนกดใช้งาน (ไม่ถ่วงเวลาเปิดแอปปกติ)
+// ลองหลาย CDN ตามลำดับ เผื่อบางตัวโดนบล็อก/เข้าไม่ได้
+const XLSX_CDNS = [
+  'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js',
+  'https://unpkg.com/xlsx@0.18.5/dist/xlsx.full.min.js',
+  'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js',
+  'https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js',
+];
 let _xlsxPromise = null;
+function loadScriptOnce(src) {
+  return new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = src; s.async = true;
+    s.onload = () => resolve();
+    s.onerror = () => { s.remove(); reject(new Error('เข้าไม่ได้: ' + src)); };
+    document.head.appendChild(s);
+  });
+}
 function loadXLSX() {
   if (window.XLSX) return Promise.resolve(window.XLSX);
   if (_xlsxPromise) return _xlsxPromise;
-  _xlsxPromise = new Promise((resolve, reject) => {
-    const s = document.createElement('script');
-    s.src = 'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';
-    s.onload = () => window.XLSX ? resolve(window.XLSX) : reject(new Error('XLSX ไม่พร้อม'));
-    s.onerror = () => { _xlsxPromise = null; reject(new Error('โหลดไลบรารีไม่สำเร็จ')); };
-    document.head.appendChild(s);
-  });
+  _xlsxPromise = (async () => {
+    let lastErr;
+    for (const src of XLSX_CDNS) {
+      try { await loadScriptOnce(src); if (window.XLSX) return window.XLSX; }
+      catch (e) { lastErr = e; }
+    }
+    _xlsxPromise = null;
+    throw lastErr || new Error('โหลดไลบรารีไม่สำเร็จ');
+  })();
   return _xlsxPromise;
 }
 // แปลงชื่อหัวคอลัมน์ (ไทย/อังกฤษ) → ฟิลด์ของเรา
@@ -3335,7 +3353,7 @@ function poFieldFromHeader(h) {
   const k = String(h || '').trim().toLowerCase().replace(/\s+/g, '');
   const map = {
     'วันที่': 'date', 'date': 'date',
-    'ชื่อสินค้า': 'name', 'ชื่อ': 'name', 'name': 'name', 'product': 'name',
+    'ชื่อสินค้า': 'name', 'ชื่อ': 'name', 'name': 'name', 'product': 'name', 'สินค้า': 'name',
     'รุ่น': 'set', 'set': 'set', 'model': 'set',
     'ภาษา': 'lang', 'lang': 'lang', 'language': 'lang',
     'จำนวน': 'qty', 'qty': 'qty', 'quantity': 'qty', 'amount': 'qty',
@@ -3343,7 +3361,7 @@ function poFieldFromHeader(h) {
     'ราคา': 'price', 'price': 'price',
     'มัดจำ': 'deposit', 'deposit': 'deposit',
     'คงเหลือ': '_skip', 'ราคาเฉลี่ย': '_skip',
-    'สั่งจาก': 'source', 'source': 'source', 'orderfrom': 'source',
+    'สั่งจาก': 'source', 'source': 'source', 'orderfrom': 'source', 'คนสั่ง': 'source', 'ผู้สั่ง': 'source', 'ลูกค้า': 'source',
     'หมายเหตุ': 'note', 'note': 'note', 'remark': 'note', 'remarks': 'note',
     'สถานะ': 'status', 'status': 'status',
   };
@@ -3384,22 +3402,38 @@ async function onPickPreorderExcel(e) {
   let XLSX;
   try { XLSX = await loadXLSX(); }
   catch (err) { alert('โหลดตัวอ่านไฟล์ Excel ไม่สำเร็จ — ตรวจสอบอินเทอร์เน็ตแล้วลองใหม่'); return; }
-  let rows;
+  let aoa;
   try {
     const buf = await file.arrayBuffer();
     const wb = XLSX.read(buf, { type: 'array', cellDates: true });
     const ws = wb.Sheets[wb.SheetNames[0]];
-    rows = XLSX.utils.sheet_to_json(ws, { defval: '' });
+    // อ่านเป็นตาราง (แถว×คอลัมน์) เพื่อหาแถวหัวตารางเอง — รองรับไฟล์ที่มีแถว/คอลัมน์ว่างนำหน้า
+    aoa = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '', cellDates: true });
   } catch (err) { alert('อ่านไฟล์ไม่สำเร็จ: ' + (err.message || err)); return; }
-  if (!rows || !rows.length) { alert('ไม่พบข้อมูลในไฟล์'); return; }
+  if (!aoa || !aoa.length) { alert('ไม่พบข้อมูลในไฟล์'); return; }
+
+  // หา "แถวหัวตาราง" = แถวแรกที่จับคู่คอลัมน์ที่รู้จักได้ตั้งแต่ 2 ช่องขึ้นไป
+  let hdrRow = -1, colMap = null;
+  for (let i = 0; i < aoa.length; i++) {
+    const cells = aoa[i] || [];
+    const m = {}; let hits = 0;
+    for (let c = 0; c < cells.length; c++) {
+      const f = poFieldFromHeader(cells[c]);
+      if (f) { m[c] = f; if (f !== '_skip') hits++; }
+    }
+    if (hits >= 2) { hdrRow = i; colMap = m; break; }
+  }
+  if (hdrRow < 0) { alert('ไม่พบหัวตารางในไฟล์ — ต้องมีคอลัมน์เช่น ชื่อสินค้า / ราคา / จำนวน'); return; }
 
   const added = [];
   let skipped = 0;
-  for (const r of rows) {
+  for (let i = hdrRow + 1; i < aoa.length; i++) {
+    const cells = aoa[i] || [];
+    if (!cells.some(v => String(v == null ? '' : v).trim() !== '')) continue; // ข้ามแถวว่างทั้งแถว
     const o = {};
-    for (const key in r) {
-      const f = poFieldFromHeader(key);
-      if (f && f !== '_skip') o[f] = r[key];
+    for (const c in colMap) {
+      const f = colMap[c];
+      if (f !== '_skip') o[f] = cells[c];
     }
     const name = String(o.name || '').trim();
     if (!name) { skipped++; continue; }
