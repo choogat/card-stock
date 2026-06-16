@@ -914,6 +914,21 @@
       </div>
     </div>
     <div class="grid2">
+      <div class="field"><label>เรื่อง</label>
+        <select id="nb_topic">
+          <option value="">- เลือกเรื่อง -</option>
+          <option value="One Piece">One Piece</option>
+          <option value="Pokémon">Pokémon</option>
+          <option value="Locana">Locana</option>
+          <option value="Dragon ball">Dragon ball</option>
+          <option value="โคนัน">โคนัน</option>
+          <option value="YU GI HO">YU GI HO</option>
+          <option value="Solo Leveling">Solo Leveling</option>
+        </select>
+      </div>
+      <div class="field"><label>หมายเลข PSA</label><input id="nb_cert" inputmode="numeric" placeholder="เลข cert PSA"></div>
+    </div>
+    <div class="grid2">
       <div class="field"><label>ชื่อการ์ด</label><input id="nb_name" placeholder="ชื่อการ์ด"></div>
       <div class="field"><label>วันที่ซื้อ</label><input id="nb_date" type="date"></div>
     </div>
@@ -1978,6 +1993,8 @@ function confirmBuy() {
 // ---- สร้างรายการรับซื้อเอง (กรอกรูป/ชื่อ/ชำระ/ราคา แล้วบันทึก) ----
 function openNewBuy() {
   document.getElementById('nb_name').value = '';
+  document.getElementById('nb_topic').value = '';
+  document.getElementById('nb_cert').value = '';
   document.getElementById('nb_amount').value = '';
   document.getElementById('nb_payment').value = 'cash';
   document.getElementById('nb_date').value = todayISO();
@@ -2022,8 +2039,10 @@ function saveNewBuy() {
   const payment = document.getElementById('nb_payment').value || 'cash';
   const image = document.getElementById('nb_image').value || '';
   const date = document.getElementById('nb_date').value || todayISO();
+  const topic = document.getElementById('nb_topic').value || '';
+  const cert = document.getElementById('nb_cert').value.trim();
   const newCard = {
-    id: uid(), type: 'card', name, image,
+    id: uid(), type: 'card', name, image, topic, cert,
     buy: amount, buyPayment: payment, buyDate: date, buyTime: nowHM(),
     viaBuy: true, status: 'show', qty: 1, discount: 0,
   };
