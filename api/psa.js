@@ -7,6 +7,10 @@
 // แคช 2 ชั้นกันโดน PSA จำกัดโควต้า (429):
 //   1) in-memory ต่อ lambda (เร็วสุด)
 //   2) Vercel Blob ถาวร (psa-cache/<cert>.json) — cert ที่เคยดึงแล้วจะไม่เรียก PSA ซ้ำอีกเลย
+//
+// Token rotation: ใส่ได้หลาย token ผ่าน env — PSA_TOKEN, PSA_TOKEN2, PSA_TOKEN3, ...
+//   (หรือ PSA_TOKENS = หลายอันคั่นด้วย comma). พอ token หนึ่งโดนจำกัด (429/401/403)
+//   จะสลับไปใช้ตัวถัดไปอัตโนมัติ เพราะโควต้าแยกตาม token. ถ้ามีตัวเดียว ทำงานเหมือนเดิม.
 
 import { put, list } from '@vercel/blob';
 
@@ -18,18 +22,34 @@ const memCache = {}; // cert -> { at, data }
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const blobOpts = () => { const t = process.env.BLOB_READ_WRITE_TOKEN; return t ? { token: t } : {}; };
 
-// เรียก PSA พร้อม retry เมื่อโดน rate limit (429) — เคารพ Retry-After ถ้ามี
-async function psaFetch(url, headers, tries = 3) {
-  let resp;
-  for (let i = 0; i < tries; i++) {
-    resp = await fetch(url, { headers });
-    if (resp.status !== 429) return resp;
-    if (i === tries - 1) break;
-    const ra = parseFloat(resp.headers.get('retry-after'));
-    const waitMs = Number.isFinite(ra) ? Math.min(ra * 1000, 8000) : 800 * Math.pow(2, i);
-    await sleep(waitMs);
+// รวบรวม token ทั้งหมดจาก env (PSA_TOKEN, PSA_TOKEN2..PSA_TOKEN10, PSA_TOKENS)
+function getTokens() {
+  const list = [];
+  const push = (v) => { if (v && typeof v === 'string') v.split(',').forEach((t) => { const s = t.trim(); if (s) list.push(s); }); };
+  push(process.env.PSA_TOKEN);
+  for (let i = 2; i <= 10; i++) push(process.env['PSA_TOKEN' + i]);
+  push(process.env.PSA_TOKENS);
+  return [...new Set(list)];
+}
+
+// เรียก PSA โดยหมุนหลาย token — token ไหนโดนจำกัด (429) หรือใช้ไม่ได้ (401/403) ก็ข้ามไปตัวถัดไป
+// ถ้าทุก token โดน 429 จะ backoff ตาม Retry-After แล้วลองใหม่ (เผื่อ 429 ชั่วคราว)
+async function psaFetch(url, tokens, tries = 2) {
+  let lastResp = null, limited = null;
+  for (let attempt = 0; attempt < tries; attempt++) {
+    for (const tk of tokens) {
+      const resp = await fetch(url, { headers: { Authorization: `Bearer ${tk}`, Accept: 'application/json' } });
+      if (resp.status === 429) { limited = resp; lastResp = resp; continue; } // token นี้เต็ม → ลองตัวถัดไป
+      if (resp.status === 401 || resp.status === 403) { lastResp = resp; continue; } // token เสีย → ลองตัวถัดไป
+      return resp; // สำเร็จ (หรือ error อื่นที่ไม่เกี่ยวกับลิมิต) — ใช้เลย
+    }
+    // ทุก token รอบนี้ใช้ไม่ได้ — ถ้ายังมีรอบเหลือและมีอย่างน้อยตัวที่ 429 ค่อย backoff แล้วลองใหม่
+    if (attempt < tries - 1 && limited) {
+      const ra = parseFloat(limited.headers.get('retry-after'));
+      await sleep(Number.isFinite(ra) ? Math.min(ra * 1000, 8000) : 800 * Math.pow(2, attempt));
+    } else break;
   }
-  return resp;
+  return limited || lastResp;
 }
 
 // อ่าน/เขียนแคชถาวรบน Blob — ล้มเหลวไม่เป็นไร (ค่อยไปเรียก PSA ตรง)
@@ -59,8 +79,8 @@ export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   if (req.method === 'OPTIONS') { res.status(204).end(); return; }
 
-  const token = process.env.PSA_TOKEN;
-  if (!token) {
+  const tokens = getTokens();
+  if (!tokens.length) {
     res.status(500).json({ error: 'ยังไม่ได้ตั้งค่า PSA_TOKEN ในเซิร์ฟเวอร์' });
     return;
   }
@@ -87,11 +107,9 @@ export default async function handler(req, res) {
     return;
   }
 
-  const headers = { Authorization: `Bearer ${token}`, Accept: 'application/json' };
-
   try {
     // ข้อมูลการ์ด
-    const certResp = await psaFetch(`${PSA_BASE}/cert/GetByCertNumber/${cert}`, headers);
+    const certResp = await psaFetch(`${PSA_BASE}/cert/GetByCertNumber/${cert}`, tokens);
     if (certResp.status === 401 || certResp.status === 403) {
       res.status(502).json({ error: 'token PSA ไม่ถูกต้องหรือหมดสิทธิ์' });
       return;
@@ -122,7 +140,7 @@ export default async function handler(req, res) {
     // รูปการ์ด (อาจไม่มีในบางใบ) — 429 ตรงนี้ไม่ทำให้ทั้งคำขอล้ม
     let frontImage = '', backImage = '';
     try {
-      const imgResp = await psaFetch(`${PSA_BASE}/cert/GetImagesByCertNumber/${cert}`, headers, 2);
+      const imgResp = await psaFetch(`${PSA_BASE}/cert/GetImagesByCertNumber/${cert}`, tokens, 1);
       if (imgResp.ok) {
         const imgs = await imgResp.json();
         if (Array.isArray(imgs)) {
