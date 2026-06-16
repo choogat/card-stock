@@ -449,6 +449,8 @@
   /* รับสินค้าแล้ว → ทั้งแถวเป็นแถบสีเทา · ยกเลิก → จางลง */
   .po-table tr.po-row-received td { background: #e7e9f0; color: var(--muted); }
   .po-table tr.po-row-cancel { opacity: .55; }
+  /* รอส่งของ + ถึงวันที่ได้รับของแล้ว → ทั้งแถวเหลืองอ่อน */
+  .po-table tr.po-row-due td { background: #FFF44F; color: #1c2333; }
   .po-icon { background: none; border: none; cursor: pointer; font-size: 1rem; padding: 2px 4px; opacity: .8; }
   .po-icon:hover { opacity: 1; }
   .po-table { table-layout: fixed; }
@@ -3623,7 +3625,9 @@ function renderPreorder() {
   poLastList = list.map(x => x.o); // เก็บไว้ใช้ตอน Download
   const rows = list.map(({ o }) => {
     const st = o.status || 'wait';
-    const trCls = st === 'received' ? ' class="po-row-received"' : st === 'cancel' ? ' class="po-row-cancel"' : '';
+    // รอส่งของ + ถึง/เลย "วันที่ได้รับของ" แล้ว → ทั้งแถวเหลืองอ่อน (เตือนของถึงกำหนดแต่ยังไม่รับ)
+    const due = st === 'wait' && o.recvDate && o.recvDate <= todayStr();
+    const trCls = st === 'received' ? ' class="po-row-received"' : st === 'cancel' ? ' class="po-row-cancel"' : due ? ' class="po-row-due"' : '';
     const opts = Object.keys(PO_STATUS).map(k => `<option value="${k}"${k === st ? ' selected' : ''}>${PO_STATUS[k]}</option>`).join('');
     return `<tr${trCls}>
       <td class="po-date center">${esc(poDateLabel(o.date))}</td>
