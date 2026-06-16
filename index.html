@@ -442,9 +442,13 @@
   .po-dep:focus { outline: none; border-color: var(--accent); }
   .po-status { background: var(--bg); border: 1px solid var(--border); color: var(--text); padding: 6px 8px; border-radius: 8px; font-size: .82rem; cursor: pointer; }
   .po-status:focus { outline: none; border-color: var(--accent); }
-  .po-status-wait { border-color: var(--accent); color: var(--accent); }
-  .po-status-received { border-color: #2bbf7a; color: #2bbf7a; }
-  .po-status-cancel { border-color: var(--danger); color: var(--danger); }
+  .po-status-wait { background: #e6b23a; color: #fff; border-color: #e6b23a; font-weight: 600; }
+  .po-status-received { background: #54b878; color: #fff; border-color: #54b878; font-weight: 600; }
+  .po-status-cancel { background: #e8707b; color: #fff; border-color: #e8707b; font-weight: 600; }
+  .po-status option { color: var(--text); background: var(--card); font-weight: 400; }
+  /* รับสินค้าแล้ว → ทั้งแถวเป็นแถบสีเทา · ยกเลิก → จางลง */
+  .po-table tr.po-row-received td { background: #e7e9f0; color: var(--muted); }
+  .po-table tr.po-row-cancel { opacity: .55; }
   .po-icon { background: none; border: none; cursor: pointer; font-size: 1rem; padding: 2px 4px; opacity: .8; }
   .po-icon:hover { opacity: 1; }
   .po-table { table-layout: fixed; }
@@ -639,9 +643,6 @@
     </div>
     <div class="toolbar">
       <button class="btn btn-primary" onclick="openPreorderForm()">+ Pre Order</button>
-      <button class="btn btn-ghost" onclick="document.getElementById('poExcelFile').click()">📥 โหลดจาก Excel</button>
-      <button class="btn btn-ghost" onclick="downloadPreorderTemplate()">⬇️ เทมเพลต Excel</button>
-      <input type="file" id="poExcelFile" accept=".xlsx,.xls,.csv" style="display:none" onchange="onPickPreorderExcel(event)">
       <input class="search" id="poSearch" placeholder="ค้นหา ชื่อสินค้า / รุ่น / ภาษา / สั่งจาก..." oninput="renderPreorder()">
       <select class="filter" id="poStatusFilter" onchange="renderPreorder()">
         <option value="">ทุกสถานะ</option>
@@ -649,6 +650,9 @@
         <option value="received">รับสินค้าแล้ว</option>
         <option value="cancel">ยกเลิก</option>
       </select>
+      <button class="btn btn-ghost" onclick="document.getElementById('poExcelFile').click()">📥 โหลดจาก Excel</button>
+      <button class="btn btn-ghost" onclick="downloadPreorderExcel()">⬇️ Download</button>
+      <input type="file" id="poExcelFile" accept=".xlsx,.xls,.csv" style="display:none" onchange="onPickPreorderExcel(event)">
     </div>
     <div id="preorderArea"></div>
   </div><!-- /viewPreorder -->
@@ -882,7 +886,10 @@
       <div class="field"><label>มัดจำ (฿)</label><input id="po_deposit" type="number" inputmode="decimal" placeholder="0"></div>
       <div class="field"><label>สั่งจาก</label><input id="po_source" placeholder="ร้าน/แหล่งที่สั่ง"></div>
     </div>
-    <div class="field"><label>หมายเหตุ</label><input id="po_note" placeholder="(ไม่บังคับ)"></div>
+    <div class="grid2">
+      <div class="field"><label>วันที่ได้รับของ</label><input id="po_recvDate" type="date"></div>
+      <div class="field"><label>หมายเหตุ</label><input id="po_note" placeholder="(ไม่บังคับ)"></div>
+    </div>
     <div class="psa-msg" id="poFormMsg"></div>
     <div class="modal-actions">
       <button class="btn btn-ghost" onclick="closePreorderForm()">ยกเลิก</button>
@@ -3297,6 +3304,7 @@ function openPreorderForm(id) {
   document.getElementById('po_price').value = o ? (o.price ?? '') : '';
   document.getElementById('po_deposit').value = o ? (o.deposit ?? '') : '';
   document.getElementById('po_source').value = o ? (o.source || '') : '';
+  document.getElementById('po_recvDate').value = o ? (o.recvDate || '') : '';
   document.getElementById('po_note').value = o ? (o.note || '') : '';
   document.getElementById('poFormMsg').textContent = '';
   document.getElementById('preorderOverlay').classList.add('open');
@@ -3316,6 +3324,7 @@ function submitPreorder() {
     price: Number(document.getElementById('po_price').value) || 0,
     deposit: Number(document.getElementById('po_deposit').value) || 0,
     source: document.getElementById('po_source').value.trim(),
+    recvDate: document.getElementById('po_recvDate').value || '',
     note: document.getElementById('po_note').value.trim(),
   };
   const existing = idRaw ? preorders.find(x => x.id === idRaw) : null;
@@ -3363,6 +3372,7 @@ function poFieldFromHeader(h) {
   const k = String(h || '').trim().toLowerCase().replace(/\s+/g, '');
   const map = {
     'วันที่': 'date', 'date': 'date',
+    'วันที่ได้รับของ': 'recvDate', 'วันที่รับของ': 'recvDate', 'วันรับของ': 'recvDate', 'receiveddate': 'recvDate', 'recvdate': 'recvDate',
     'ชื่อสินค้า': 'name', 'ชื่อ': 'name', 'name': 'name', 'product': 'name', 'สินค้า': 'name',
     'รุ่น': 'set', 'set': 'set', 'model': 'set',
     'ภาษา': 'lang', 'lang': 'lang', 'language': 'lang',
@@ -3458,6 +3468,7 @@ async function onPickPreorderExcel(e) {
       price: poParseNum(o.price),
       deposit: poParseNum(o.deposit),
       source: String(o.source || '').trim(),
+      recvDate: o.recvDate ? poParseDateCell(o.recvDate) : '',
       note: String(o.note || '').trim(),
       status: poParseStatus(o.status),
     });
@@ -3469,17 +3480,29 @@ async function onPickPreorderExcel(e) {
   renderPreorder();
   alert('เพิ่มแล้ว ' + added.length + ' รายการ');
 }
-async function downloadPreorderTemplate() {
+// ดาวน์โหลดหน้าพรีออเดอร์ปัจจุบัน (ตามที่กรอง/เรียงอยู่) เป็นไฟล์ Excel
+async function downloadPreorderExcel() {
+  if (!preorders.length) { alert('ยังไม่มีรายการให้ดาวน์โหลด'); return; }
   let XLSX;
   try { XLSX = await loadXLSX(); }
   catch (err) { alert('โหลดตัวสร้างไฟล์ Excel ไม่สำเร็จ — ตรวจสอบอินเทอร์เน็ตแล้วลองใหม่'); return; }
-  const headers = ['วันที่', 'ชื่อสินค้า', 'รุ่น', 'ภาษา', 'จำนวน', 'ขนาด', 'ราคา', 'มัดจำ', 'สั่งจาก', 'หมายเหตุ', 'สถานะ'];
-  const example = ['2026-06-16', 'One Piece Booster Box', 'OP09', 'JP', 1, 'Booster Box', 3500, 1000, 'ร้าน ABC', 'จองล่วงหน้า', 'รอส่งของ'];
-  const ws = XLSX.utils.aoa_to_sheet([headers, example]);
-  ws['!cols'] = headers.map(() => ({ wch: 16 }));
+  const list = (poLastList && poLastList.length) ? poLastList : preorders;
+  const headers = ['วันที่', 'ชื่อสินค้า', 'รุ่น', 'ภาษา', 'จำนวน', 'ขนาด', 'ราคา', 'มัดจำ', 'คงเหลือ', 'สถานะ', 'ราคาเฉลี่ย', 'สั่งจาก', 'วันที่ได้รับของ', 'หมายเหตุ'];
+  const aoa = [headers];
+  list.forEach(o => {
+    aoa.push([
+      o.date || '', o.name || '', o.set || '', o.lang || '', Number(o.qty) || 0, o.size || '',
+      Number(o.price) || 0, Number(o.deposit) || 0, poRemaining(o),
+      PO_STATUS[o.status || 'wait'] || '', Number(poAvg(o).toFixed(2)),
+      o.source || '', o.recvDate || '', o.note || '',
+    ]);
+  });
+  const ws = XLSX.utils.aoa_to_sheet(aoa);
+  ws['!cols'] = headers.map((h, i) => ({ wch: (i === 1 ? 28 : i === 11 || i === 13 ? 20 : 14) }));
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'Preorder');
-  XLSX.writeFile(wb, 'preorder-template.xlsx');
+  const d = todayStr();
+  XLSX.writeFile(wb, 'preorder-' + d + '.xlsx');
 }
 function updatePreorderDeposit(id, val) {
   const o = preorders.find(x => x.id === id); if (!o) return;
@@ -3514,11 +3537,16 @@ const PO_COLS = [
   { key: 'remaining', label: 'คงเหลือ', cls: 'num', w: '9%' },
   { key: 'status', label: 'สถานะ', cls: 'center', w: '116px' },
   { key: 'avg', label: 'ราคาเฉลี่ย', cls: 'num', w: '8%' },
-  { key: 'source', label: 'สั่งจาก', cls: '', w: '13%' },
-  { key: 'note', label: 'หมายเหตุ', cls: '', w: '13%' },
+  { key: 'source', label: 'สั่งจาก', cls: '', w: '12%' },
+  { key: 'recvDate', label: 'วันที่ได้รับของ', cls: 'po-date center', w: '92px' },
+  { key: 'note', label: 'หมายเหตุ', cls: '', w: '11%' },
 ];
+// ลำดับสถานะตอนเรียง: รอส่งของ(สูงสุด) > ยกเลิก > รับสินค้าแล้ว(ต่ำสุด)
+// กดครั้งแรก(desc) = รอส่งของ→ยกเลิก→รับแล้ว · กดอีกครั้ง(asc) = รับแล้ว→ยกเลิก→รอส่งของ
+const PO_STATUS_RANK = { wait: 2, cancel: 1, received: 0 };
 // poSort.key = คอลัมน์ที่กำลังเรียง (null = เรียงตามค่าเริ่มต้น: รอส่งของก่อน + วันล่าสุด)
 let poSort = { key: null, dir: 'desc' };
+let poLastList = []; // รายการที่แสดงอยู่ล่าสุด (ไว้ใช้ตอน Download)
 function poSortBy(key) {
   if (poSort.key === key) poSort.dir = (poSort.dir === 'desc' ? 'asc' : 'desc');
   else { poSort.key = key; poSort.dir = 'desc'; } // กดครั้งแรก = สูงไปต่ำ
@@ -3531,8 +3559,9 @@ function poCellValue(o, key) {
     case 'deposit': return Number(o.deposit) || 0;
     case 'remaining': return poRemaining(o);
     case 'avg': return poAvg(o);
-    case 'status': return PO_STATUS[o.status || 'wait'] || '';
+    case 'status': return PO_STATUS_RANK[o.status || 'wait'] ?? 0;
     case 'date': return o.date || '';
+    case 'recvDate': return o.recvDate || '';
     default: return String(o[key] || '');
   }
 }
@@ -3591,11 +3620,12 @@ function renderPreorder() {
     return;
   }
 
+  poLastList = list.map(x => x.o); // เก็บไว้ใช้ตอน Download
   const rows = list.map(({ o }) => {
     const st = o.status || 'wait';
-    const rowCls = st === 'cancel' ? ' style="opacity:.55"' : '';
+    const trCls = st === 'received' ? ' class="po-row-received"' : st === 'cancel' ? ' class="po-row-cancel"' : '';
     const opts = Object.keys(PO_STATUS).map(k => `<option value="${k}"${k === st ? ' selected' : ''}>${PO_STATUS[k]}</option>`).join('');
-    return `<tr${rowCls}>
+    return `<tr${trCls}>
       <td class="po-date center">${esc(poDateLabel(o.date))}</td>
       <td class="name">${esc(o.name)}</td>
       <td>${o.set ? esc(o.set) : '<span class="muted">—</span>'}</td>
@@ -3608,6 +3638,7 @@ function renderPreorder() {
       <td class="center"><select class="po-status po-status-${st}" onchange="updatePreorderStatus('${o.id}', this.value)">${opts}</select></td>
       <td class="num">${poNum(poAvg(o))}</td>
       <td>${o.source ? esc(o.source) : '<span class="muted">—</span>'}</td>
+      <td class="po-date center">${o.recvDate ? esc(poDateLabel(o.recvDate)) : '<span class="muted">—</span>'}</td>
       <td>${o.note ? esc(o.note) : '<span class="muted">—</span>'}</td>
       <td class="center"><button class="po-icon" title="แก้ไข" onclick="openPreorderForm('${o.id}')">✏️</button><button class="po-icon" title="ลบ" onclick="deletePreorder('${o.id}')">🗑️</button></td>
     </tr>`;
