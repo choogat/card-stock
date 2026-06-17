@@ -2159,7 +2159,7 @@ function renderBuyList() {
   if (dateEl && !dateEl.value) dateEl.value = todayISO();
   const sel = dateEl ? dateEl.value : todayISO();
   const idx = new Map(cards.map((c, i) => [c.id, i]));
-  const list = cards.filter(c => c.viaBuy && (c.buyDate || '') === sel && inShopScope(c)).sort((a, b) => idx.get(b.id) - idx.get(a.id));
+  const list = cards.filter(c => c.viaBuy && (c.buyDate || '') === sel && inShopScopeStrict(c)).sort((a, b) => idx.get(b.id) - idx.get(a.id));
   const canEdit = canEditBuy(); // แอดมิน/ผู้ช่วยที่ได้รับอนุญาต — โชว์ปุ่มแก้ไข/ลบ
   let n = 0, cash = 0, transfer = 0;
   const rows = list.map(c => {
@@ -2258,7 +2258,7 @@ function renderReport() {
   const day = dateEl.value;
 
   // รายการที่ขายในวันนั้น — ผู้ช่วยเห็นเฉพาะที่ตัวเองขาย / แอดมินเห็นทั้งหมด
-  let sold = cards.filter(c => c.status === 'sold' && (c.sellDate || '') === day && inShopScope(c));
+  let sold = cards.filter(c => c.status === 'sold' && (c.sellDate || '') === day && inShopScopeSold(c));
   // ทุกคนเห็นรายการขายครบเหมือนแอดมิน (เดิมผู้ช่วยเห็นเฉพาะที่ตัวเองขาย)
   const counted = sold.filter(c => !c.cancelled);
   const cancelledN = sold.length - counted.length;
@@ -3414,10 +3414,21 @@ const SHOP_FEATURES = [
   { key: 'gacha', label: 'จุ่มสินค้า', view: 'viewGacha' },
 ];
 // อยู่ในขอบเขตร้านที่เลือกไหม (null = ดูรวมทุกร้าน → ผ่านหมด)
-// shopId === '__all__' = ตั้งให้โชว์ในทุกร้าน
+// shopId === '__all__' = ตั้งให้โชว์ในทุกร้าน — ใช้กับแถบ "สินค้าขาย"
 function inShopScope(c) {
   if (!viewShopId) return true;
   return !!c && (c.shopId === viewShopId || c.shopId === '__all__');
+}
+// เข้มงวด: เฉพาะของร้านนี้จริง ๆ (ไม่รวม "ทุกร้าน") — ใช้กับ รับซื้อ/จุ่มสินค้า
+function inShopScopeStrict(c) {
+  if (!viewShopId) return true;
+  return !!c && c.shopId === viewShopId;
+}
+// รายงานการขาย: ดูจาก "ร้านที่ขายจริง" (soldShopId) ถ้าไม่มีค่อยใช้ shopId
+function inShopScopeSold(c) {
+  if (!viewShopId) return true;
+  const sid = (c && c.soldShopId != null && c.soldShopId !== '') ? c.soldShopId : (c && c.shopId);
+  return sid === viewShopId;
 }
 function shopById(id) { return shops.find(s => s.id === id); }
 
@@ -4174,7 +4185,7 @@ function renderGacha() {
   // ผู้ช่วยที่ตั้ง "ดูอย่างเดียว" — ซ่อนปุ่มสร้างตู้
   const tools = document.getElementById('gachaTools');
   if (tools) tools.style.display = canEditGacha() ? '' : 'none';
-  const scopedIdxs = gachaBoxes.map((b, i) => inShopScope(b) ? i : -1).filter(i => i >= 0);
+  const scopedIdxs = gachaBoxes.map((b, i) => inShopScopeStrict(b) ? i : -1).filter(i => i >= 0);
   if (!scopedIdxs.length) {
     area.innerHTML = '<div class="empty"><div class="big">🎲</div>ยังไม่มีตู้จุ่ม — กด “+ สร้างตู้จุ่ม” เพื่อเริ่ม</div>';
     return;
