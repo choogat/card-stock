@@ -554,6 +554,7 @@
       <button class="nav-item" data-view="buy" onclick="switchView('buy')">🛒 รับซื้อสินค้า</button>
       <button class="nav-item" data-view="product" onclick="switchView('product')">📋 ข้อมูลสินค้า</button>
       <button class="nav-item" data-view="gacha" onclick="switchView('gacha')">🎲 ยอดจุ่ม</button>
+      <button class="nav-item" data-view="shop" onclick="switchView('shop')">🏬 ร้านค้า</button>
       <button class="nav-item" data-view="users" onclick="switchView('users')" style="display:none">👥 ผู้ใช้งาน</button>
     </nav>
     <div class="sidebar-foot">
@@ -775,6 +776,13 @@
     </div>
   </div><!-- /viewGacha -->
 
+  <div id="viewShop" style="display:none">
+    <h2 class="view-title">🏬 ร้านค้า</h2>
+    <div class="product-section">
+      <div class="empty"><div class="big">🏬</div>หน้าร้านค้า — ยังไม่มีเนื้อหา<br><span style="font-size:.85rem">บอกได้เลยว่าอยากให้หน้านี้มีอะไรบ้าง</span></div>
+    </div>
+  </div><!-- /viewShop -->
+
   <div id="viewUsers" style="display:none">
     <h2 class="view-title">👥 จัดการผู้ใช้งาน</h2>
     <p style="color:var(--muted);font-size:.9rem;margin-bottom:16px">สร้างผู้ช่วย กำหนด ID/รหัสผ่าน และเลือกแถบที่เข้าได้</p>
@@ -793,6 +801,7 @@
           <label><input type="checkbox" id="u_tab_buy" value="buy"> 🛒 รับซื้อสินค้า</label>
           <label><input type="checkbox" id="u_tab_product" value="product"> 📋 ข้อมูลสินค้า</label>
           <label><input type="checkbox" id="u_tab_gacha" value="gacha"> 🎲 ยอดจุ่ม</label>
+          <label><input type="checkbox" id="u_tab_shop" value="shop"> 🏬 ร้านค้า</label>
         </div>
       </div>
       <div class="field">
@@ -1313,7 +1322,7 @@ const OPIMG_API = API_BASE + '/opimg';
 const GACHA_API = API_BASE + '/gacha';
 const PREORDER_API = API_BASE + '/preorder';
 function opImgUrl(u) { return `${OPIMG_API}?url=${encodeURIComponent(u)}`; }
-const ALL_TABS = ['stock', 'preorder', 'sales', 'report', 'buy', 'product', 'gacha'];
+const ALL_TABS = ['stock', 'preorder', 'sales', 'report', 'buy', 'product', 'gacha', 'shop'];
 let passcode = localStorage.getItem('app_pass') || '';
 let loginId = localStorage.getItem('app_id') || '';
 let userRole = localStorage.getItem('app_role') || '';
@@ -1768,6 +1777,7 @@ function switchView(view) {
   document.getElementById('viewBuy').style.display = view === 'buy' ? '' : 'none';
   document.getElementById('viewProduct').style.display = view === 'product' ? '' : 'none';
   document.getElementById('viewGacha').style.display = view === 'gacha' ? '' : 'none';
+  document.getElementById('viewShop').style.display = view === 'shop' ? '' : 'none';
   document.getElementById('viewUsers').style.display = view === 'users' ? '' : 'none';
   // เมนูย่อย "สต็อกการ์ดขายแล้ว" → โผล่เมื่ออยู่ในกลุ่มสต็อก (กดสต็อกการ์ดก่อน)
   const navSold = document.getElementById('navSoldStock');
@@ -4692,7 +4702,7 @@ async function syncOnStart() {
 // ---- จัดการผู้ใช้ (แอดมิน) ----
 let usersCache = [];
 function usersMsg(t, cls) { const e = document.getElementById('usersMsg'); e.textContent = t || ''; e.className = 'usersMsg ' + (cls || ''); }
-const TAB_NAME = { stock: 'สต็อก', preorder: 'พรีออเดอร์', sales: 'สินค้าขาย', report: 'รายงาน', buy: 'รับซื้อสินค้า', product: 'ข้อมูลสินค้า', gacha: 'ยอดจุ่ม' };
+const TAB_NAME = { stock: 'สต็อก', preorder: 'พรีออเดอร์', sales: 'สินค้าขาย', report: 'รายงาน', buy: 'รับซื้อสินค้า', product: 'ข้อมูลสินค้า', gacha: 'ยอดจุ่ม', shop: 'ร้านค้า' };
 
 function renderUsersList() {
   const list = document.getElementById('usersList');
