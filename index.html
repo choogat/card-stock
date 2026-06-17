@@ -67,6 +67,8 @@
     font-size: .95rem; color: var(--text);
   }
   .shop-banner .shop-meta { color: var(--muted); font-size: .85rem; }
+  .sale-shop-list { display: flex; flex-direction: column; gap: 8px; max-height: 320px; overflow-y: auto; }
+  .sale-shop-opt { width: 100%; text-align: left; }
   .sidebar-foot { margin-top: 12px; padding-top: 14px; border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 10px; align-items: flex-start; }
   .main { flex: 1; min-width: 0; }
   .view-title { font-size: 1.4rem; margin-bottom: 6px; }
@@ -953,6 +955,18 @@
       <button class="btn btn-danger" id="shopDeleteBtn" style="display:none;flex:0 0 auto" onclick="deleteShopFromForm()">ลบ</button>
       <button class="btn btn-ghost" onclick="closeShopForm()">ยกเลิก</button>
       <button class="btn btn-primary" onclick="submitShop()">บันทึก</button>
+    </div>
+  </div>
+</div>
+
+<!-- สต็อก: เลือกร้านตอนติ๊ก "สินค้าขาย" -->
+<div class="overlay" id="saleShopOverlay">
+  <div class="modal" style="max-width:360px">
+    <h2>🏷️ ส่งไปขายที่ร้านไหน</h2>
+    <p id="saleShopName" style="color:var(--muted);font-size:.9rem;margin-bottom:14px"></p>
+    <div id="saleShopOptions" class="sale-shop-list"></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeSaleShop()">ยกเลิก</button>
     </div>
   </div>
 </div>
@@ -2722,20 +2736,52 @@ function confirmSale() {
 }
 
 // ติ๊ก/ยกเลิก "สำหรับขาย" จากแถบสต็อก (โชว์ ⇄ รอขาย)
+let pendingSaleShopId = '';  // ร้านที่เลือกตอนกำลังส่งไปขาย (ใช้ต่อในกรณีแยกของสะสม)
+let saleShopCardId = null;
 function toggleForSale(id) {
   const c = cards.find(x => x.id === id);
   if (!c) return;
   if (c.status === 'sold') { render(); return; } // ขายแล้ว = ล็อก
   if (c.status === 'show') {
-    // ของสะสมหลายชิ้น → เลือกจำนวน+ราคาที่จะส่งไปขาย
-    if (c.type === 'collect' && (Number(c.qty) || 1) > 1) { openSplit(id); render(); return; }
-    c.status = 'wait';
+    // กำลังย้ายไปขาย — ถ้ามีร้านค้า ให้เลือกก่อนว่าจะให้โชว์ที่ร้านไหน
+    if (shops.length) { openSaleShop(id); render(); return; }
+    moveToSale(id, c.shopId || ''); // ไม่มีร้าน → ขายตามปกติ
   } else {
     c.status = 'show'; // เอาออกจากขาย
+    save();
+    render();
   }
+}
+// ย้ายการ์ดไปแถบสินค้าขาย พร้อมกำหนดร้าน ('__all__' = ทุกร้าน / id = ร้านเดียว / '' = ส่วนกลาง)
+function moveToSale(id, shopId) {
+  const c = cards.find(x => x.id === id);
+  if (!c) return;
+  if (c.type === 'collect' && (Number(c.qty) || 1) > 1) {
+    pendingSaleShopId = shopId;   // เก็บไว้ใช้ตอนยืนยันแยกของสะสม
+    openSplit(id);
+    return;
+  }
+  c.shopId = shopId;
+  c.status = 'wait';
   save();
   render();
 }
+// เลือกร้านตอนติ๊ก "สินค้าขาย"
+function openSaleShop(id) {
+  saleShopCardId = id;
+  const c = cards.find(x => x.id === id);
+  document.getElementById('saleShopName').textContent = c ? ((c.topic ? c.topic + ' · ' : '') + c.name) : '';
+  let html = `<button class="btn btn-ghost sale-shop-opt" onclick="pickSaleShop('__all__')">🏬 ร้านค้าทั้งหมด</button>`;
+  html += shops.map(s => `<button class="btn btn-ghost sale-shop-opt" onclick="pickSaleShop('${s.id}')">🏪 ${esc(s.name || 'ร้านไม่มีชื่อ')}</button>`).join('');
+  document.getElementById('saleShopOptions').innerHTML = html;
+  document.getElementById('saleShopOverlay').classList.add('open');
+}
+function pickSaleShop(shopId) {
+  const id = saleShopCardId;
+  closeSaleShop();
+  if (id) moveToSale(id, shopId);
+}
+function closeSaleShop() { document.getElementById('saleShopOverlay').classList.remove('open'); saleShopCardId = null; }
 
 // ---- แยกของสะสมบางส่วนไปขาย ----
 function openSplit(id) {
@@ -2766,6 +2812,7 @@ function confirmSplit() {
   if (sellQty >= totalQty) {
     // ส่งขายทั้งหมด
     c.status = 'wait';
+    c.shopId = pendingSaleShopId;
     c.unitSell = unitSell;
     c.sell = unitSell * totalQty;
   } else {
@@ -2773,6 +2820,7 @@ function confirmSplit() {
     const remain = totalQty - sellQty;
     cards.push({
       ...c, id: uid(), status: 'wait', qty: sellQty,
+      shopId: pendingSaleShopId,
       unitSell,
       median: (Number(c.unitMedian) || 0) * sellQty,
       buy: (Number(c.unitBuy) || 0) * sellQty,
@@ -3352,7 +3400,11 @@ const SHOP_FEATURES = [
   { key: 'gacha', label: 'จุ่มสินค้า', view: 'viewGacha' },
 ];
 // อยู่ในขอบเขตร้านที่เลือกไหม (null = ดูรวมทุกร้าน → ผ่านหมด)
-function inShopScope(c) { return viewShopId ? (c && c.shopId === viewShopId) : true; }
+// shopId === '__all__' = ตั้งให้โชว์ในทุกร้าน
+function inShopScope(c) {
+  if (!viewShopId) return true;
+  return !!c && (c.shopId === viewShopId || c.shopId === '__all__');
+}
 function shopById(id) { return shops.find(s => s.id === id); }
 
 function saveShops() {
@@ -5092,7 +5144,10 @@ document.getElementById('preorderOverlay').addEventListener('click', e => {
 document.getElementById('shopOverlay').addEventListener('click', e => {
   if (e.target.id === 'shopOverlay') closeShopForm();
 });
-document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeLogin(); closePSASearch(); closeSale(); closeSplit(); closeProductEdit(); closeBuyConfirm(); closeBuyPopup(); closeGachaForm(); closeBuyEdit(); closeNewBuy(); closeSaleEdit(); closePreorderForm(); closeShopForm(); } });
+document.getElementById('saleShopOverlay').addEventListener('click', e => {
+  if (e.target.id === 'saleShopOverlay') closeSaleShop();
+});
+document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeLogin(); closePSASearch(); closeSale(); closeSplit(); closeProductEdit(); closeBuyConfirm(); closeBuyPopup(); closeGachaForm(); closeBuyEdit(); closeNewBuy(); closeSaleEdit(); closePreorderForm(); closeShopForm(); closeSaleShop(); } });
 
 render();
 applyPermissions(); // ตั้งเมนู/แถบตามสิทธิ์ + คงแถบเดิมหลัง F5
