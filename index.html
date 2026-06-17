@@ -566,7 +566,7 @@
       <button class="nav-sub" id="navSoldStock" onclick="switchView('soldstock')" style="display:none">↳ สต็อกการ์ดขายแล้ว</button>
       <button class="nav-item" data-view="preorder" onclick="switchView('preorder')">📝 พรีออเดอร์</button>
       <button class="nav-item" data-view="sales" onclick="switchView('sales')">🏷️ สินค้าขาย</button>
-      <button class="nav-item" data-view="report" onclick="switchView('report')">📊 รายงานการขายทั้งหมด</button>
+      <button class="nav-item" data-view="report" onclick="switchView('report')">📊 การขายทั้งหมด</button>
       <button class="nav-item" data-view="buy" onclick="switchView('buy')">🛒 รับซื้อสินค้า</button>
       <button class="nav-item" data-view="gacha" onclick="switchView('gacha')">🎲 ยอดจุ่ม</button>
       <button class="nav-item" data-view="shop" onclick="switchView('shop')">🏬 ร้านค้า</button>
@@ -699,7 +699,7 @@
   </div><!-- /viewSales -->
 
   <div id="viewReport" style="display:none">
-    <h2 class="view-title" id="reportTitle">📊 รายงานการขายทั้งหมด</h2>
+    <h2 class="view-title" id="reportTitle">📊 การขายทั้งหมด</h2>
     <div class="report-controls">
       <label>เลือกวัน</label>
       <input type="date" id="reportDate" onchange="renderReport()">
@@ -2244,7 +2244,7 @@ function renderReport() {
   const dateEl = document.getElementById('reportDate');
   if (!dateEl) return;
   const rt = document.getElementById('reportTitle');
-  if (rt) rt.textContent = viewShopId ? '📊 รายงานการขาย' : '📊 รายงานการขายทั้งหมด';
+  if (rt) rt.textContent = viewShopId ? '📊 รายงานการขาย' : '📊 การขายทั้งหมด';
   if (!dateEl.value) dateEl.value = todayISO();
   const day = dateEl.value;
 
