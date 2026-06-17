@@ -60,7 +60,7 @@
   }
   .nav-sub2:hover { background: var(--card2); color: var(--text); }
   .nav-sub2.active { background: linear-gradient(135deg, var(--accent), var(--accent2)); color: #fff; }
-  #shopNav { display: flex; flex-direction: column; gap: 4px; }
+  #shopNav, #settingsNav { display: flex; flex-direction: column; gap: 4px; }
   .shop-banner {
     background: linear-gradient(135deg, rgba(47,111,237,.12), rgba(108,92,231,.12));
     border: 1px solid var(--border); border-radius: 12px; padding: 10px 16px; margin-bottom: 16px;
@@ -570,7 +570,8 @@
       <button class="nav-item" data-view="shop" onclick="switchView('shop')">🏬 ร้านค้า</button>
       <div id="shopNav"></div>
       <button class="nav-item" data-view="product" onclick="switchView('product')">📋 ข้อมูลสินค้า</button>
-      <button class="nav-item" data-view="users" onclick="switchView('users')" style="display:none">👥 ผู้ใช้งาน</button>
+      <button class="nav-item" data-view="settings" onclick="switchView('settings')" style="display:none">⚙️ ตั้งค่า</button>
+      <div id="settingsNav"></div>
     </nav>
     <div class="sidebar-foot">
       <span class="sync" id="syncStatus"></span>
@@ -800,6 +801,15 @@
     <p style="color:var(--muted);font-size:.86rem;margin-bottom:14px">แต่ละร้านมีข้อมูล สินค้าขาย · รายงานการขาย · รับซื้อสินค้า · จุ่มสินค้า แยกของตัวเอง — กด 📂 หรือชื่อร้านในเมนูซ้ายเพื่อเปิด</p>
     <div id="shopManageArea"></div>
   </div><!-- /viewShop -->
+
+  <div id="viewSettings" style="display:none">
+    <h2 class="view-title">⚙️ ตั้งค่า</h2>
+    <p style="color:var(--muted);font-size:.88rem;margin-bottom:16px">เลือกหัวข้อจากเมนูย่อยด้านซ้าย หรือปุ่มด้านล่าง</p>
+    <div class="toolbar">
+      <button class="btn btn-primary" onclick="switchView('users')">👥 จัดการผู้ใช้งาน</button>
+      <button class="btn btn-ghost" onclick="openShopForm()">➕ เพิ่มร้านค้า</button>
+    </div>
+  </div><!-- /viewSettings -->
 
   <div id="viewUsers" style="display:none">
     <h2 class="view-title">👥 จัดการผู้ใช้งาน</h2>
@@ -1819,7 +1829,11 @@ function switchView(view) {
   document.getElementById('viewProduct').style.display = view === 'product' ? '' : 'none';
   document.getElementById('viewGacha').style.display = view === 'gacha' ? '' : 'none';
   document.getElementById('viewShop').style.display = view === 'shop' ? '' : 'none';
+  document.getElementById('viewSettings').style.display = view === 'settings' ? '' : 'none';
   document.getElementById('viewUsers').style.display = view === 'users' ? '' : 'none';
+  // เมนู "ผู้ใช้งาน" เป็นเมนูย่อยของ "ตั้งค่า" → คงไฮไลต์ตั้งค่าไว้ตอนเข้าหน้าผู้ใช้งาน
+  const navSettings = document.querySelector('.nav-item[data-view="settings"]');
+  if (navSettings && view === 'users') navSettings.classList.add('active');
   // เมนูย่อย "สต็อกการ์ดขายแล้ว" → โผล่เมื่ออยู่ในกลุ่มสต็อก (กดสต็อกการ์ดก่อน)
   const navSold = document.getElementById('navSoldStock');
   if (navSold) {
@@ -1838,13 +1852,25 @@ function switchView(view) {
   if (view === 'shop') renderShopManage();
   if (view === 'users') renderUsers();
   renderShopNav();
+  renderSettingsNav(view);
   localStorage.setItem('app_view', view); // จำแถบล่าสุด ไว้คงหน้าตอน F5
+}
+// เมนูย่อยของ "ตั้งค่า": ผู้ใช้งาน + เพิ่มร้านค้า (เฉพาะแอดมิน)
+function renderSettingsNav(view) {
+  const el = document.getElementById('settingsNav');
+  if (!el) return;
+  if (!canViewTab('settings')) { el.innerHTML = ''; el.style.display = 'none'; return; }
+  el.style.display = '';
+  let html = '';
+  if (canViewTab('users')) html += `<button class="nav-sub${view === 'users' ? ' active' : ''}" onclick="switchView('users')">👥 ผู้ใช้งาน</button>`;
+  html += `<button class="nav-sub" onclick="openShopForm()">➕ เพิ่มร้านค้า</button>`;
+  el.innerHTML = html;
 }
 
 // แถบที่ผู้ใช้ปัจจุบันเข้าได้ (ไม่ล็อกอิน=ทุกแถบ / แอดมิน=ทุกแถบ+users / ผู้ช่วย=ตามสิทธิ์)
 function allowedTabs() {
   if (!passcode) return ALL_TABS.slice();
-  if (userRole === 'admin') return ALL_TABS.concat('users');
+  if (userRole === 'admin') return ALL_TABS.concat('users', 'settings');
   return (userTabs || []).slice();
 }
 
@@ -3318,7 +3344,7 @@ let shops = (() => { try { return JSON.parse(localStorage.getItem(KEY_SHOPS)) ||
 let shopsPushing = false, shopsQueued = false, shopsTimer = null, shopsDirty = false;
 let viewShopId = null;   // ร้านที่กำลังเปิดดูอยู่ (null = เมนูภาพรวมด้านบน)
 let expandedShop = null; // ร้านที่กางเมนูย่อยอยู่ใน sidebar
-const ALL_VIEW_IDS = ['viewStock', 'viewSoldStock', 'viewPreorder', 'viewSales', 'viewReport', 'viewBuy', 'viewProduct', 'viewGacha', 'viewShop', 'viewUsers'];
+const ALL_VIEW_IDS = ['viewStock', 'viewSoldStock', 'viewPreorder', 'viewSales', 'viewReport', 'viewBuy', 'viewProduct', 'viewGacha', 'viewShop', 'viewSettings', 'viewUsers'];
 const SHOP_FEATURES = [
   { key: 'sales', label: 'สินค้าขาย', view: 'viewSales' },
   { key: 'report', label: 'รายงานการขาย', view: 'viewReport' },
@@ -3361,7 +3387,7 @@ function renderShopNav() {
   if (!el) return;
   if (!canViewTab('shop')) { el.innerHTML = ''; el.style.display = 'none'; return; }
   el.style.display = '';
-  let html = `<button class="nav-sub" onclick="openShopForm()">➕ เพิ่มร้านค้า</button>`;
+  let html = '';
   for (const s of shops) {
     const open = expandedShop === s.id;
     const activeShop = (viewShopId === s.id);
