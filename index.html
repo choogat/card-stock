@@ -201,6 +201,7 @@
   .badge-cancelled { display: inline-block; background: rgba(226,59,78,.18); color: var(--danger); padding: 1px 8px; border-radius: 999px; font-size: .72rem; font-weight: 700; }
   .badge-ok { display: inline-block; background: rgba(24,165,88,.18); color: var(--green); padding: 1px 8px; border-radius: 999px; font-size: .72rem; font-weight: 700; }
   .seller-tag { display: inline-block; background: var(--accent2); color: #fff; padding: 1px 9px; border-radius: 999px; font-size: .72rem; font-weight: 600; }
+  .shop-tag { display: inline-block; background: rgba(47,111,237,.14); color: var(--accent); border: 1px solid var(--accent); padding: 1px 9px; border-radius: 999px; font-size: .72rem; font-weight: 600; white-space: nowrap; }
   tr.cancelled-row td .badge-ok { opacity: 1; }
   .report-controls { display: flex; align-items: center; gap: 10px; margin-bottom: 18px; flex-wrap: wrap; }
   .report-controls label { color: var(--muted); font-size: .9rem; }
@@ -2240,11 +2241,19 @@ function reportToday() {
 }
 
 // รายละเอียดการขายของวันที่เลือก
+// ป้ายชื่อร้านที่ขาย (ใช้ในหน้า "การขายทั้งหมด") — soldShopId ก่อน, ถ้าไม่มีค่อยใช้ shopId
+function saleShopLabel(c) {
+  const sid = (c.soldShopId != null && c.soldShopId !== '') ? c.soldShopId : c.shopId;
+  if (sid === '__all__') return '<span class="shop-tag">ทุกร้าน</span>';
+  const s = shopById(sid);
+  return s ? `<span class="shop-tag">🏪 ${esc(s.name)}</span>` : '<span class="muted">ส่วนกลาง</span>';
+}
 function renderReport() {
   const dateEl = document.getElementById('reportDate');
   if (!dateEl) return;
   const rt = document.getElementById('reportTitle');
   if (rt) rt.textContent = viewShopId ? '📊 รายงานการขาย' : '📊 การขายทั้งหมด';
+  const showShop = !viewShopId; // โชว์คอลัมน์ "ร้านที่ขาย" เฉพาะหน้ารวม
   if (!dateEl.value) dateEl.value = todayISO();
   const day = dateEl.value;
 
@@ -2330,6 +2339,7 @@ function renderReport() {
     return `<tr class="${cx ? 'cancelled-row' : ''}">
       <td>${img}</td>
       <td class="name">${c.topic ? `<div class="topic">${esc(c.topic)}</div>` : ''}${esc(c.name)}${c.lang ? ` <span class="lang-badge">${esc(c.lang)}</span>` : ''}${c.psa ? ` <span class="muted">(${esc(c.grader || 'PSA')} ${esc(c.psa)})</span>` : ''}${setMetaHTML(c)}</td>
+      ${showShop ? `<td class="center">${saleShopLabel(c)}</td>` : ''}
       <td class="center">${c.seller ? `<span class="seller-tag">${esc(c.seller)}</span>` : '<span class="muted">-</span>'}</td>
       <td class="center"><span class="qty-badge">${Number(c.qty) || 1}${c.unit ? ' ' + esc(c.unit) : ''}</span></td>
       <td class="center muted">${c.sellTime || '-'}</td>
@@ -2344,7 +2354,7 @@ function renderReport() {
     </tr>`;
   }).join('');
   area.innerHTML = `<table>
-    <thead><tr><th>รูป</th><th>ชื่อการ์ด</th><th class="center">ผู้ขาย</th><th class="center">จำนวน</th><th class="center">เวลา</th><th class="center">ชำระเงิน</th><th class="num">รับซื้อ</th><th class="num">ขาย</th><th class="num">ส่วนลด</th><th class="num">ยอดขายสุทธิ</th>${canSeeProfit() ? '<th class="num">กำไร</th>' : ''}<th class="center">ผลการขาย</th><th></th></tr></thead>
+    <thead><tr><th>รูป</th><th>ชื่อการ์ด</th>${showShop ? '<th class="center">ร้านที่ขาย</th>' : ''}<th class="center">ผู้ขาย</th><th class="center">จำนวน</th><th class="center">เวลา</th><th class="center">ชำระเงิน</th><th class="num">รับซื้อ</th><th class="num">ขาย</th><th class="num">ส่วนลด</th><th class="num">ยอดขายสุทธิ</th>${canSeeProfit() ? '<th class="num">กำไร</th>' : ''}<th class="center">ผลการขาย</th><th></th></tr></thead>
     <tbody>${rows}</tbody>
   </table>`;
 }
@@ -2713,6 +2723,7 @@ function confirmSale() {
     cards.push({
       ...c, id: uid(), status: 'sold', qty: soldQty,
       discount: disc, payment, sellDate, sellTime, seller: loginId || '',
+      soldShopId: viewShopId || '', // ร้านที่ขายจริง (ว่าง = ขายจากหน้ารวม)
       sell: net, unitSell: soldQty ? net / soldQty : c.unitSell,
       median: (Number(c.unitMedian) || 0) * soldQty,
       buy: (Number(c.unitBuy) || 0) * soldQty,
@@ -2730,6 +2741,7 @@ function confirmSale() {
     c.sellDate = sellDate;
     c.sellTime = sellTime;
     c.seller = loginId || ''; // ผู้ขาย = User ที่กดขาย
+    c.soldShopId = viewShopId || ''; // ร้านที่ขายจริง (ว่าง = ขายจากหน้ารวม)
     c.status = 'sold';
   }
   save();
