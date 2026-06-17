@@ -53,6 +53,20 @@
   }
   .nav-sub:hover { background: var(--card2); color: var(--text); }
   .nav-sub.active { background: linear-gradient(135deg, var(--accent), var(--accent2)); color: #fff; }
+  .nav-sub2 {
+    text-align: left; background: transparent; border: 1px solid transparent; color: var(--muted);
+    padding: 8px 12px 8px 46px; border-radius: 10px; cursor: pointer; font-size: .82rem; font-weight: 500; font-family: inherit;
+    transition: background .15s, color .15s; width: 100%;
+  }
+  .nav-sub2:hover { background: var(--card2); color: var(--text); }
+  .nav-sub2.active { background: linear-gradient(135deg, var(--accent), var(--accent2)); color: #fff; }
+  #shopNav { display: flex; flex-direction: column; gap: 4px; }
+  .shop-banner {
+    background: linear-gradient(135deg, rgba(47,111,237,.12), rgba(108,92,231,.12));
+    border: 1px solid var(--border); border-radius: 12px; padding: 10px 16px; margin-bottom: 16px;
+    font-size: .95rem; color: var(--text);
+  }
+  .shop-banner .shop-meta { color: var(--muted); font-size: .85rem; }
   .sidebar-foot { margin-top: 12px; padding-top: 14px; border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 10px; align-items: flex-start; }
   .main { flex: 1; min-width: 0; }
   .view-title { font-size: 1.4rem; margin-bottom: 6px; }
@@ -555,6 +569,7 @@
       <button class="nav-item" data-view="product" onclick="switchView('product')">📋 ข้อมูลสินค้า</button>
       <button class="nav-item" data-view="gacha" onclick="switchView('gacha')">🎲 ยอดจุ่ม</button>
       <button class="nav-item" data-view="shop" onclick="switchView('shop')">🏬 ร้านค้า</button>
+      <div id="shopNav"></div>
       <button class="nav-item" data-view="users" onclick="switchView('users')" style="display:none">👥 ผู้ใช้งาน</button>
     </nav>
     <div class="sidebar-foot">
@@ -564,6 +579,7 @@
   </aside>
 
   <main class="main">
+  <div id="shopBanner" class="shop-banner" style="display:none"></div>
   <div id="viewStock">
   <div class="stats">
     <div class="stat">
@@ -778,9 +794,11 @@
 
   <div id="viewShop" style="display:none">
     <h2 class="view-title">🏬 ร้านค้า</h2>
-    <div class="product-section">
-      <div class="empty"><div class="big">🏬</div>หน้าร้านค้า — ยังไม่มีเนื้อหา<br><span style="font-size:.85rem">บอกได้เลยว่าอยากให้หน้านี้มีอะไรบ้าง</span></div>
+    <div class="toolbar">
+      <button class="btn btn-primary" onclick="openShopForm()">➕ เพิ่มร้านค้า</button>
     </div>
+    <p style="color:var(--muted);font-size:.86rem;margin-bottom:14px">แต่ละร้านมีข้อมูล สินค้าขาย · รายงานการขาย · รับซื้อสินค้า · จุ่มสินค้า แยกของตัวเอง — กด 📂 หรือชื่อร้านในเมนูซ้ายเพื่อเปิด</p>
+    <div id="shopManageArea"></div>
   </div><!-- /viewShop -->
 
   <div id="viewUsers" style="display:none">
@@ -905,6 +923,26 @@
     <div class="modal-actions">
       <button class="btn btn-ghost" onclick="closePreorderForm()">ยกเลิก</button>
       <button class="btn btn-primary" onclick="submitPreorder()">บันทึก</button>
+    </div>
+  </div>
+</div>
+
+<!-- ร้านค้า: สร้าง/แก้ไขร้าน -->
+<div class="overlay" id="shopOverlay">
+  <div class="modal" style="max-width:440px">
+    <h2 id="shopModalTitle">🏬 เพิ่มร้านค้า</h2>
+    <input type="hidden" id="shop_id">
+    <div class="field"><label>ชื่อร้าน *</label><input id="shop_name" placeholder="ชื่อร้าน"></div>
+    <div class="field"><label>เจ้าของร้าน</label><input id="shop_owner" placeholder="ชื่อเจ้าของร้าน"></div>
+    <div class="grid2">
+      <div class="field"><label>เบอร์โทร</label><input id="shop_phone" inputmode="tel" placeholder="เบอร์โทร"></div>
+      <div class="field"><label>สถานที่</label><input id="shop_location" placeholder="สถานที่/ที่อยู่"></div>
+    </div>
+    <div class="psa-msg" id="shopFormMsg"></div>
+    <div class="modal-actions">
+      <button class="btn btn-danger" id="shopDeleteBtn" style="display:none;flex:0 0 auto" onclick="deleteShopFromForm()">ลบ</button>
+      <button class="btn btn-ghost" onclick="closeShopForm()">ยกเลิก</button>
+      <button class="btn btn-primary" onclick="submitShop()">บันทึก</button>
     </div>
   </div>
 </div>
@@ -1321,6 +1359,7 @@ const NAMTCG_API = API_BASE + '/namtcg';
 const OPIMG_API = API_BASE + '/opimg';
 const GACHA_API = API_BASE + '/gacha';
 const PREORDER_API = API_BASE + '/preorder';
+const SHOPS_API = API_BASE + '/shops';
 function opImgUrl(u) { return `${OPIMG_API}?url=${encodeURIComponent(u)}`; }
 const ALL_TABS = ['stock', 'preorder', 'sales', 'report', 'buy', 'product', 'gacha', 'shop'];
 let passcode = localStorage.getItem('app_pass') || '';
@@ -1768,6 +1807,8 @@ function canViewTab(v) {
 }
 function switchView(view) {
   if (!canViewTab(view)) view = allowedTabs()[0] || 'stock';
+  viewShopId = null; curShopFeature = null; // ออกจากบริบทร้าน → กลับมาดูภาพรวม
+  updateShopBanner();
   document.querySelectorAll('.nav-item').forEach(b => b.classList.toggle('active', b.dataset.view === view));
   document.getElementById('viewStock').style.display = view === 'stock' ? '' : 'none';
   document.getElementById('viewSoldStock').style.display = view === 'soldstock' ? '' : 'none';
@@ -1794,7 +1835,9 @@ function switchView(view) {
   if (view === 'buy') { closeBuyPopup(); renderBuyList(); }
   if (view === 'product') { const ps = document.getElementById('productSearch'); if (ps) ps.value = ''; renderProductSearch(); }
   if (view === 'gacha') { renderGacha(); refreshGacha(); startGachaPoll(); } else { stopGachaPoll(); }
+  if (view === 'shop') renderShopManage();
   if (view === 'users') renderUsers();
+  renderShopNav();
   localStorage.setItem('app_view', view); // จำแถบล่าสุด ไว้คงหน้าตอน F5
 }
 
@@ -1988,6 +2031,7 @@ function confirmBuy() {
   const buyPayment = document.getElementById('bc_payment').value || 'cash';
   // สร้างการ์ดใหม่ 1 ใบเข้าสต็อก (สถานะ "สะสม") — ราคารับซื้อ = ยอดที่กรอก
   const newCard = { ...rep, id: uid(), status: 'show', qty: 1, buy: amount, buyDate: todayISO(), buyTime: nowHM(), buyPayment, viaBuy: true, discount: 0 };
+  newCard.shopId = viewShopId || ''; // ผูกกับร้านที่กำลังเปิดอยู่ (ถ้ามี)
   if (rep.type === 'collect') { newCard.unitBuy = amount; newCard.median = Number(rep.unitMedian) || 0; newCard.sell = Number(rep.unitSell) || 0; }
   delete newCard.sellDate; delete newCard.sellTime; delete newCard.payment; delete newCard.cancelled; delete newCard._i; delete newCard.productOnly;
   cards.push(newCard);
@@ -2055,6 +2099,7 @@ function saveNewBuy() {
     id: uid(), type: 'card', name, image, topic, cert,
     buy: amount, buyPayment: payment, buyDate: date, buyTime: nowHM(),
     viaBuy: true, status: 'show', qty: 1, discount: 0,
+    shopId: viewShopId || '', // ผูกกับร้านที่กำลังเปิดอยู่ (ถ้ามี)
   };
   cards.push(newCard);
   save();
@@ -2073,7 +2118,7 @@ function renderBuyList() {
   if (dateEl && !dateEl.value) dateEl.value = todayISO();
   const sel = dateEl ? dateEl.value : todayISO();
   const idx = new Map(cards.map((c, i) => [c.id, i]));
-  const list = cards.filter(c => c.viaBuy && (c.buyDate || '') === sel).sort((a, b) => idx.get(b.id) - idx.get(a.id));
+  const list = cards.filter(c => c.viaBuy && (c.buyDate || '') === sel && inShopScope(c)).sort((a, b) => idx.get(b.id) - idx.get(a.id));
   const canEdit = canEditBuy(); // แอดมิน/ผู้ช่วยที่ได้รับอนุญาต — โชว์ปุ่มแก้ไข/ลบ
   let n = 0, cash = 0, transfer = 0;
   const rows = list.map(c => {
@@ -2162,7 +2207,7 @@ function renderReport() {
   const day = dateEl.value;
 
   // รายการที่ขายในวันนั้น — ผู้ช่วยเห็นเฉพาะที่ตัวเองขาย / แอดมินเห็นทั้งหมด
-  let sold = cards.filter(c => c.status === 'sold' && (c.sellDate || '') === day);
+  let sold = cards.filter(c => c.status === 'sold' && (c.sellDate || '') === day && inShopScope(c));
   // ทุกคนเห็นรายการขายครบเหมือนแอดมิน (เดิมผู้ช่วยเห็นเฉพาะที่ตัวเองขาย)
   const counted = sold.filter(c => !c.cancelled);
   const cancelledN = sold.length - counted.length;
@@ -2363,7 +2408,7 @@ function renderSales() {
   const area = document.getElementById('salesTableArea');
   if (!area) return;
   const q = (document.getElementById('salesSearch').value || '').trim().toLowerCase();
-  let list = cards.filter(c => c.status === 'wait' && !c.productOnly);
+  let list = cards.filter(c => c.status === 'wait' && !c.productOnly && inShopScope(c));
   // กรองตามหน่วยที่คลิกจากชิป "รอขาย" → เหลือเฉพาะของที่รอขายของหน่วยนั้น
   if (salesUnitFilter) {
     list = list.filter(c => c.status === 'wait' && stockUnitOf(c) === salesUnitFilter);
@@ -2514,6 +2559,7 @@ function unsoldChipsHTML() {
   units.forEach(u => { buckets[u] = { qty: 0, value: 0 }; });
   for (const c of cards) {
     if (c.status !== 'wait') continue;
+    if (!inShopScope(c)) continue;
     const unit = stockUnitOf(c);
     if (!buckets[unit]) buckets[unit] = { qty: 0, value: 0 };
     buckets[unit].qty += Number(c.qty) || 1;
@@ -3264,6 +3310,184 @@ function checkPriceFromBuy() {
   if (cert) { document.getElementById('ps_cert').value = cert; searchPSA(); }
 }
 
+// ================= ร้านค้า (หลายร้าน · ข้อมูลแยกต่อร้าน) =================
+// แต่ละร้าน: { id, name, owner, phone, location }
+// การ์ด/ตู้จุ่มมี shopId ผูกไว้ → เมนูในร้านกรองเฉพาะของร้านนั้น · เมนูบนสุด (viewShopId=null) เห็นรวมทุกร้าน
+const KEY_SHOPS = 'psa_shops_v1';
+let shops = (() => { try { return JSON.parse(localStorage.getItem(KEY_SHOPS)) || []; } catch (e) { return []; } })();
+let shopsPushing = false, shopsQueued = false, shopsTimer = null, shopsDirty = false;
+let viewShopId = null;   // ร้านที่กำลังเปิดดูอยู่ (null = เมนูภาพรวมด้านบน)
+let expandedShop = null; // ร้านที่กางเมนูย่อยอยู่ใน sidebar
+const ALL_VIEW_IDS = ['viewStock', 'viewSoldStock', 'viewPreorder', 'viewSales', 'viewReport', 'viewBuy', 'viewProduct', 'viewGacha', 'viewShop', 'viewUsers'];
+const SHOP_FEATURES = [
+  { key: 'sales', label: 'สินค้าขาย', view: 'viewSales' },
+  { key: 'report', label: 'รายงานการขาย', view: 'viewReport' },
+  { key: 'buy', label: 'รับซื้อสินค้า', view: 'viewBuy' },
+  { key: 'gacha', label: 'จุ่มสินค้า', view: 'viewGacha' },
+];
+// อยู่ในขอบเขตร้านที่เลือกไหม (null = ดูรวมทุกร้าน → ผ่านหมด)
+function inShopScope(c) { return viewShopId ? (c && c.shopId === viewShopId) : true; }
+function shopById(id) { return shops.find(s => s.id === id); }
+
+function saveShops() {
+  try { localStorage.setItem(KEY_SHOPS, JSON.stringify(shops)); } catch (e) {}
+  shopsDirty = true;
+  if (passcode) { clearTimeout(shopsTimer); shopsTimer = setTimeout(pushShops, 150); }
+}
+async function pushShops() {
+  if (!passcode) return;
+  if (shopsPushing) { shopsQueued = true; return; }
+  shopsPushing = true;
+  try {
+    const r = await fetch(SHOPS_API, { method: 'POST', headers: authHeaders({ 'Content-Type': 'application/json' }), body: JSON.stringify(shops) });
+    if (r.ok) shopsDirty = false;
+  } catch (e) { /* ออฟไลน์ */ }
+  finally { shopsPushing = false; if (shopsQueued) { shopsQueued = false; pushShops(); } }
+}
+async function pullShops() {
+  if (!passcode) return;
+  try {
+    const r = await fetch(SHOPS_API, { headers: authHeaders(), cache: 'no-store' });
+    if (!r.ok) return;
+    const d = await r.json();
+    shops = Array.isArray(d.shops) ? d.shops : [];
+    try { localStorage.setItem(KEY_SHOPS, JSON.stringify(shops)); } catch (e) {}
+  } catch (e) { /* ออฟไลน์ */ }
+}
+
+// ---- เมนู sidebar ของร้านค้า (เพิ่มร้าน + รายชื่อร้าน + เมนูย่อย 4 หัวข้อ) ----
+function renderShopNav() {
+  const el = document.getElementById('shopNav');
+  if (!el) return;
+  if (!canViewTab('shop')) { el.innerHTML = ''; el.style.display = 'none'; return; }
+  el.style.display = '';
+  let html = `<button class="nav-sub" onclick="openShopForm()">➕ เพิ่มร้านค้า</button>`;
+  for (const s of shops) {
+    const open = expandedShop === s.id;
+    const activeShop = (viewShopId === s.id);
+    html += `<button class="nav-sub${activeShop && !open ? ' active' : ''}" onclick="toggleShopExpand('${s.id}')">${open ? '▾' : '▸'} 🏪 ${esc(s.name || 'ร้านไม่มีชื่อ')}</button>`;
+    if (open) {
+      for (const f of SHOP_FEATURES) {
+        const act = (viewShopId === s.id && curShopFeature === f.key);
+        html += `<button class="nav-sub2${act ? ' active' : ''}" onclick="switchShopView('${s.id}','${f.key}')">↳ ${f.label}</button>`;
+      }
+    }
+  }
+  el.innerHTML = html;
+}
+let curShopFeature = null;
+function toggleShopExpand(id) {
+  expandedShop = (expandedShop === id) ? null : id;
+  renderShopNav();
+}
+function hideAllMainViews() {
+  ALL_VIEW_IDS.forEach(id => { const e = document.getElementById(id); if (e) e.style.display = 'none'; });
+}
+function updateShopBanner() {
+  const b = document.getElementById('shopBanner');
+  if (!b) return;
+  if (viewShopId) {
+    const s = shopById(viewShopId);
+    const f = SHOP_FEATURES.find(x => x.key === curShopFeature);
+    b.style.display = '';
+    b.innerHTML = `🏪 <b>${esc(s ? s.name : '')}</b> · ${f ? f.label : ''}` +
+      `${s && (s.owner || s.phone || s.location) ? `<span class="shop-meta"> — ${[s.owner, s.phone, s.location].filter(Boolean).map(esc).join(' · ')}</span>` : ''}`;
+  } else { b.style.display = 'none'; b.innerHTML = ''; }
+}
+// เปิดดูเมนูย่อยของร้าน (สินค้าขาย/รายงาน/รับซื้อ/จุ่ม) — กรองข้อมูลเฉพาะร้านนี้
+function switchShopView(shopId, feature) {
+  if (!canViewTab('shop')) return;
+  const f = SHOP_FEATURES.find(x => x.key === feature) || SHOP_FEATURES[0];
+  viewShopId = shopId;
+  expandedShop = shopId;
+  curShopFeature = f.key;
+  hideAllMainViews();
+  const v = document.getElementById(f.view); if (v) v.style.display = '';
+  document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
+  const shopBtn = document.querySelector('.nav-item[data-view="shop"]'); if (shopBtn) shopBtn.classList.add('active');
+  updateShopBanner();
+  renderShopNav();
+  stopGachaPoll();
+  if (f.key === 'sales') renderSales();
+  else if (f.key === 'report') renderReport();
+  else if (f.key === 'buy') { closeBuyPopup(); renderBuyList(); }
+  else if (f.key === 'gacha') { renderGacha(); refreshGacha(); startGachaPoll(); }
+  localStorage.setItem('app_view', 'shop');
+}
+
+// ---- ฟอร์มสร้าง/แก้ไขร้านค้า ----
+function openShopForm(id) {
+  const s = id ? shopById(id) : null;
+  document.getElementById('shopModalTitle').textContent = s ? '✏️ แก้ไขร้านค้า' : '🏬 เพิ่มร้านค้า';
+  document.getElementById('shop_id').value = s ? s.id : '';
+  document.getElementById('shop_name').value = s ? (s.name || '') : '';
+  document.getElementById('shop_owner').value = s ? (s.owner || '') : '';
+  document.getElementById('shop_phone').value = s ? (s.phone || '') : '';
+  document.getElementById('shop_location').value = s ? (s.location || '') : '';
+  const del = document.getElementById('shopDeleteBtn');
+  if (del) del.style.display = s ? '' : 'none';
+  document.getElementById('shopFormMsg').textContent = '';
+  document.getElementById('shopOverlay').classList.add('open');
+  setTimeout(() => document.getElementById('shop_name').focus(), 30);
+}
+function closeShopForm() { document.getElementById('shopOverlay').classList.remove('open'); }
+function submitShop() {
+  const name = document.getElementById('shop_name').value.trim();
+  if (!name) { document.getElementById('shopFormMsg').textContent = 'กรุณาใส่ชื่อร้าน'; return; }
+  const idRaw = document.getElementById('shop_id').value;
+  const data = {
+    name,
+    owner: document.getElementById('shop_owner').value.trim(),
+    phone: document.getElementById('shop_phone').value.trim(),
+    location: document.getElementById('shop_location').value.trim(),
+  };
+  const existing = idRaw ? shopById(idRaw) : null;
+  if (existing) Object.assign(existing, data);
+  else { const s = Object.assign({ id: uid() }, data); shops.push(s); expandedShop = s.id; }
+  saveShops();
+  closeShopForm();
+  renderShopNav();
+  if (document.getElementById('viewShop').style.display !== 'none') renderShopManage();
+}
+function deleteShopFromForm() {
+  const id = document.getElementById('shop_id').value;
+  const s = shopById(id); if (!s) return;
+  const n = cards.filter(c => c.shopId === id).length + gachaBoxes.filter(b => b.shopId === id).length;
+  if (!confirm('ลบร้าน "' + (s.name || '') + '" ?' + (n ? '\n(ข้อมูลในร้านนี้ ' + n + ' รายการจะไม่ถูกลบ แต่จะไปรวมอยู่ในเมนูภาพรวมด้านบน)' : ''))) return;
+  shops = shops.filter(x => x.id !== id);
+  if (expandedShop === id) expandedShop = null;
+  if (viewShopId === id) { viewShopId = null; curShopFeature = null; }
+  saveShops();
+  closeShopForm();
+  renderShopNav();
+  switchView('shop');
+}
+// หน้าจัดการร้านค้า (เมื่อกดเมนู "ร้านค้า")
+function renderShopManage() {
+  const area = document.getElementById('shopManageArea');
+  if (!area) return;
+  if (!shops.length) {
+    area.innerHTML = `<div class="empty"><div class="big">🏬</div>ยังไม่มีร้านค้า — กด “➕ เพิ่มร้านค้า” เพื่อเริ่ม</div>`;
+    return;
+  }
+  area.innerHTML = `<table>
+    <thead><tr><th>ชื่อร้าน</th><th>เจ้าของร้าน</th><th>เบอร์โทร</th><th>สถานที่</th><th class="center">จัดการ</th></tr></thead>
+    <tbody>${shops.map(s => {
+      const n = cards.filter(c => c.shopId === s.id).length;
+      return `<tr>
+        <td class="name">🏪 ${esc(s.name || '')}${n ? ` <span class="qty-badge">${n} รายการ</span>` : ''}</td>
+        <td>${s.owner ? esc(s.owner) : '<span class="muted">—</span>'}</td>
+        <td>${s.phone ? esc(s.phone) : '<span class="muted">—</span>'}</td>
+        <td>${s.location ? esc(s.location) : '<span class="muted">—</span>'}</td>
+        <td class="center" style="white-space:nowrap">
+          <button class="po-icon" title="เปิดร้าน" onclick="switchShopView('${s.id}','sales')">📂</button>
+          <button class="po-icon" title="แก้ไข" onclick="openShopForm('${s.id}')">✏️</button>
+        </td>
+      </tr>`;
+    }).join('')}</tbody>
+  </table>`;
+}
+
 // ================= พรีออเดอร์ (Pre Order) =================
 // แต่ละรายการ: { id, date, name, set, lang, qty, size, price, deposit, source, note, status }
 //   status: 'wait' (รอส่งของ) | 'received' (รับสินค้าแล้ว) | 'cancel' (ยกเลิก)
@@ -3858,7 +4082,8 @@ function renderGacha() {
   // ผู้ช่วยที่ตั้ง "ดูอย่างเดียว" — ซ่อนปุ่มสร้างตู้
   const tools = document.getElementById('gachaTools');
   if (tools) tools.style.display = canEditGacha() ? '' : 'none';
-  if (!gachaBoxes.length) {
+  const scopedIdxs = gachaBoxes.map((b, i) => inShopScope(b) ? i : -1).filter(i => i >= 0);
+  if (!scopedIdxs.length) {
     area.innerHTML = '<div class="empty"><div class="big">🎲</div>ยังไม่มีตู้จุ่ม — กด “+ สร้างตู้จุ่ม” เพื่อเริ่ม</div>';
     return;
   }
@@ -3867,8 +4092,8 @@ function renderGacha() {
   if (dateEl && !dateEl.value) dateEl.value = todayStr();
   const sel = dateEl ? dateEl.value : todayStr();
 
-  const dayIdxs = gachaBoxes.map((b, i) => gachaDateKey(b) === sel ? i : -1).filter(i => i >= 0);
-  const undatedIdxs = gachaBoxes.map((b, i) => gachaDateKey(b) === '0000-00-00' ? i : -1).filter(i => i >= 0);
+  const dayIdxs = scopedIdxs.filter(i => gachaDateKey(gachaBoxes[i]) === sel);
+  const undatedIdxs = scopedIdxs.filter(i => gachaDateKey(gachaBoxes[i]) === '0000-00-00');
 
   let html = dayIdxs.length
     ? gachaDayBlockHTML(dayIdxs, gachaDateLabel(sel))
@@ -4094,9 +4319,9 @@ function saveGachaBox() {
   const idxRaw = document.getElementById('g_idx').value;
   if (idxRaw !== '' && gachaBoxes[idxRaw]) {
     if (!confirm('ยืนยันการแก้ไขตู้จุ่ม "' + (gachaBoxes[idxRaw].name || '') + '" ?')) return;
-    box.id = gachaBoxes[idxRaw].id; gachaBoxes[idxRaw] = box;
+    box.id = gachaBoxes[idxRaw].id; box.shopId = gachaBoxes[idxRaw].shopId || ''; gachaBoxes[idxRaw] = box;
   }
-  else { box.id = uid(); gachaBoxes.push(box); }
+  else { box.id = uid(); box.shopId = viewShopId || ''; gachaBoxes.push(box); } // ผูกกับร้านที่เปิดอยู่
   saveGacha();
   renderGacha();
   closeGachaForm();
@@ -4697,6 +4922,10 @@ async function syncOnStart() {
   // ดึงข้อมูลพรีออเดอร์จากเซิร์ฟเวอร์ (เก็บแยกจาก cards.json)
   await pullPreorder();
   renderPreorder();
+  // ดึงรายชื่อร้านค้าจากเซิร์ฟเวอร์ (เก็บแยกจาก cards.json)
+  await pullShops();
+  renderShopNav();
+  if (document.getElementById('viewShop').style.display !== 'none') renderShopManage();
 }
 
 // ---- จัดการผู้ใช้ (แอดมิน) ----
@@ -4834,7 +5063,10 @@ document.getElementById('gachaOverlay').addEventListener('click', e => {
 document.getElementById('preorderOverlay').addEventListener('click', e => {
   if (e.target.id === 'preorderOverlay') closePreorderForm();
 });
-document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeLogin(); closePSASearch(); closeSale(); closeSplit(); closeProductEdit(); closeBuyConfirm(); closeBuyPopup(); closeGachaForm(); closeBuyEdit(); closeNewBuy(); closeSaleEdit(); closePreorderForm(); } });
+document.getElementById('shopOverlay').addEventListener('click', e => {
+  if (e.target.id === 'shopOverlay') closeShopForm();
+});
+document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeLogin(); closePSASearch(); closeSale(); closeSplit(); closeProductEdit(); closeBuyConfirm(); closeBuyPopup(); closeGachaForm(); closeBuyEdit(); closeNewBuy(); closeSaleEdit(); closePreorderForm(); closeShopForm(); } });
 
 render();
 applyPermissions(); // ตั้งเมนู/แถบตามสิทธิ์ + คงแถบเดิมหลัง F5
