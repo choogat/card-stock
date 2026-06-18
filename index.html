@@ -811,6 +811,12 @@
     <div id="shopManageArea"></div>
   </div><!-- /viewShop -->
 
+  <div id="viewShopHome" style="display:none">
+    <h2 class="view-title" id="shopHomeTitle">🏪 ร้านค้า</h2>
+    <div class="stats" id="shopHomeStats"></div>
+    <p style="color:var(--muted);font-size:.86rem">เลือกฟังก์ชันของร้านจากเมนูด้านซ้าย — สินค้าขาย · รายงานการขาย · รับซื้อสินค้า · จุ่มสินค้า</p>
+  </div><!-- /viewShopHome -->
+
   <div id="viewSettings" style="display:none">
     <h2 class="view-title">⚙️ ตั้งค่า</h2>
     <p style="color:var(--muted);font-size:.88rem;margin-bottom:16px">เลือกหัวข้อจากเมนูย่อยด้านซ้าย หรือปุ่มด้านล่าง</p>
@@ -1865,6 +1871,7 @@ function switchView(view) {
   document.getElementById('viewProduct').style.display = view === 'product' ? '' : 'none';
   document.getElementById('viewGacha').style.display = view === 'gacha' ? '' : 'none';
   document.getElementById('viewShop').style.display = view === 'shop' ? '' : 'none';
+  document.getElementById('viewShopHome').style.display = 'none'; // หน้าสรุปร้าน เปิดผ่าน openShopHome เท่านั้น
   document.getElementById('viewSettings').style.display = view === 'settings' ? '' : 'none';
   document.getElementById('viewUsers').style.display = view === 'users' ? '' : 'none';
   // เมนู "ผู้ใช้งาน" เป็นเมนูย่อยของ "ตั้งค่า" → คงไฮไลต์ตั้งค่าไว้ตอนเข้าหน้าผู้ใช้งาน
@@ -3434,7 +3441,7 @@ let shops = (() => { try { return JSON.parse(localStorage.getItem(KEY_SHOPS)) ||
 let shopsPushing = false, shopsQueued = false, shopsTimer = null, shopsDirty = false;
 let viewShopId = null;   // ร้านที่กำลังเปิดดูอยู่ (null = เมนูภาพรวมด้านบน)
 let expandedShop = null; // ร้านที่กางเมนูย่อยอยู่ใน sidebar
-const ALL_VIEW_IDS = ['viewStock', 'viewSoldStock', 'viewPreorder', 'viewSales', 'viewReport', 'viewBuy', 'viewProduct', 'viewGacha', 'viewShop', 'viewSettings', 'viewUsers'];
+const ALL_VIEW_IDS = ['viewStock', 'viewSoldStock', 'viewPreorder', 'viewSales', 'viewReport', 'viewBuy', 'viewProduct', 'viewGacha', 'viewShop', 'viewShopHome', 'viewSettings', 'viewUsers'];
 const SHOP_FEATURES = [
   { key: 'sales', label: 'สินค้าขาย', view: 'viewSales' },
   { key: 'report', label: 'รายงานการขาย', view: 'viewReport' },
@@ -3512,8 +3519,8 @@ function renderShopNav() {
   let html = '';
   for (const s of visibleShops()) {
     const open = expandedShop === s.id;
-    const activeShop = (viewShopId === s.id);
-    html += `<button class="nav-sub${activeShop && !open ? ' active' : ''}" onclick="toggleShopExpand('${s.id}')">${open ? '▾' : '▸'} 🏪 ${esc(s.name || 'ร้านไม่มีชื่อ')}</button>`;
+    const activeShop = (viewShopId === s.id && !curShopFeature); // อยู่หน้าสรุปของร้านนี้
+    html += `<button class="nav-sub${activeShop ? ' active' : ''}" onclick="openShopHome('${s.id}')">${open ? '▾' : '▸'} 🏪 ${esc(s.name || 'ร้านไม่มีชื่อ')}</button>`;
     if (open) {
       const feats = shopFeatures(s);
       for (const f of SHOP_FEATURES) {
@@ -3537,7 +3544,7 @@ function hideAllMainViews() {
 function updateShopBanner() {
   const b = document.getElementById('shopBanner');
   if (!b) return;
-  if (viewShopId) {
+  if (viewShopId && curShopFeature) {
     const s = shopById(viewShopId);
     const f = SHOP_FEATURES.find(x => x.key === curShopFeature);
     b.style.display = '';
@@ -3569,6 +3576,58 @@ function switchShopView(shopId, feature) {
   else if (f.key === 'buy') { closeBuyPopup(); renderBuyList(); }
   else if (f.key === 'gacha') { renderGacha(); refreshGacha(); startGachaPoll(); }
   localStorage.setItem('app_view', 'shop');
+}
+
+// กดที่ชื่อร้าน → หน้าสรุปยอดของร้านนั้น (เฉพาะของในร้านที่สร้างมา · ไม่มีราคากลาง/รับซื้อ)
+function openShopHome(shopId) {
+  if (!canViewTab('shop') || !userCanSeeShop(shopId)) { switchView('shop'); return; }
+  const s = shopById(shopId); if (!s) { switchView('shop'); return; }
+  viewShopId = shopId;
+  expandedShop = shopId;
+  curShopFeature = null;
+  hideAllMainViews();
+  document.getElementById('viewShopHome').style.display = '';
+  document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
+  const shopBtn = document.querySelector('.nav-item[data-view="shop"]'); if (shopBtn) shopBtn.classList.add('active');
+  document.getElementById('shopHomeTitle').textContent = '🏪 ' + (s.name || 'ร้านค้า');
+  renderShopHomeStats(shopId);
+  updateShopBanner();
+  stopGachaPoll();
+  renderShopNav();
+  localStorage.setItem('app_view', 'shop');
+}
+// การ์ดใบนี้นับเป็นของร้าน sid ไหม (ขายแล้วดูจาก soldShopId · อื่นๆ ดูจาก shopId)
+function cardInShopDash(c, sid) {
+  if (!c || c.productOnly) return false;
+  if (c.status === 'sold') {
+    const ss = (c.soldShopId != null && c.soldShopId !== '') ? c.soldShopId : c.shopId;
+    return ss === sid;
+  }
+  return c.shopId === sid;
+}
+function renderShopHomeStats(sid) {
+  const el = document.getElementById('shopHomeStats');
+  if (!el) return;
+  const real = cards.filter(c => cardInShopDash(c, sid));
+  const count = real.length;
+  const nShow = real.filter(c => c.status === 'show').length;
+  const nWait = real.filter(c => c.status === 'wait').length;
+  const nSold = real.filter(c => c.status === 'sold' && !c.cancelled).length;
+  const inStock = real.filter(c => c.status !== 'sold');
+  const totalSell = inStock.reduce((s, c) => s + (Number(c.sell) || 0), 0);
+  const realized = real.filter(c => c.status === 'sold' && !c.cancelled)
+    .reduce((s, c) => s + ((Number(c.sell) || 0) - (Number(c.buy) || 0)), 0);
+  el.innerHTML = `
+    <div class="stat">
+      <div class="label">จำนวนการ์ดทั้งหมด</div>
+      <div class="value num">${count.toLocaleString('th-TH')}</div>
+      <div class="sub">สะสม ${nShow} · รอขาย ${nWait} · ขายแล้ว ${nSold}</div>
+    </div>
+    <div class="stat">
+      <div class="label">ยอดรวมราคาขาย</div>
+      <div class="value num">${money(totalSell)}</div>
+      ${canSeeProfit() ? `<div class="sub ${realized > 0 ? 'profit-pos' : realized < 0 ? 'profit-neg' : ''}">กำไรที่ขายได้จริง ${money(realized)}</div>` : '<div class="sub">เฉพาะของในร้านนี้</div>'}
+    </div>`;
 }
 
 // ---- ฟอร์มสร้าง/แก้ไขร้านค้า ----
@@ -3642,7 +3701,7 @@ function renderShopManage() {
         <td>${s.phone ? esc(s.phone) : '<span class="muted">—</span>'}</td>
         <td>${s.location ? esc(s.location) : '<span class="muted">—</span>'}</td>
         <td class="center" style="white-space:nowrap">
-          <button class="po-icon" title="เปิดร้าน" onclick="switchShopView('${s.id}','sales')">📂</button>
+          <button class="po-icon" title="เปิดร้าน" onclick="openShopHome('${s.id}')">📂</button>
           <button class="po-icon" title="แก้ไข" onclick="openShopForm('${s.id}')">✏️</button>
         </td>
       </tr>`;
