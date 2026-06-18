@@ -1421,6 +1421,9 @@ let userGachaEdit = localStorage.getItem('app_gacha_edit') === '1';
 let userBuyEdit = localStorage.getItem('app_buy_edit') === '1';
 let userShops = (() => { try { return JSON.parse(localStorage.getItem('app_shops')) || []; } catch (e) { return []; } })(); // ร้านที่เข้าได้ (ว่าง = ทุกร้าน)
 let userShopFeats = (() => { try { return JSON.parse(localStorage.getItem('app_shopfeats')) || {}; } catch (e) { return {}; } })(); // ฟังก์ชันที่เข้าได้ต่อร้าน { shopId: [feat] }
+// จับภาพหน้าที่เปิดอยู่ก่อน F5 ไว้ตั้งแต่ต้น (ก่อนมี switchView มาเขียนทับ) เพื่อคืนหน้าให้ตรง
+const BOOT_VIEW = localStorage.getItem('app_view');
+const BOOT_SHOPVIEW = localStorage.getItem('app_shopview');
 function canSeeProfit() { return userRole === 'admin' || !passcode || userSeeProfit; }
 // แก้ไขยอดจุ่มได้ไหม — แอดมิน/เจ้าของเครื่อง (ไม่ล็อกอิน) ได้เสมอ · ผู้ช่วยที่ตั้ง "ดูอย่างเดียว" = ไม่ได้
 function canEditGacha() { return userRole === 'admin' || !passcode || userGachaEdit; }
@@ -1897,6 +1900,7 @@ function switchView(view) {
   renderShopNav();
   renderSettingsNav(view);
   localStorage.setItem('app_view', view); // จำแถบล่าสุด ไว้คงหน้าตอน F5
+  localStorage.removeItem('app_shopview'); // ออกจากบริบทร้านเฉพาะ
 }
 // เมนูย่อยของ "ตั้งค่า": ผู้ใช้งาน + เพิ่มร้านค้า (เฉพาะแอดมิน)
 function renderSettingsNav(view) {
@@ -3576,6 +3580,7 @@ function switchShopView(shopId, feature) {
   else if (f.key === 'buy') { closeBuyPopup(); renderBuyList(); }
   else if (f.key === 'gacha') { renderGacha(); refreshGacha(); startGachaPoll(); }
   localStorage.setItem('app_view', 'shop');
+  localStorage.setItem('app_shopview', JSON.stringify({ shop: shopId, feat: f.key }));
 }
 
 // กดที่ชื่อร้าน → หน้าสรุปยอดของร้านนั้น (เฉพาะของในร้านที่สร้างมา · ไม่มีราคากลาง/รับซื้อ)
@@ -3595,6 +3600,15 @@ function openShopHome(shopId) {
   stopGachaPoll();
   renderShopNav();
   localStorage.setItem('app_view', 'shop');
+  localStorage.setItem('app_shopview', JSON.stringify({ shop: shopId, feat: '' }));
+}
+// คืนหน้าร้านที่เปิดค้างไว้ก่อน F5 (จาก snapshot ตอนบูต) — คืน true ถ้าคืนได้
+function restoreShopView() {
+  if (BOOT_VIEW !== 'shop') return false;
+  let sv = null; try { sv = JSON.parse(BOOT_SHOPVIEW || 'null'); } catch (e) {}
+  if (!sv || !sv.shop || !shopById(sv.shop) || !userCanSeeShop(sv.shop)) return false;
+  if (sv.feat) switchShopView(sv.shop, sv.feat); else openShopHome(sv.shop);
+  return true;
 }
 // การ์ดใบนี้นับเป็นของร้าน sid ไหม (ขายแล้วดูจาก soldShopId · อื่นๆ ดูจาก shopId)
 function cardInShopDash(c, sid) {
@@ -5159,9 +5173,11 @@ async function syncOnStart() {
   // ดึงรายชื่อร้านค้าจากเซิร์ฟเวอร์ (เก็บแยกจาก cards.json)
   await pullShops();
   renderShopNav();
-  // ผู้ใช้ที่ถูกจำกัดร้าน → ตอนนี้ได้รายชื่อร้านแล้ว เปิดร้านให้เลย
-  if (passcode && userRole !== 'admin' && userShops && userShops.length) applyPermissions();
-  else if (document.getElementById('viewShop').style.display !== 'none') renderShopManage();
+  // คืนหน้าร้านที่เปิดค้างไว้ก่อน F5 ก่อน — ถ้าคืนไม่ได้ค่อยใช้ค่าเริ่มต้น
+  if (!restoreShopView()) {
+    if (passcode && userRole !== 'admin' && userShops && userShops.length) applyPermissions(); // ผู้ใช้ถูกจำกัดร้าน → เปิดร้านให้
+    else if (document.getElementById('viewShop').style.display !== 'none') renderShopManage();
+  }
 }
 
 // ---- จัดการผู้ใช้ (แอดมิน) ----
