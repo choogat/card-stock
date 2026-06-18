@@ -1929,6 +1929,8 @@ function applyPermissions() {
   document.querySelectorAll('.nav-item[data-view]').forEach(b => {
     b.style.display = allowed.includes(b.dataset.view) ? '' : 'none';
   });
+  // หน้าล่าสุดเป็นหน้าร้าน → คืนร้าน+ฟังก์ชันเดิมทันที (กันแวบไปหน้าจัดการร้าน)
+  if ((localStorage.getItem('app_view') === 'shop' || BOOT_VIEW === 'shop') && restoreShopView()) return;
   // ผู้ใช้ที่ถูกจำกัดร้าน → เปิดร้านแรกที่เข้าได้ให้เลย (เห็นฟังก์ชันในร้านทันที)
   if (passcode && userRole !== 'admin' && userShops && userShops.length) {
     const vs = visibleShops();
@@ -3602,10 +3604,10 @@ function openShopHome(shopId) {
   localStorage.setItem('app_view', 'shop');
   localStorage.setItem('app_shopview', JSON.stringify({ shop: shopId, feat: '' }));
 }
-// คืนหน้าร้านที่เปิดค้างไว้ก่อน F5 (จาก snapshot ตอนบูต) — คืน true ถ้าคืนได้
+// คืนหน้าร้าน+ฟังก์ชันล่าสุด — ใช้ค่าปัจจุบันก่อน ถ้าไม่มีค่อย fallback ไป snapshot ตอนบูต (กันโดน switchView ล้าง)
 function restoreShopView() {
-  if (BOOT_VIEW !== 'shop') return false;
-  let sv = null; try { sv = JSON.parse(BOOT_SHOPVIEW || 'null'); } catch (e) {}
+  if (localStorage.getItem('app_view') !== 'shop' && BOOT_VIEW !== 'shop') return false;
+  let sv = null; try { sv = JSON.parse(localStorage.getItem('app_shopview') || BOOT_SHOPVIEW || 'null'); } catch (e) {}
   if (!sv || !sv.shop || !shopById(sv.shop) || !userCanSeeShop(sv.shop)) return false;
   if (sv.feat) switchShopView(sv.shop, sv.feat); else openShopHome(sv.shop);
   return true;
@@ -5363,7 +5365,7 @@ document.getElementById('saleShopOverlay').addEventListener('click', e => {
 document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeLogin(); closePSASearch(); closeSale(); closeSplit(); closeProductEdit(); closeBuyConfirm(); closeBuyPopup(); closeGachaForm(); closeBuyEdit(); closeNewBuy(); closeSaleEdit(); closePreorderForm(); closeShopForm(); closeSaleShop(); } });
 
 render();
-applyPermissions(); // ตั้งเมนู/แถบตามสิทธิ์ + คงแถบเดิมหลัง F5
+applyPermissions(); // ตั้งเมนู/แถบตามสิทธิ์ + คงแถบ/ร้านล่าสุดหลัง F5 (รวมคืนหน้าร้านจากแคชทันที)
 updateAuthGate();   // ยังไม่ล็อกอิน → ล็อกหน้าจอ เหลือแต่หน้าล็อกอิน
 syncOnStart();
 
