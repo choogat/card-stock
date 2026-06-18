@@ -69,11 +69,10 @@
   .shop-banner .shop-meta { color: var(--muted); font-size: .85rem; }
   .sale-shop-list { display: flex; flex-direction: column; gap: 8px; max-height: 320px; overflow-y: auto; }
   .sale-shop-opt { width: 100%; text-align: left; }
-  .shop-perm-group { border: 1px solid var(--border); border-radius: 10px; padding: 8px 12px; background: var(--bg); }
-  .shop-perm-group .u-shop { font-weight: 600; }
-  .shop-perm-group .u-feat-list { display: flex; flex-wrap: wrap; gap: 6px 16px; padding-left: 26px; margin-top: 6px; }
+  .shop-perm-group { border: 1px solid var(--border); border-radius: 10px; padding: 10px 14px; background: var(--bg); }
+  .shop-perm-group .u-shop-name { font-weight: 700; font-size: .95rem; margin-bottom: 8px; }
+  .shop-perm-group .u-feat-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 8px 14px; padding-left: 18px; }
   .shop-perm-group .u-feat-list label { font-weight: 400; font-size: .88rem; }
-  .shop-perm-group .u-feat-list label input:disabled { opacity: .5; }
   .sidebar-foot { margin-top: 12px; padding-top: 14px; border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 10px; align-items: flex-start; }
   .main { flex: 1; min-width: 0; }
   .view-title { font-size: 1.4rem; margin-bottom: 6px; }
@@ -5132,26 +5131,24 @@ function renderUserShopPerms(selectedShops, shopFeats) {
     const allowed = Array.isArray(sf[s.id]) ? sf[s.id] : null; // null = ทุกฟังก์ชันของร้าน
     const feats = SHOP_FEATURES.filter(f => shopFeatures(s).includes(f.key)).map(f => {
       const on = shopOn && (!allowed || allowed.includes(f.key));
-      return `<label class="u-feat"><input type="checkbox" class="u-shopfeat-chk" data-shop="${sid}" value="${f.key}"${on ? ' checked' : ''}${shopOn ? '' : ' disabled'}> ${f.label}</label>`;
+      return `<label class="u-feat"><input type="checkbox" class="u-shopfeat-chk" data-shop="${sid}" value="${f.key}"${on ? ' checked' : ''}> ${f.label}</label>`;
     }).join('');
     return `<div class="shop-perm-group">
-      <label class="u-shop"><input type="checkbox" class="u-shop-chk" value="${sid}" onchange="onToggleUserShop(this)"${shopOn ? ' checked' : ''}> 🏪 ${esc(s.name || 'ร้านไม่มีชื่อ')}</label>
+      <div class="u-shop-name">🏪 ${esc(s.name || 'ร้านไม่มีชื่อ')}</div>
       <div class="u-feat-list">${feats}</div>
     </div>`;
   }).join('');
 }
-// ติ๊ก/เอาติ๊กร้าน → เปิด/ปิด + ติ๊กฟังก์ชันของร้านนั้นตาม
-function onToggleUserShop(chk) {
-  const sid = chk.value, on = chk.checked;
-  document.querySelectorAll('#userShopPerms .u-shopfeat-chk[data-shop="' + sid + '"]').forEach(c => { c.disabled = !on; c.checked = on; });
-}
+// ติ๊กฟังก์ชันอย่างน้อย 1 = ให้สิทธิ์เข้าร้านนั้น
 function selectedUserShops() {
-  return [...document.querySelectorAll('#userShopPerms .u-shop-chk:checked')].map(c => c.value);
+  const set = new Set();
+  document.querySelectorAll('#userShopPerms .u-shopfeat-chk:checked').forEach(c => set.add(c.dataset.shop));
+  return [...set];
 }
 function selectedUserShopFeats() {
   const out = {};
-  document.querySelectorAll('#userShopPerms .u-shop-chk:checked').forEach(sc => {
-    out[sc.value] = [...document.querySelectorAll('#userShopPerms .u-shopfeat-chk[data-shop="' + sc.value + '"]:checked')].map(c => c.value);
+  document.querySelectorAll('#userShopPerms .u-shopfeat-chk:checked').forEach(c => {
+    (out[c.dataset.shop] = out[c.dataset.shop] || []).push(c.value);
   });
   return out;
 }
