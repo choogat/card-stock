@@ -1891,6 +1891,8 @@ function renderSettingsNav(view) {
 function allowedTabs() {
   if (!passcode) return ALL_TABS.slice();
   if (userRole === 'admin') return ALL_TABS.concat('users', 'settings');
+  // ผู้ช่วยที่ถูกจำกัดร้าน → เห็นเฉพาะเมนู "ร้านค้า" (ฟังก์ชันในร้านเท่านั้น)
+  if (userShops && userShops.length) return ['shop'];
   return (userTabs || []).slice();
 }
 
@@ -1900,6 +1902,11 @@ function applyPermissions() {
   document.querySelectorAll('.nav-item[data-view]').forEach(b => {
     b.style.display = allowed.includes(b.dataset.view) ? '' : 'none';
   });
+  // ผู้ใช้ที่ถูกจำกัดร้าน → เปิดร้านแรกที่เข้าได้ให้เลย (เห็นฟังก์ชันในร้านทันที)
+  if (passcode && userRole !== 'admin' && userShops && userShops.length) {
+    const vs = visibleShops();
+    if (vs.length) { switchShopView(vs[0].id, 'sales'); return; }
+  }
   const cur = localStorage.getItem('app_view') || 'stock';
   switchView(canViewTab(cur) ? cur : (allowed[0] || 'stock'));
 }
@@ -5049,7 +5056,9 @@ async function syncOnStart() {
   // ดึงรายชื่อร้านค้าจากเซิร์ฟเวอร์ (เก็บแยกจาก cards.json)
   await pullShops();
   renderShopNav();
-  if (document.getElementById('viewShop').style.display !== 'none') renderShopManage();
+  // ผู้ใช้ที่ถูกจำกัดร้าน → ตอนนี้ได้รายชื่อร้านแล้ว เปิดร้านให้เลย
+  if (passcode && userRole !== 'admin' && userShops && userShops.length) applyPermissions();
+  else if (document.getElementById('viewShop').style.display !== 'none') renderShopManage();
 }
 
 // ---- จัดการผู้ใช้ (แอดมิน) ----
