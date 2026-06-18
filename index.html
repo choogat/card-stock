@@ -69,10 +69,12 @@
   .shop-banner .shop-meta { color: var(--muted); font-size: .85rem; }
   .sale-shop-list { display: flex; flex-direction: column; gap: 8px; max-height: 320px; overflow-y: auto; }
   .sale-shop-opt { width: 100%; text-align: left; }
+  #userShopPerms { display: flex; flex-direction: column; gap: 8px; }
   .shop-perm-group { border: 1px solid var(--border); border-radius: 10px; padding: 10px 14px; background: var(--bg); }
   .shop-perm-group .u-shop-name { font-weight: 700; font-size: .95rem; margin-bottom: 8px; }
-  .shop-perm-group .u-feat-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 8px 14px; padding-left: 18px; }
-  .shop-perm-group .u-feat-list label { font-weight: 400; font-size: .88rem; }
+  .shop-perm-group .u-feat-list { display: flex; flex-wrap: wrap; gap: 8px 20px; }
+  .shop-perm-group .u-feat-list label { display: inline-flex; align-items: center; gap: 7px; font-weight: 400; font-size: .88rem; white-space: nowrap; cursor: pointer; }
+  .shop-perm-group .u-feat-list input { width: 18px; height: 18px; flex: none; margin: 0; padding: 0; accent-color: var(--accent); cursor: pointer; }
   .sidebar-foot { margin-top: 12px; padding-top: 14px; border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 10px; align-items: flex-start; }
   .main { flex: 1; min-width: 0; }
   .view-title { font-size: 1.4rem; margin-bottom: 6px; }
@@ -840,16 +842,16 @@
         </div>
       </div>
       <div class="field">
+        <label>ร้านค้า <span style="color:var(--muted);font-weight:400;font-size:.8rem">(ติ๊กฟังก์ชันที่เข้าได้ · ไม่เลือกเลย = เข้าได้ทุกร้าน)</span></label>
+        <div id="userShopPerms"></div>
+      </div>
+      <div class="field">
         <label>สิทธิ์ดูข้อมูล</label>
         <div class="tab-perms">
           <label><input type="checkbox" id="u_seeProfit" checked> 💰 ดูกำไรได้</label>
           <label><input type="checkbox" id="u_gachaEdit"> 🎲 ยอดจุ่ม: แก้ไข/ลบตู้ได้</label>
           <label><input type="checkbox" id="u_buyEdit"> 🛒 รับซื้อ: แก้ไข/ลบรายการได้</label>
         </div>
-      </div>
-      <div class="field">
-        <label>ร้านค้า <span style="color:var(--muted);font-weight:400;font-size:.8rem">(ติ๊กร้าน + เลือกฟังก์ชันที่เข้าได้ · ไม่เลือกเลย = เข้าได้ทุกร้าน)</span></label>
-        <div class="tab-perms" id="userShopPerms"></div>
       </div>
       <div class="usersMsg" id="usersMsg"></div>
       <button class="btn btn-primary" onclick="saveUser()">บันทึกผู้ใช้</button>
