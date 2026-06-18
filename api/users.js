@@ -20,7 +20,7 @@ export default async function handler(req, res) {
 
     if (req.method === 'GET') {
       const users = await loadUsers(opts);
-      res.status(200).json({ users: users.map(u => ({ id: u.id, tabs: u.tabs || [], seeProfit: u.seeProfit !== false, gachaEdit: u.gachaEdit === true, buyEdit: u.buyEdit === true })) });
+      res.status(200).json({ users: users.map(u => ({ id: u.id, tabs: u.tabs || [], seeProfit: u.seeProfit !== false, gachaEdit: u.gachaEdit === true, buyEdit: u.buyEdit === true, shops: Array.isArray(u.shops) ? u.shops : [] })) });
       return;
     }
 
@@ -34,6 +34,8 @@ export default async function handler(req, res) {
       const seeProfit = body.seeProfit !== false;
       const gachaEdit = body.gachaEdit === true;
       const buyEdit = body.buyEdit === true;
+      // ร้านที่เข้าได้ (array ของ shopId) — ว่าง = ทุกร้าน
+      const shops = Array.isArray(body.shops) ? body.shops.map(s => String(s)).filter(Boolean) : [];
       const users = await loadUsers(opts);
       const existing = users.find(u => u.id === id);
       if (existing) {
@@ -42,9 +44,10 @@ export default async function handler(req, res) {
         existing.seeProfit = seeProfit;
         existing.gachaEdit = gachaEdit;
         existing.buyEdit = buyEdit;
+        existing.shops = shops;
       } else {
         if (!body.password) { res.status(400).json({ error: 'กรุณาตั้งรหัสผ่าน' }); return; }
-        users.push({ id, password: body.password, tabs, seeProfit, gachaEdit, buyEdit });
+        users.push({ id, password: body.password, tabs, seeProfit, gachaEdit, buyEdit, shops });
       }
       await saveUsers(users, opts);
       res.status(200).json({ ok: true });

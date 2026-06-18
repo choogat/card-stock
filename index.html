@@ -843,6 +843,10 @@
           <label><input type="checkbox" id="u_buyEdit"> 🛒 รับซื้อ: แก้ไข/ลบรายการได้</label>
         </div>
       </div>
+      <div class="field">
+        <label>ร้านที่เข้าได้ <span style="color:var(--muted);font-weight:400;font-size:.8rem">(ไม่เลือก = เข้าได้ทุกร้าน)</span></label>
+        <div class="tab-perms" id="userShopPerms"></div>
+      </div>
       <div class="usersMsg" id="usersMsg"></div>
       <button class="btn btn-primary" onclick="saveUser()">บันทึกผู้ใช้</button>
       <button class="btn btn-ghost" onclick="clearUserForm()">ล้างฟอร์ม</button>
@@ -1394,6 +1398,7 @@ let userTabs = (() => { try { return JSON.parse(localStorage.getItem('app_tabs')
 let userSeeProfit = localStorage.getItem('app_seeprofit') !== '0';
 let userGachaEdit = localStorage.getItem('app_gacha_edit') === '1';
 let userBuyEdit = localStorage.getItem('app_buy_edit') === '1';
+let userShops = (() => { try { return JSON.parse(localStorage.getItem('app_shops')) || []; } catch (e) { return []; } })(); // ร้านที่เข้าได้ (ว่าง = ทุกร้าน)
 function canSeeProfit() { return userRole === 'admin' || !passcode || userSeeProfit; }
 // แก้ไขยอดจุ่มได้ไหม — แอดมิน/เจ้าของเครื่อง (ไม่ล็อกอิน) ได้เสมอ · ผู้ช่วยที่ตั้ง "ดูอย่างเดียว" = ไม่ได้
 function canEditGacha() { return userRole === 'admin' || !passcode || userGachaEdit; }
@@ -3431,6 +3436,13 @@ function inShopScopeSold(c) {
   return sid === viewShopId;
 }
 function shopById(id) { return shops.find(s => s.id === id); }
+// ผู้ใช้คนนี้เห็นร้านนี้ไหม (แอดมิน/ไม่จำกัด = เห็นทุกร้าน)
+function userCanSeeShop(id) {
+  if (!passcode || userRole === 'admin') return true;
+  if (!userShops || !userShops.length) return true; // ไม่ได้จำกัด = ทุกร้าน
+  return userShops.includes(id);
+}
+function visibleShops() { return shops.filter(s => userCanSeeShop(s.id)); }
 
 function saveShops() {
   try { localStorage.setItem(KEY_SHOPS, JSON.stringify(shops)); } catch (e) {}
@@ -3465,7 +3477,7 @@ function renderShopNav() {
   if (!canViewTab('shop')) { el.innerHTML = ''; el.style.display = 'none'; return; }
   el.style.display = '';
   let html = '';
-  for (const s of shops) {
+  for (const s of visibleShops()) {
     const open = expandedShop === s.id;
     const activeShop = (viewShopId === s.id);
     html += `<button class="nav-sub${activeShop && !open ? ' active' : ''}" onclick="toggleShopExpand('${s.id}')">${open ? '▾' : '▸'} 🏪 ${esc(s.name || 'ร้านไม่มีชื่อ')}</button>`;
@@ -3500,6 +3512,7 @@ function updateShopBanner() {
 // เปิดดูเมนูย่อยของร้าน (สินค้าขาย/รายงาน/รับซื้อ/จุ่ม) — กรองข้อมูลเฉพาะร้านนี้
 function switchShopView(shopId, feature) {
   if (!canViewTab('shop')) return;
+  if (!userCanSeeShop(shopId)) { switchView('shop'); return; }
   const f = SHOP_FEATURES.find(x => x.key === feature) || SHOP_FEATURES[0];
   viewShopId = shopId;
   expandedShop = shopId;
@@ -3569,13 +3582,14 @@ function deleteShopFromForm() {
 function renderShopManage() {
   const area = document.getElementById('shopManageArea');
   if (!area) return;
-  if (!shops.length) {
+  const vshops = visibleShops();
+  if (!vshops.length) {
     area.innerHTML = `<div class="empty"><div class="big">🏬</div>ยังไม่มีร้านค้า — กด “➕ เพิ่มร้านค้า” เพื่อเริ่ม</div>`;
     return;
   }
   area.innerHTML = `<table>
     <thead><tr><th>ชื่อร้าน</th><th>เจ้าของร้าน</th><th>เบอร์โทร</th><th>สถานที่</th><th class="center">จัดการ</th></tr></thead>
-    <tbody>${shops.map(s => {
+    <tbody>${vshops.map(s => {
       const n = cards.filter(c => c.shopId === s.id).length;
       return `<tr>
         <td class="name">🏪 ${esc(s.name || '')}${n ? ` <span class="qty-badge">${n} รายการ</span>` : ''}</td>
@@ -4906,6 +4920,7 @@ async function doLogin() {
   userSeeProfit = auth.seeProfit !== false;
   userGachaEdit = auth.gachaEdit === true;
   userBuyEdit = auth.buyEdit === true;
+  userShops = Array.isArray(auth.shops) ? auth.shops : [];
   localStorage.setItem('app_pass', passcode);
   localStorage.setItem('app_id', id);
   localStorage.setItem('app_role', userRole);
@@ -4913,6 +4928,7 @@ async function doLogin() {
   localStorage.setItem('app_seeprofit', userSeeProfit ? '1' : '0');
   localStorage.setItem('app_gacha_edit', userGachaEdit ? '1' : '0');
   localStorage.setItem('app_buy_edit', userBuyEdit ? '1' : '0');
+  localStorage.setItem('app_shops', JSON.stringify(userShops));
   const res = await pullFromServer();
   if (res.ok && res.cards.length) {
     // เซิร์ฟเวอร์มีข้อมูล
@@ -4937,8 +4953,8 @@ async function doLogin() {
 
 function logout() {
   if (!confirm('ออกจากระบบ?')) return;
-  passcode = ''; loginId = ''; userRole = ''; userTabs = [];
-  ['app_pass', 'app_id', 'app_role', 'app_tabs'].forEach(k => localStorage.removeItem(k));
+  passcode = ''; loginId = ''; userRole = ''; userTabs = []; userShops = [];
+  ['app_pass', 'app_id', 'app_role', 'app_tabs', 'app_shops'].forEach(k => localStorage.removeItem(k));
   updateAuthBtn();
   applyPermissions();
   updateAuthGate();
@@ -4949,12 +4965,12 @@ let authRefreshing = false;
 async function refreshAuth() {
   if (!passcode || !loginId || authRefreshing) return;
   authRefreshing = true;
-  const prev = userRole + '|' + JSON.stringify(userTabs) + '|' + userSeeProfit + '|' + userGachaEdit + '|' + userBuyEdit;
+  const prev = userRole + '|' + JSON.stringify(userTabs) + '|' + userSeeProfit + '|' + userGachaEdit + '|' + userBuyEdit + '|' + JSON.stringify(userShops);
   try {
     const lr = await fetch(LOGIN_API, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: loginId, password: passcode }) });
     if (lr.status === 401) {
-      passcode = ''; loginId = ''; userRole = ''; userTabs = [];
-      ['app_pass', 'app_id', 'app_role', 'app_tabs'].forEach(k => localStorage.removeItem(k));
+      passcode = ''; loginId = ''; userRole = ''; userTabs = []; userShops = [];
+      ['app_pass', 'app_id', 'app_role', 'app_tabs', 'app_shops'].forEach(k => localStorage.removeItem(k));
       updateAuthBtn(); applyPermissions(); updateAuthGate(); return;
     }
     if (lr.ok) {
@@ -4963,15 +4979,17 @@ async function refreshAuth() {
       userSeeProfit = a.seeProfit !== false;
       userGachaEdit = a.gachaEdit === true;
       userBuyEdit = a.buyEdit === true;
+      userShops = Array.isArray(a.shops) ? a.shops : userShops;
       localStorage.setItem('app_role', userRole);
       localStorage.setItem('app_tabs', JSON.stringify(userTabs));
       localStorage.setItem('app_seeprofit', userSeeProfit ? '1' : '0');
       localStorage.setItem('app_gacha_edit', userGachaEdit ? '1' : '0');
       localStorage.setItem('app_buy_edit', userBuyEdit ? '1' : '0');
+      localStorage.setItem('app_shops', JSON.stringify(userShops));
     }
   } catch (e) { return; } finally { authRefreshing = false; }
   // สิทธิ์เปลี่ยน → อัปเดตเมนู/ปุ่มให้ตรง (applyPermissions จะ re-render แท็บปัจจุบันเอง)
-  if ((userRole + '|' + JSON.stringify(userTabs) + '|' + userSeeProfit + '|' + userGachaEdit + '|' + userBuyEdit) !== prev) applyPermissions();
+  if ((userRole + '|' + JSON.stringify(userTabs) + '|' + userSeeProfit + '|' + userGachaEdit + '|' + userBuyEdit + '|' + JSON.stringify(userShops)) !== prev) applyPermissions();
 }
 
 // ---- ซิงก์ตอนเปิดแอป ----
@@ -4982,8 +5000,8 @@ async function syncOnStart() {
   try {
     const lr = await fetch(LOGIN_API, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: loginId, password: passcode }) });
     if (lr.status === 401) {
-      passcode = ''; loginId = ''; userRole = ''; userTabs = [];
-      ['app_pass', 'app_id', 'app_role', 'app_tabs'].forEach(k => localStorage.removeItem(k));
+      passcode = ''; loginId = ''; userRole = ''; userTabs = []; userShops = [];
+      ['app_pass', 'app_id', 'app_role', 'app_tabs', 'app_shops'].forEach(k => localStorage.removeItem(k));
       updateAuthBtn(); applyPermissions(); updateAuthGate(); return;
     }
     if (lr.ok) {
@@ -4992,18 +5010,20 @@ async function syncOnStart() {
       userSeeProfit = a.seeProfit !== false;
       userGachaEdit = a.gachaEdit === true;
       userBuyEdit = a.buyEdit === true;
+      userShops = Array.isArray(a.shops) ? a.shops : userShops;
       localStorage.setItem('app_role', userRole);
       localStorage.setItem('app_tabs', JSON.stringify(userTabs));
       localStorage.setItem('app_seeprofit', userSeeProfit ? '1' : '0');
       localStorage.setItem('app_gacha_edit', userGachaEdit ? '1' : '0');
       localStorage.setItem('app_buy_edit', userBuyEdit ? '1' : '0');
+      localStorage.setItem('app_shops', JSON.stringify(userShops));
     }
   } catch (e) { /* ออฟไลน์ — ใช้สิทธิ์ที่เก็บไว้ */ }
   applyPermissions();
   const res = await pullFromServer();
   if (res.auth === false) {
-    passcode = ''; loginId = ''; userRole = ''; userTabs = [];
-    ['app_pass', 'app_id', 'app_role', 'app_tabs'].forEach(k => localStorage.removeItem(k));
+    passcode = ''; loginId = ''; userRole = ''; userTabs = []; userShops = [];
+    ['app_pass', 'app_id', 'app_role', 'app_tabs', 'app_shops'].forEach(k => localStorage.removeItem(k));
     updateAuthBtn(); applyPermissions(); updateAuthGate(); return;
   }
   if (res.ok) {
@@ -5042,14 +5062,28 @@ function renderUsersList() {
   list.innerHTML = usersCache.length ? usersCache.map(u => `
     <div class="user-row">
       <span class="uid">${esc(u.id)}</span>
-      <span class="utabs">${(u.tabs || []).map(t => TAB_NAME[t] || t).join(' · ') || '— ไม่มีสิทธิ์แถบใด'}${u.seeProfit === false ? ' · 🚫กำไร' : ' · 💰กำไร'}${u.gachaEdit === true ? ' · ✏️แก้ยอดจุ่มได้' : ''}${u.buyEdit === true ? ' · ✏️แก้รับซื้อได้' : ''}</span>
+      <span class="utabs">${(u.tabs || []).map(t => TAB_NAME[t] || t).join(' · ') || '— ไม่มีสิทธิ์แถบใด'}${u.seeProfit === false ? ' · 🚫กำไร' : ' · 💰กำไร'}${u.gachaEdit === true ? ' · ✏️แก้ยอดจุ่มได้' : ''}${u.buyEdit === true ? ' · ✏️แก้รับซื้อได้' : ''}${(u.shops && u.shops.length) ? ' · 🏪 ' + u.shops.map(sid => { const s = shopById(sid); return s ? esc(s.name) : sid; }).join(', ') : ' · 🏪 ทุกร้าน'}</span>
       <button class="btn btn-ghost btn-sm" onclick="editUser('${esc(u.id).replace(/'/g, "\\'")}')">แก้ไข</button>
       <button class="icon-btn del" onclick="deleteUser('${esc(u.id).replace(/'/g, "\\'")}')" title="ลบ">🗑️</button>
     </div>`).join('') : '<div class="sales-summary">ยังไม่มีผู้ช่วย</div>';
 }
+// เช็คบ็อกซ์เลือกร้านในฟอร์มผู้ใช้ (สร้างจากรายชื่อร้านปัจจุบัน)
+function renderUserShopPerms(selected) {
+  const box = document.getElementById('userShopPerms');
+  if (!box) return;
+  const sel = selected || [];
+  if (!shops.length) { box.innerHTML = '<span style="color:var(--muted);font-size:.85rem">ยังไม่มีร้านค้า</span>'; return; }
+  box.innerHTML = shops.map(s =>
+    `<label><input type="checkbox" class="u-shop-chk" value="${esc(s.id)}"${sel.includes(s.id) ? ' checked' : ''}> 🏪 ${esc(s.name || 'ร้านไม่มีชื่อ')}</label>`
+  ).join('');
+}
+function selectedUserShops() {
+  return [...document.querySelectorAll('#userShopPerms .u-shop-chk:checked')].map(c => c.value);
+}
 async function renderUsers() {
   const list = document.getElementById('usersList');
   if (userRole !== 'admin') { list.innerHTML = ''; return; }
+  renderUserShopPerms([]);
   list.innerHTML = '<div class="sales-summary">กำลังโหลด...</div>';
   try {
     const r = await fetch(USERS_API, { headers: authHeaders() });
@@ -5070,6 +5104,7 @@ function editUser(id) {
   document.getElementById('u_seeProfit').checked = u.seeProfit !== false;
   document.getElementById('u_gachaEdit').checked = u.gachaEdit === true;
   document.getElementById('u_buyEdit').checked = u.buyEdit === true;
+  renderUserShopPerms(u.shops || []);
   usersMsg('กำลังแก้ไข "' + u.id + '" — เว้นรหัสว่างถ้าไม่เปลี่ยน', '');
 }
 
@@ -5081,6 +5116,7 @@ function clearUserForm() {
   document.getElementById('u_seeProfit').checked = true;
   document.getElementById('u_gachaEdit').checked = false;
   document.getElementById('u_buyEdit').checked = false;
+  renderUserShopPerms([]);
   usersMsg('');
 }
 
@@ -5091,15 +5127,16 @@ async function saveUser() {
   const seeProfit = document.getElementById('u_seeProfit').checked;
   const gachaEdit = document.getElementById('u_gachaEdit').checked;
   const buyEdit = document.getElementById('u_buyEdit').checked;
+  const userShopSel = selectedUserShops();
   if (!id) { usersMsg('กรุณาระบุ ID', 'err'); return; }
   try {
-    const r = await fetch(USERS_API, { method: 'POST', headers: authHeaders({ 'Content-Type': 'application/json' }), body: JSON.stringify({ id, password: pass, tabs, seeProfit, gachaEdit, buyEdit }) });
+    const r = await fetch(USERS_API, { method: 'POST', headers: authHeaders({ 'Content-Type': 'application/json' }), body: JSON.stringify({ id, password: pass, tabs, seeProfit, gachaEdit, buyEdit, shops: userShopSel }) });
     const d = await r.json().catch(() => ({}));
     if (!r.ok) { usersMsg(d.error || 'บันทึกไม่สำเร็จ', 'err'); return; }
     usersMsg('✓ บันทึกผู้ใช้แล้ว (ผู้ใช้ใหม่อาจล็อกอินได้หลัง ~15 วินาที)', 'ok');
     // อัปเดตรายการในเครื่องทันที (เซิร์ฟเวอร์มี cache หน่วงเล็กน้อย)
     const ex = usersCache.find(u => u.id === id);
-    if (ex) { ex.tabs = tabs; ex.seeProfit = seeProfit; ex.gachaEdit = gachaEdit; ex.buyEdit = buyEdit; } else { usersCache.push({ id, tabs, seeProfit, gachaEdit, buyEdit }); }
+    if (ex) { ex.tabs = tabs; ex.seeProfit = seeProfit; ex.gachaEdit = gachaEdit; ex.buyEdit = buyEdit; ex.shops = userShopSel; } else { usersCache.push({ id, tabs, seeProfit, gachaEdit, buyEdit, shops: userShopSel }); }
     clearUserForm();
     renderUsersList();
   } catch (e) { usersMsg('เชื่อมต่อไม่ได้', 'err'); }
