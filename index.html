@@ -955,6 +955,15 @@
       <div class="field"><label>เบอร์โทร</label><input id="shop_phone" inputmode="tel" placeholder="เบอร์โทร"></div>
       <div class="field"><label>สถานที่</label><input id="shop_location" placeholder="สถานที่/ที่อยู่"></div>
     </div>
+    <div class="field">
+      <label>ฟังก์ชันในร้าน</label>
+      <div class="tab-perms">
+        <label><input type="checkbox" id="shop_feat_sales" checked> 🏷️ สินค้าขาย</label>
+        <label><input type="checkbox" id="shop_feat_report" checked> 📊 รายงานการขาย</label>
+        <label><input type="checkbox" id="shop_feat_buy" checked> 🛒 รับซื้อสินค้า</label>
+        <label><input type="checkbox" id="shop_feat_gacha" checked> 🎲 จุ่มสินค้า</label>
+      </div>
+    </div>
     <div class="psa-msg" id="shopFormMsg"></div>
     <div class="modal-actions">
       <button class="btn btn-danger" id="shopDeleteBtn" style="display:none;flex:0 0 auto" onclick="deleteShopFromForm()">ลบ</button>
@@ -3443,6 +3452,8 @@ function inShopScopeSold(c) {
   return sid === viewShopId;
 }
 function shopById(id) { return shops.find(s => s.id === id); }
+// ฟังก์ชันที่ร้านนี้เปิดใช้ (ไม่ได้ตั้ง = เปิดครบทั้ง 4 — เข้ากันได้กับร้านเก่า)
+function shopFeatures(s) { return (s && Array.isArray(s.features)) ? s.features : SHOP_FEATURES.map(f => f.key); }
 // ผู้ใช้คนนี้เห็นร้านนี้ไหม (แอดมิน/ไม่จำกัด = เห็นทุกร้าน)
 function userCanSeeShop(id) {
   if (!passcode || userRole === 'admin') return true;
@@ -3489,7 +3500,9 @@ function renderShopNav() {
     const activeShop = (viewShopId === s.id);
     html += `<button class="nav-sub${activeShop && !open ? ' active' : ''}" onclick="toggleShopExpand('${s.id}')">${open ? '▾' : '▸'} 🏪 ${esc(s.name || 'ร้านไม่มีชื่อ')}</button>`;
     if (open) {
+      const feats = shopFeatures(s);
       for (const f of SHOP_FEATURES) {
+        if (!feats.includes(f.key)) continue;
         const act = (viewShopId === s.id && curShopFeature === f.key);
         html += `<button class="nav-sub2${act ? ' active' : ''}" onclick="switchShopView('${s.id}','${f.key}')">↳ ${f.label}</button>`;
       }
@@ -3520,7 +3533,10 @@ function updateShopBanner() {
 function switchShopView(shopId, feature) {
   if (!canViewTab('shop')) return;
   if (!userCanSeeShop(shopId)) { switchView('shop'); return; }
-  const f = SHOP_FEATURES.find(x => x.key === feature) || SHOP_FEATURES[0];
+  const feats = shopFeatures(shopById(shopId));
+  let f = SHOP_FEATURES.find(x => x.key === feature && feats.includes(x.key));
+  if (!f) f = SHOP_FEATURES.find(x => feats.includes(x.key)); // เลือกฟังก์ชันแรกที่ร้านเปิดไว้
+  if (!f) { switchView('shop'); return; } // ร้านนี้ไม่มีฟังก์ชันเปิดเลย
   viewShopId = shopId;
   expandedShop = shopId;
   curShopFeature = f.key;
@@ -3547,6 +3563,8 @@ function openShopForm(id) {
   document.getElementById('shop_owner').value = s ? (s.owner || '') : '';
   document.getElementById('shop_phone').value = s ? (s.phone || '') : '';
   document.getElementById('shop_location').value = s ? (s.location || '') : '';
+  const feats = s ? shopFeatures(s) : SHOP_FEATURES.map(f => f.key);
+  SHOP_FEATURES.forEach(f => { const el = document.getElementById('shop_feat_' + f.key); if (el) el.checked = feats.includes(f.key); });
   const del = document.getElementById('shopDeleteBtn');
   if (del) del.style.display = s ? '' : 'none';
   document.getElementById('shopFormMsg').textContent = '';
@@ -3558,11 +3576,14 @@ function submitShop() {
   const name = document.getElementById('shop_name').value.trim();
   if (!name) { document.getElementById('shopFormMsg').textContent = 'กรุณาใส่ชื่อร้าน'; return; }
   const idRaw = document.getElementById('shop_id').value;
+  const features = SHOP_FEATURES.filter(f => { const el = document.getElementById('shop_feat_' + f.key); return el && el.checked; }).map(f => f.key);
+  if (!features.length) { document.getElementById('shopFormMsg').textContent = 'เลือกฟังก์ชันในร้านอย่างน้อย 1 อย่าง'; return; }
   const data = {
     name,
     owner: document.getElementById('shop_owner').value.trim(),
     phone: document.getElementById('shop_phone').value.trim(),
     location: document.getElementById('shop_location').value.trim(),
+    features,
   };
   const existing = idRaw ? shopById(idRaw) : null;
   if (existing) Object.assign(existing, data);
