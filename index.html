@@ -651,16 +651,26 @@
       <div class="stat">
         <div class="label">ยอด Pre Order</div>
         <div class="value num" id="poStatTotal">฿0</div>
-        <div class="sub" id="poStatCount">รอส่งของ 0 รายการ</div>
+        <div class="sub" id="poStatCount">ทั้งหมด 0 รายการ</div>
       </div>
       <div class="stat">
         <div class="label">ยอดเงินมัดจำ</div>
         <div class="value num" id="poStatDeposit">฿0</div>
-        <div class="sub">เฉพาะรายการที่รอส่งของ</div>
+        <div class="sub">ทั้งหมด (ไม่รวมยกเลิก)</div>
       </div>
       <div class="stat">
         <div class="label">ยอดเงินค้าง</div>
         <div class="value num" id="poStatDue">฿0</div>
+        <div class="sub">ราคา − มัดจำ (ไม่รวมยกเลิก)</div>
+      </div>
+      <div class="stat">
+        <div class="label">ยอดเงินมัดจำ (รอส่งของ)</div>
+        <div class="value num" id="poStatDepositWait">฿0</div>
+        <div class="sub" id="poStatWaitCount">เฉพาะรอส่งของ 0 รายการ</div>
+      </div>
+      <div class="stat">
+        <div class="label">ยอดเงินค้าง (รอส่งของ)</div>
+        <div class="value num" id="poStatDueWait">฿0</div>
         <div class="sub">ราคา − มัดจำ (เฉพาะรอส่งของ)</div>
       </div>
     </div>
@@ -3927,15 +3937,21 @@ function poCellValue(o, key) {
 function renderPreorder() {
   const area = document.getElementById('preorderArea');
   if (!area) return;
-  // สรุปยอด — เฉพาะรายการที่ "รอส่งของ"
+  // สรุปยอด — ทั้งหมด (ไม่รวมยกเลิก) + เฉพาะรอส่งของ
+  const active = preorders.filter(o => (o.status || 'wait') !== 'cancel');
   const waiting = preorders.filter(o => (o.status || 'wait') === 'wait');
-  const total = waiting.reduce((s, o) => s + (Number(o.price) || 0), 0);
-  const dep = waiting.reduce((s, o) => s + (Number(o.deposit) || 0), 0);
-  const due = waiting.reduce((s, o) => s + poRemaining(o), 0);
+  const total = active.reduce((s, o) => s + (Number(o.price) || 0), 0);
+  const depAll = active.reduce((s, o) => s + (Number(o.deposit) || 0), 0);
+  const dueAll = active.reduce((s, o) => s + poRemaining(o), 0);
+  const depWait = waiting.reduce((s, o) => s + (Number(o.deposit) || 0), 0);
+  const dueWait = waiting.reduce((s, o) => s + poRemaining(o), 0);
   const sT = document.getElementById('poStatTotal'); if (sT) sT.textContent = money(total);
-  const sD = document.getElementById('poStatDeposit'); if (sD) sD.textContent = money(dep);
-  const sU = document.getElementById('poStatDue'); if (sU) sU.textContent = money(due);
-  const sC = document.getElementById('poStatCount'); if (sC) sC.textContent = 'รอส่งของ ' + waiting.length + ' รายการ';
+  const sD = document.getElementById('poStatDeposit'); if (sD) sD.textContent = money(depAll);
+  const sU = document.getElementById('poStatDue'); if (sU) sU.textContent = money(dueAll);
+  const sC = document.getElementById('poStatCount'); if (sC) sC.textContent = 'ทั้งหมด ' + active.length + ' รายการ';
+  const sDW = document.getElementById('poStatDepositWait'); if (sDW) sDW.textContent = money(depWait);
+  const sUW = document.getElementById('poStatDueWait'); if (sUW) sUW.textContent = money(dueWait);
+  const sWC = document.getElementById('poStatWaitCount'); if (sWC) sWC.textContent = 'เฉพาะรอส่งของ ' + waiting.length + ' รายการ';
 
   const q = (document.getElementById('poSearch')?.value || '').trim().toLowerCase();
   const sf = document.getElementById('poStatusFilter')?.value || '';
