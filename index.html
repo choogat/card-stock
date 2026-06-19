@@ -1235,6 +1235,14 @@
     <h2 id="modalTitle">เพิ่มการ์ด</h2>
     <input type="hidden" id="f_id">
     <input type="hidden" id="f_image">
+    <div class="field psa-lookup" id="row_psaLookup">
+      <label>⚡ ดึงข้อมูลอัตโนมัติจากเลข cert PSA</label>
+      <div class="psa-row">
+        <input id="f_cert" inputmode="numeric" placeholder="เลข cert บนป้าย เช่น 12345678" oninput="document.getElementById('f_cert2').value=this.value">
+        <button type="button" class="btn btn-primary" id="psaFetchBtn" onclick="fetchPSA()">ดึงข้อมูล</button>
+      </div>
+      <div class="psa-msg" id="psaMsg"></div>
+    </div>
     <div class="field psa-lookup" id="row_opLookup" style="display:none">
       <label>🏴‍☠️ ดึงข้อมูล Booster One Piece (พิมพ์รหัส)</label>
       <div class="psa-row">
@@ -1279,15 +1287,11 @@
       <div id="setItemsList"></div>
       <button type="button" class="btn btn-ghost btn-sm" id="setAddBtn" onclick="addSetItem()">+ เพิ่มใบ</button>
     </div>
-    <div class="field psa-lookup" id="row_psaLookup">
-      <label>หมายเลข PSA / BGS <span style="font-weight:400;color:var(--muted);font-size:.8rem">(⚡ ใส่เลข cert แล้วกด “ดึงข้อมูล” เพื่อเติมอัตโนมัติ)</span></label>
-      <div class="psa-row">
-        <input id="f_cert" inputmode="numeric" placeholder="เลข cert บนป้าย เช่น 12345678">
-        <button type="button" class="btn btn-primary" id="psaFetchBtn" onclick="fetchPSA()">ดึงข้อมูล</button>
+    <div class="grid-setpsa" id="row_setPsa">
+      <div class="field" id="fld_certNum">
+        <label>หมายเลข PSA / BGS</label>
+        <input id="f_cert2" inputmode="numeric" placeholder="เลข cert" oninput="document.getElementById('f_cert').value=this.value">
       </div>
-      <div class="psa-msg" id="psaMsg"></div>
-    </div>
-    <div class="grid2" id="row_setPsa">
       <div class="field" id="fld_psaGrade">
         <label>PSA. BGS</label>
         <div class="grade-row">
@@ -2918,7 +2922,7 @@ function applyFormMode(mode) {
   const isSet = mode === 'set';
   const isCard = mode === 'card';
   // ช่องเฉพาะการ์ดเดี่ยว (cert / SNKRDUNK / รุ่น+PSA) — โชว์เฉพาะโหมดการ์ดเดี่ยว
-  ['row_psaLookup', 'row_snkr', 'row_namtcg', 'fld_set', 'fld_psaGrade'].forEach(id => {
+  ['row_psaLookup', 'row_snkr', 'row_namtcg', 'fld_set', 'fld_certNum', 'fld_psaGrade'].forEach(id => {
     document.getElementById(id).style.display = isCard ? '' : 'none';
   });
   // แถว รุ่น/PSA/สถานะ โชว์เสมอ (มีช่อง "สถานะ" ที่ทุกโหมดต้องใช้)
@@ -2976,7 +2980,7 @@ function setBuyMode(on) {
 async function buyFromPSA(cert) {
   closeBuyPopup();
   openForm('card');
-  document.getElementById('f_cert').value = cert;
+  setCert(cert);
   await fetchPSA();
   setBuyMode(true);
 }
@@ -3126,10 +3130,15 @@ function updateQtyTotals() {
   box.innerHTML = `ยอดรวม × ${qty} ${unit} → ราคากลาง <b>${money(m)}</b> · รับซื้อ <b>${money(b)}</b> · ขาย <b>${money(s)}</b>`;
 }
 
+// ตั้งค่าเลข cert ให้ทั้ง 2 ช่อง (กล่องดึงข้อมูลด้านบน + ช่องหมายเลข PSA/BGS) ให้ตรงกัน
+function setCert(v) {
+  const a = document.getElementById('f_cert'); if (a) a.value = v || '';
+  const b = document.getElementById('f_cert2'); if (b) b.value = v || '';
+}
 function openForm(mode = 'card') {
   document.getElementById('modalTitle').textContent = mode === 'collect' ? 'เพิ่มของสะสม' : 'เพิ่มการ์ด';
   document.getElementById('f_id').value = '';
-  document.getElementById('f_cert').value = '';
+  setCert('');
   psaSay('');
   document.getElementById('f_opCode').value = '';
   document.getElementById('opMsg').textContent = '';
@@ -3167,7 +3176,7 @@ function editCard(id) {
   const mode = c.type === 'collect' ? 'collect' : (c.type === 'set' ? 'set' : 'card');
   document.getElementById('modalTitle').textContent = mode === 'collect' ? 'แก้ไขของสะสม' : (mode === 'set' ? 'แก้ไขชุด' : 'แก้ไขการ์ด');
   document.getElementById('f_id').value = c.id;
-  document.getElementById('f_cert').value = c.cert || '';
+  setCert(c.cert || '');
   psaSay('');
   document.getElementById('f_topic').value = c.topic || '';
   document.getElementById('f_name').value = c.name || '';
@@ -3207,7 +3216,7 @@ function copyCard(id) {
   if (!c) return;
   editCard(id);                                   // เติมทุกช่องจากใบต้นฉบับ
   document.getElementById('f_id').value = '';      // เป็น "ใบใหม่" ไม่ทับใบเดิม
-  document.getElementById('f_cert').value = '';    // cert ต้องไม่ซ้ำ — กรอกใหม่
+  setCert('');                                     // cert ต้องไม่ซ้ำ — กรอกใหม่
   // ตัดส่วน "cert ..." (เลข cert ใบเดิม) ออกจากรายละเอียด
   const detEl = document.getElementById('f_detail');
   detEl.value = (detEl.value || '').split('·').map(s => s.trim()).filter(s => s && !/cert/i.test(s)).join(' · ');
@@ -4645,7 +4654,7 @@ function addFromPSASearch() {
   const cert = lastPSA.cert;
   closePSASearch();
   openForm();
-  document.getElementById('f_cert').value = cert;
+  setCert(cert);
   fetchPSA(); // เติมข้อมูล+รูปลงฟอร์มอัตโนมัติ
 }
 
