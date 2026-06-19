@@ -1235,14 +1235,6 @@
     <h2 id="modalTitle">เพิ่มการ์ด</h2>
     <input type="hidden" id="f_id">
     <input type="hidden" id="f_image">
-    <div class="field psa-lookup" id="row_psaLookup">
-      <label>⚡ ดึงข้อมูลอัตโนมัติจากเลข cert PSA</label>
-      <div class="psa-row">
-        <input id="f_cert" inputmode="numeric" placeholder="เลข cert บนป้าย เช่น 12345678">
-        <button type="button" class="btn btn-primary" id="psaFetchBtn" onclick="fetchPSA()">ดึงข้อมูล</button>
-      </div>
-      <div class="psa-msg" id="psaMsg"></div>
-    </div>
     <div class="field psa-lookup" id="row_opLookup" style="display:none">
       <label>🏴‍☠️ ดึงข้อมูล Booster One Piece (พิมพ์รหัส)</label>
       <div class="psa-row">
@@ -1269,16 +1261,11 @@
         </select>
       </div>
     </div>
-    <div class="field">
-      <label id="nameLabel">ชื่อการ์ด *</label>
-      <input id="f_name" placeholder="เช่น Charizard, Pikachu...">
-    </div>
-    <div class="field" id="row_setItems" style="display:none">
-      <label>รายชื่อการ์ดในชุด (สูงสุด 15 ใบ) · ใส่เลข cert แล้วกด ⚡ เพื่อดึงชื่อจาก PSA</label>
-      <div id="setItemsList"></div>
-      <button type="button" class="btn btn-ghost btn-sm" id="setAddBtn" onclick="addSetItem()">+ เพิ่มใบ</button>
-    </div>
-    <div class="grid-setpsa" id="row_setPsa">
+    <div class="grid2">
+      <div class="field">
+        <label id="nameLabel">ชื่อการ์ด *</label>
+        <input id="f_name" placeholder="เช่น Charizard, Pikachu...">
+      </div>
       <div class="field" id="fld_set">
         <label>รุ่น</label>
         <div class="ac-wrap">
@@ -1286,6 +1273,21 @@
           <div class="ac-list" id="setSuggest"></div>
         </div>
       </div>
+    </div>
+    <div class="field" id="row_setItems" style="display:none">
+      <label>รายชื่อการ์ดในชุด (สูงสุด 15 ใบ) · ใส่เลข cert แล้วกด ⚡ เพื่อดึงชื่อจาก PSA</label>
+      <div id="setItemsList"></div>
+      <button type="button" class="btn btn-ghost btn-sm" id="setAddBtn" onclick="addSetItem()">+ เพิ่มใบ</button>
+    </div>
+    <div class="field psa-lookup" id="row_psaLookup">
+      <label>หมายเลข PSA / BGS <span style="font-weight:400;color:var(--muted);font-size:.8rem">(⚡ ใส่เลข cert แล้วกด “ดึงข้อมูล” เพื่อเติมอัตโนมัติ)</span></label>
+      <div class="psa-row">
+        <input id="f_cert" inputmode="numeric" placeholder="เลข cert บนป้าย เช่น 12345678">
+        <button type="button" class="btn btn-primary" id="psaFetchBtn" onclick="fetchPSA()">ดึงข้อมูล</button>
+      </div>
+      <div class="psa-msg" id="psaMsg"></div>
+    </div>
+    <div class="grid2" id="row_setPsa">
       <div class="field" id="fld_psaGrade">
         <label>PSA. BGS</label>
         <div class="grade-row">
