@@ -4107,8 +4107,13 @@ function renderPreorder() {
       return b.i - a.i;
     });
   } else {
-    // ค่าเริ่มต้น: รอส่งของ อยู่บน → รับแล้ว/ยกเลิก อยู่ล่าง · ภายในกลุ่มเดียวกัน วันล่าสุดอยู่บน
-    const rank = o => ((o.status || 'wait') === 'wait' ? 0 : 1);
+    // ค่าเริ่มต้น: 1)รอส่งของ-ถึงเวลารับแล้ว 2)รอส่งของ-ยังไม่ถึง 3)ยกเลิก 4)รับแล้ว · ในกลุ่มเดียวกัน วันล่าสุดอยู่บน
+    const rank = o => {
+      const st = o.status || 'wait';
+      if (st === 'wait') return (o.recvDate && o.recvDate <= todayStr()) ? 0 : 1;
+      if (st === 'cancel') return 2;
+      return 3; // received
+    };
     list.sort((a, b) => {
       const ra = rank(a.o), rb = rank(b.o);
       if (ra !== rb) return ra - rb;
