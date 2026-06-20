@@ -1298,6 +1298,11 @@
           <select id="f_grader" title="บริษัทเกรด">
             <option value="PSA">PSA</option>
             <option value="BGS">BGS</option>
+            <option value="PCG">PCG</option>
+            <option value="CGC">CGC</option>
+            <option value="SGC">SGC</option>
+            <option value="TAG">TAG</option>
+            <option value="SQC">SQC</option>
           </select>
           <input id="f_psa" placeholder="10">
         </div>
@@ -4822,6 +4827,8 @@ function saveCard() {
   const isCollect = formMode === 'collect';
   const isSet = formMode === 'set';
   if (!name) { alert(isSet ? 'กรุณากรอกชื่อชุด' : 'กรุณากรอกชื่อสินค้า'); return; }
+  const topic = document.getElementById('f_topic').value.trim();
+  if (!topic) { alert('ต้องใส่ชื่อเรื่องก่อน'); document.getElementById('f_topic').focus(); return; }
   const setItems = isSet ? collectSetItems() : undefined;
   const qty = isCollect ? Math.max(1, parseInt(document.getElementById('f_qty').value) || 1) : 1;
   const uMedian = parseFloat(document.getElementById('f_median').value) || 0;
@@ -4831,7 +4838,7 @@ function saveCard() {
     type: isSet ? 'set' : (isCollect ? 'collect' : 'card'),
     setItems: isSet ? setItems : undefined,
     setCount: isSet ? setItems.length : undefined,
-    topic: document.getElementById('f_topic').value.trim(),
+    topic,
     name,
     lang: document.getElementById('f_lang').value,
     cert: document.getElementById('f_cert').value.trim().replace(/\D/g, ''),
