@@ -3537,7 +3537,7 @@ function renderShopNav() {
   for (const s of visibleShops()) {
     const open = expandedShop === s.id;
     const activeShop = (viewShopId === s.id && !curShopFeature); // อยู่หน้าสรุปของร้านนี้
-    html += `<button class="nav-sub${activeShop ? ' active' : ''}" onclick="openShopHome('${s.id}')">${open ? '▾' : '▸'} 🏪 ${esc(s.name || 'ร้านไม่มีชื่อ')}</button>`;
+    html += `<button class="nav-sub${activeShop ? ' active' : ''}" onclick="toggleShopExpand('${s.id}')">${open ? '▾' : '▸'} 🏪 ${esc(s.name || 'ร้านไม่มีชื่อ')}</button>`;
     if (open) {
       const feats = shopFeatures(s);
       for (const f of SHOP_FEATURES) {
@@ -3551,9 +3551,10 @@ function renderShopNav() {
   el.innerHTML = html;
 }
 let curShopFeature = null;
+// กดชื่อร้าน: กางเมนูย่อย + เปิดหน้าสรุปร้าน · กดซ้ำที่ร้านที่กางอยู่ = ยุบเมนูย่อย
 function toggleShopExpand(id) {
-  expandedShop = (expandedShop === id) ? null : id;
-  renderShopNav();
+  if (expandedShop === id) { expandedShop = null; renderShopNav(); }
+  else openShopHome(id);
 }
 function hideAllMainViews() {
   ALL_VIEW_IDS.forEach(id => { const e = document.getElementById(id); if (e) e.style.display = 'none'; });
