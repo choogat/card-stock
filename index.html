@@ -1293,7 +1293,7 @@
         <input id="f_cert2" inputmode="numeric" placeholder="เลข cert" oninput="document.getElementById('f_cert').value=this.value">
       </div>
       <div class="field" id="fld_psaGrade">
-        <label>PSA. BGS</label>
+        <label>Grade</label>
         <div class="grade-row">
           <select id="f_grader" title="บริษัทเกรด">
             <option value="PSA">PSA</option>
@@ -3147,7 +3147,7 @@ function openForm(mode = 'card') {
   document.getElementById('f_name').value = '';
   document.getElementById('f_lang').value = 'JP';
   document.getElementById('f_set').value = '';
-  document.getElementById('f_psa').value = '';
+  document.getElementById('f_psa').value = '10'; // ค่าเริ่มต้นเกรด = 10
   document.getElementById('f_grader').value = 'PSA';
   document.getElementById('f_median').value = '';
   document.getElementById('f_buy').value = '';
@@ -3155,7 +3155,7 @@ function openForm(mode = 'card') {
   document.getElementById('f_qty').value = '1';
   document.getElementById('f_unit').value = 'Box';
   document.getElementById('f_status').value = 'show';
-  document.getElementById('f_buyDate').value = '';
+  document.getElementById('f_buyDate').value = todayISO(); // วันที่ซื้อ เริ่มต้น = วันนี้
   document.getElementById('f_snkr').value = '';
   document.getElementById('f_namCode').value = '';
   document.getElementById('f_namRaw').value = '';
