@@ -605,7 +605,7 @@
     <div class="stat">
       <div class="label">ยอดรวมราคารับซื้อ</div>
       <div class="value num" id="statBuy">฿0</div>
-      <div class="sub">เฉพาะสะสม + รอขาย (ไม่รวมที่ขายแล้ว)</div>
+      <div class="sub" id="statBuySub">สะสม ฿0 · รอขาย ฿0</div>
     </div>
     <div class="stat">
       <div class="label">ยอดรวมราคาขาย</div>
@@ -1568,6 +1568,9 @@ function updateStats() {
   // แยกยอดราคากลาง: สะสม / รอขาย
   const medianShow = real.filter(c => c.status === 'show').reduce((s, c) => s + (Number(c.median) || 0), 0);
   const medianWait = real.filter(c => c.status === 'wait').reduce((s, c) => s + (Number(c.median) || 0), 0);
+  // ราคารับซื้อ แยก สะสม / รอขาย
+  const buyShow = real.filter(c => c.status === 'show').reduce((s, c) => s + (Number(c.buy) || 0), 0);
+  const buyWait = real.filter(c => c.status === 'wait').reduce((s, c) => s + (Number(c.buy) || 0), 0);
   const nShow = real.filter(c => c.status === 'show').length;
   const nWait = real.filter(c => c.status === 'wait').length;
   const nSold = real.filter(c => c.status === 'sold' && !c.cancelled).length;
@@ -1581,6 +1584,7 @@ function updateStats() {
   document.getElementById('statMedian').textContent = money(totalMedian);
   document.getElementById('statMedianSub').textContent = `สะสม ${money(medianShow)} · รอขาย ${money(medianWait)}`;
   document.getElementById('statBuy').textContent = money(totalBuy);
+  document.getElementById('statBuySub').textContent = `สะสม ${money(buyShow)} · รอขาย ${money(buyWait)}`;
   document.getElementById('statSell').textContent = money(totalSell);
   const profitEl = document.getElementById('statProfit');
   profitEl.textContent = 'กำไรที่ขายได้จริง ' + money(realized);
