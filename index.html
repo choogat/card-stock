@@ -2439,7 +2439,7 @@ function renderReport() {
 
 // ยกเลิกการขาย (เฉพาะรายการที่ขาย "วันนี้" + ต้องใส่รหัส)
 // → คงบรรทัดเดิมไว้ในรายงานเป็น "ยกเลิก" (ไม่นับยอด) + สร้างใบใหม่คืนเป็น "รอขาย" กลับเข้าหน้าสินค้าขาย
-const CANCEL_SALE_PASS = 'Tumzamag01';
+const CANCEL_SALE_PASS = 'Cielcard';
 function cancelSale(id) {
   const c = cards.find(x => x.id === id);
   if (!c || c.status !== 'sold' || c.cancelled) return;
