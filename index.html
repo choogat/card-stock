@@ -467,6 +467,8 @@
   .qty-totals b { color: var(--text); }
   .qty-badge { display: inline-block; background: var(--accent2); color: #fff; padding: 1px 8px; border-radius: 999px; font-size: .72rem; font-weight: 700; }
   .lang-badge { display: inline-block; background: var(--card2); border: 1px solid var(--border); color: var(--muted); padding: 1px 7px; border-radius: 6px; font-size: .68rem; font-weight: 700; }
+  /* ป้ายร้านค้าในแถบสินค้าขาย (โชว์ต่อจากชื่อการ์ด) */
+  .shop-tag { display: inline-block; background: rgba(99,102,241,.14); color: var(--accent); border: 1px solid var(--accent); padding: 1px 8px; border-radius: 999px; font-size: .7rem; font-weight: 700; white-space: nowrap; }
   tr.group-head { cursor: pointer; }
   tr.group-head td { background: var(--card2); }
   tr.group-head:hover td { filter: brightness(0.96); }
@@ -2602,6 +2604,26 @@ function toggleSalesGroup(key) {
   if (expandedSales.has(key)) expandedSales.delete(key); else expandedSales.add(key);
   renderSales();
 }
+// ป้ายร้านค้าที่การ์ดใบนี้ส่งไปขาย (โชว์ต่อจากชื่อการ์ดในแถบสินค้าขาย)
+function saleShopLabel(c) {
+  if (!shops.length) return '';            // ไม่มีร้านในระบบ → ไม่ต้องโชว์
+  const sid = c.shopId;
+  if (sid === '__all__') return ` <span class="shop-tag">🏬 ทุกร้าน</span>`;
+  if (sid) { const s = shopById(sid); if (s) return ` <span class="shop-tag">🏪 ${esc(s.name || 'ร้านไม่มีชื่อ')}</span>`; }
+  return ` <span class="shop-tag">🏪 ส่วนกลาง</span>`;   // ไม่ระบุร้าน = ส่วนกลาง
+}
+// ป้ายร้านสำหรับหัวกลุ่ม — รวมร้านที่ไม่ซ้ำของทุกใบในกลุ่ม
+function saleShopLabelsFor(items) {
+  if (!shops.length) return '';
+  const seen = new Set(); let out = '';
+  for (const c of items) {
+    const key = c.shopId || '';
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out += saleShopLabel(c);
+  }
+  return out;
+}
 function salesRow(c, isChild) {
   const img = c.image
     ? `<img class="thumb" src="${c.image}" onclick="openLightbox('${c.id}')" alt="">`
@@ -2614,7 +2636,7 @@ function salesRow(c, isChild) {
   const qtyText = `${Number(c.qty) || 1}${c.unit ? ' ' + esc(c.unit) : ''}`;
   return `<tr class="${isChild ? 'child-row' : ''}">
     <td>${img}</td>
-    <td class="name">${c.topic ? `<div class="topic">${esc(c.topic)}</div>` : ''}${esc(c.name)}${c.lang ? ` <span class="lang-badge">${esc(c.lang)}</span>` : ''}${c.psa ? ` <span class="muted">(${esc(c.grader || 'PSA')} ${esc(c.psa)})</span>` : ''}${setMetaHTML(c)}${c.detail ? `<div class="detail">${esc(c.detail)}</div>` : ''}</td>
+    <td class="name">${c.topic ? `<div class="topic">${esc(c.topic)}</div>` : ''}${esc(c.name)}${c.lang ? ` <span class="lang-badge">${esc(c.lang)}</span>` : ''}${c.psa ? ` <span class="muted">(${esc(c.grader || 'PSA')} ${esc(c.psa)})</span>` : ''}${saleShopLabel(c)}${setMetaHTML(c)}${c.detail ? `<div class="detail">${esc(c.detail)}</div>` : ''}</td>
     <td class="center"><span class="qty-badge">${qtyText}</span></td>
     <td class="num">${money(c.buy)}</td>
     <td class="num">${money(c.sell)}</td>
@@ -2637,7 +2659,7 @@ function salesGroupRow(g) {
   const k = encodeURIComponent(g.key).replace(/'/g, '%27');
   return `<tr class="group-head" onclick="toggleSalesGroup('${k}')">
     <td>${img}</td>
-    <td class="name"><span class="exp">${open ? '▾' : '▸'}</span> ${rep.topic ? `<div class="topic" style="display:inline-block">${esc(rep.topic)}</div> ` : ''}${esc(rep.name)}${rep.lang ? ` <span class="lang-badge">${esc(rep.lang)}</span>` : ''}${rep.set ? `<div class="cardset">รุ่น: ${esc(rep.set)}</div>` : ''}</td>
+    <td class="name"><span class="exp">${open ? '▾' : '▸'}</span> ${rep.topic ? `<div class="topic" style="display:inline-block">${esc(rep.topic)}</div> ` : ''}${esc(rep.name)}${rep.lang ? ` <span class="lang-badge">${esc(rep.lang)}</span>` : ''}${saleShopLabelsFor(items)}${rep.set ? `<div class="cardset">รุ่น: ${esc(rep.set)}</div>` : ''}</td>
     <td class="center"><span class="qty-badge">${countLabel}</span></td>
     <td class="num">${money(rep.buy)}</td>
     <td class="num">${money(rep.sell)}</td>
