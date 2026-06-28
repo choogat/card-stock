@@ -69,6 +69,20 @@
   .shop-banner .shop-meta { color: var(--muted); font-size: .85rem; }
   .sale-shop-list { display: flex; flex-direction: column; gap: 8px; max-height: 320px; overflow-y: auto; }
   .sale-shop-opt { width: 100%; text-align: left; }
+  /* แถบลอยตอนเลือกการ์ดหลายใบเพื่อส่งไปขาย */
+  .sale-select-bar {
+    position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%) translateY(140%);
+    display: flex; align-items: center; gap: 12px; z-index: 60;
+    background: var(--card); border: 1px solid var(--border); border-radius: 999px;
+    padding: 10px 14px 10px 20px; box-shadow: 0 10px 30px rgba(6,8,18,.45);
+    opacity: 0; pointer-events: none; transition: transform .22s ease, opacity .22s ease;
+  }
+  .sale-select-bar.open { transform: translateX(-50%) translateY(0); opacity: 1; pointer-events: auto; }
+  .sale-select-bar .ssb-count { font-weight: 700; font-size: .92rem; white-space: nowrap; }
+  @media (max-width: 560px) {
+    .sale-select-bar { left: 12px; right: 12px; transform: translateY(140%); width: auto; justify-content: space-between; padding-left: 16px; }
+    .sale-select-bar.open { transform: translateY(0); }
+  }
   #userShopPerms { display: flex; flex-direction: column; gap: 8px; }
   .shop-perm-group { border: 1px solid var(--border); border-radius: 10px; padding: 10px 14px; background: var(--bg); }
   .shop-perm-group .u-shop-name { font-weight: 700; font-size: .95rem; margin-bottom: 8px; }
@@ -997,6 +1011,13 @@
   </div>
 </div>
 
+<!-- แถบลอย: เลือกการ์ดหลายใบไปขาย แล้วค่อยเลือกร้านทีเดียว -->
+<div class="sale-select-bar" id="saleSelectBar">
+  <span class="ssb-count" id="saleSelectCount">เลือกไว้ 0 ใบ</span>
+  <button class="btn btn-primary btn-sm" onclick="openSaleShopBatch()">🏷️ เลือกร้าน</button>
+  <button class="btn btn-ghost btn-sm" onclick="clearSaleSelection()">ล้าง</button>
+</div>
+
 <!-- รับซื้อสินค้า: สร้างรายการรับซื้อเอง -->
 <div class="overlay" id="newBuyOverlay">
   <div class="modal" style="max-width:600px">
@@ -1798,7 +1819,7 @@ function stockRow(c, isChild) {
     ${canSeeProfit() ? `<td class="num">${profitCell}</td>` : ''}
     <td class="center"><span class="badge ${st.cls}">${st.label}</span></td>
     <td class="center">
-      <input type="checkbox" class="sale-check" ${c.status !== 'show' ? 'checked' : ''} ${c.status === 'sold' ? 'disabled' : ''}
+      <input type="checkbox" class="sale-check" ${(c.status !== 'show' || saleSelection.has(c.id)) ? 'checked' : ''} ${c.status === 'sold' ? 'disabled' : ''}
         onchange="toggleForSale('${c.id}')" title="${c.status === 'sold' ? 'ขายแล้ว (ล็อก)' : 'ติ๊กเพื่อย้ายไปแถบสินค้าขาย'}">
     </td>
     <td>
@@ -1877,6 +1898,7 @@ function canViewTab(v) {
 }
 function switchView(view) {
   if (!canViewTab(view)) view = allowedTabs()[0] || 'stock';
+  if (typeof saleSelection !== 'undefined' && saleSelection.size) { saleSelection.clear(); updateSaleBar(); }
   viewShopId = null; curShopFeature = null; // ออกจากบริบทร้าน → กลับมาดูภาพรวม
   updateShopBanner();
   document.querySelectorAll('.nav-item').forEach(b => b.classList.toggle('active', b.dataset.view === view));
@@ -2808,19 +2830,41 @@ function confirmSale() {
 // ติ๊ก/ยกเลิก "สำหรับขาย" จากแถบสต็อก (โชว์ ⇄ รอขาย)
 let pendingSaleShopId = '';  // ร้านที่เลือกตอนกำลังส่งไปขาย (ใช้ต่อในกรณีแยกของสะสม)
 let saleShopCardId = null;
+let saleSelection = new Set();   // การ์ดที่ติ๊กไว้ รอเลือกร้านทีเดียว (status ยังเป็น 'show')
+let splitQueue = [];             // คิวของสะสม qty>1 ที่ต้องแยกจำนวนทีละใบ
 function toggleForSale(id) {
   const c = cards.find(x => x.id === id);
   if (!c) return;
   if (c.status === 'sold') { render(); return; } // ขายแล้ว = ล็อก
   if (c.status === 'show') {
-    // กำลังย้ายไปขาย — ถ้ามีร้านค้า ให้เลือกก่อนว่าจะให้โชว์ที่ร้านไหน
-    if (shops.length) { openSaleShop(id); render(); return; }
-    moveToSale(id, c.shopId || ''); // ไม่มีร้าน → ขายตามปกติ
+    // ไม่มีร้านค้า → ส่งไปขายส่วนกลางได้เลย (ไม่ต้องเลือกร้าน)
+    if (!shops.length) { moveToSale(id, c.shopId || ''); return; }
+    // มีร้านค้า → สะสมไว้ก่อน ค่อยกด "เลือกร้าน" ทีเดียวให้กับทุกใบที่เลือก
+    if (saleSelection.has(id)) saleSelection.delete(id); else saleSelection.add(id);
+    updateSaleBar();
+    render();
   } else {
     c.status = 'show'; // เอาออกจากขาย
+    saleSelection.delete(id);
+    updateSaleBar();
     save();
     render();
   }
+}
+// แถบลอยแสดงจำนวนการ์ดที่เลือกไว้
+function updateSaleBar() {
+  const bar = document.getElementById('saleSelectBar');
+  if (!bar) return;
+  const n = saleSelection.size;
+  const cntEl = document.getElementById('saleSelectCount');
+  if (cntEl) cntEl.textContent = `เลือกไว้ ${n} ใบ`;
+  bar.classList.toggle('open', n > 0);
+}
+// ล้างการเลือก (เอาติ๊กออกทั้งหมด แต่ยังไม่ส่งไปขาย)
+function clearSaleSelection() {
+  saleSelection.clear();
+  updateSaleBar();
+  render();
 }
 // ย้ายการ์ดไปแถบสินค้าขาย พร้อมกำหนดร้าน ('__all__' = ทุกร้าน / id = ร้านเดียว / '' = ส่วนกลาง)
 function moveToSale(id, shopId) {
@@ -2836,20 +2880,43 @@ function moveToSale(id, shopId) {
   save();
   render();
 }
-// เลือกร้านตอนติ๊ก "สินค้าขาย"
-function openSaleShop(id) {
-  saleShopCardId = id;
-  const c = cards.find(x => x.id === id);
-  document.getElementById('saleShopName').textContent = c ? ((c.topic ? c.topic + ' · ' : '') + c.name) : '';
+// เลือกร้านสำหรับการ์ดทุกใบที่ติ๊กไว้ (กดจากแถบลอย)
+function openSaleShopBatch() {
+  if (!saleSelection.size) return;
+  document.getElementById('saleShopName').textContent = `ส่ง ${saleSelection.size} ใบ ไปขาย`;
   let html = `<button class="btn btn-ghost sale-shop-opt" onclick="pickSaleShop('__all__')">🏬 ร้านค้าทั้งหมด</button>`;
   html += shops.map(s => `<button class="btn btn-ghost sale-shop-opt" onclick="pickSaleShop('${s.id}')">🏪 ${esc(s.name || 'ร้านไม่มีชื่อ')}</button>`).join('');
   document.getElementById('saleShopOptions').innerHTML = html;
   document.getElementById('saleShopOverlay').classList.add('open');
 }
+// เลือกร้านแล้ว → กระจายให้การ์ดทุกใบที่เลือกไว้
 function pickSaleShop(shopId) {
-  const id = saleShopCardId;
   closeSaleShop();
-  if (id) moveToSale(id, shopId);
+  const ids = [...saleSelection];
+  saleSelection.clear();
+  updateSaleBar();
+  splitQueue = [];
+  let changed = false;
+  ids.forEach(id => {
+    const c = cards.find(x => x.id === id);
+    if (!c || c.status !== 'show') return;
+    if (c.type === 'collect' && (Number(c.qty) || 1) > 1) {
+      splitQueue.push({ id, shopId });   // ของสะสมหลายชิ้น → แยกจำนวนทีละใบ
+    } else {
+      c.shopId = shopId;
+      c.status = 'wait';
+      changed = true;
+    }
+  });
+  if (changed) save();
+  render();
+  processSplitQueue();
+}
+// แยกของสะสมในคิวทีละใบ (เปิดหน้าต่างแยกจำนวนต่อกัน)
+function processSplitQueue() {
+  if (!splitQueue.length) return;
+  pendingSaleShopId = splitQueue[0].shopId;
+  openSplit(splitQueue[0].id);
 }
 function closeSaleShop() { document.getElementById('saleShopOverlay').classList.remove('open'); saleShopCardId = null; }
 
@@ -2866,7 +2933,11 @@ function openSplit(id) {
   updateSplitTotal();
   document.getElementById('splitOverlay').classList.add('open');
 }
-function closeSplit() { document.getElementById('splitOverlay').classList.remove('open'); }
+function closeSplit() {
+  document.getElementById('splitOverlay').classList.remove('open');
+  // ถ้ากำลังไล่คิวแยกของสะสมหลายใบ → ตัดใบปัจจุบันออกแล้วเปิดใบถัดไป
+  if (splitQueue.length) { splitQueue.shift(); processSplitQueue(); }
+}
 function updateSplitTotal() {
   const q = parseInt(document.getElementById('split_qty').value) || 0;
   const p = parseFloat(document.getElementById('split_price').value) || 0;
