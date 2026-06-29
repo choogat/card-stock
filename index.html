@@ -1719,6 +1719,7 @@ function render() {
       ${canSeeProfit() ? '<th class="num">กำไร</th>' : ''}
       <th class="center">สถานะ</th>
       <th class="center">สินค้าขาย</th>
+      <th class="center">ร้านค้า</th>
       <th></th>
     </tr></thead>
     <tbody>${rows}</tbody>
@@ -1781,7 +1782,7 @@ function setCardsRow(c) {
     return `<div class="sc-card">${pic}<div class="sc-name">${i + 1}. ${esc(name)}</div></div>`;
   }).join('');
   const body = cells || '<span class="muted">ยังไม่มีรายการการ์ดในชุด</span>';
-  return `<tr class="set-cards-row"><td colspan="10"><div class="set-cards">${body}</div></td></tr>`;
+  return `<tr class="set-cards-row"><td colspan="11"><div class="set-cards">${body}</div></td></tr>`;
 }
 // สรุปสถานะเป็นป้ายสี (เหมือนป้ายชำระเงิน)
 function statPills(cnt) {
@@ -1801,6 +1802,15 @@ function setMetaHTML(c) {
   const badge = ` <span class="set-badge clickable" onclick="event.stopPropagation();toggleSetCards('${c.id}')" title="คลิกดูรูปการ์ดทุกใบในชุด">📦 ชุด ${n} ใบ <span class="exp">${open ? '▾' : '▸'}</span></span>`;
   const list = items.length ? `<div class="set-list">${items.map((s, i) => `${i + 1}. ${esc(setItemName(s))}`).join(' · ')}</div>` : '';
   return badge + list;
+}
+
+// ชื่อร้านค้าสำหรับคอลัมน์ "ร้านค้า" ในตารางสต็อก — สะสม = '-', รอขาย/ขายแล้ว = ชื่อร้านที่ส่งไปขาย
+function stockShopName(c) {
+  if (c.status === 'show') return '-';
+  const sid = c.shopId;
+  if (sid === '__all__') return 'ทุกร้าน';
+  if (sid) { const s = shopById(sid); return s ? (s.name || 'ร้านไม่มีชื่อ') : 'ส่วนกลาง'; }
+  return 'ส่วนกลาง';
 }
 
 // แถวการ์ดเดี่ยว (isChild = แถวย่อยในกลุ่ม)
@@ -1824,6 +1834,7 @@ function stockRow(c, isChild) {
       <input type="checkbox" class="sale-check" ${(c.status !== 'show' || saleSelection.has(c.id)) ? 'checked' : ''} ${c.status === 'sold' ? 'disabled' : ''}
         onchange="toggleForSale('${c.id}')" title="${c.status === 'sold' ? 'ขายแล้ว (ล็อก)' : 'ติ๊กเพื่อย้ายไปแถบสินค้าขาย'}">
     </td>
+    <td class="center">${esc(stockShopName(c))}</td>
     <td>
       <div class="row-actions">
         <button class="icon-btn" onclick="copyCard('${c.id}')" title="ทำสำเนา (เพิ่มใบใหม่จากใบนี้)">📋</button>
@@ -1862,6 +1873,7 @@ function groupRow(g) {
     <td class="center muted hide-sm" style="white-space:nowrap;font-size:.8rem">${rep.buyDate ? fmtDate(rep.buyDate) + (rep.buyTime ? ' ' + rep.buyTime : '') : '—'}</td>
     ${canSeeProfit() ? `<td class="num"><span class="${pCls}">${totProfit > 0 ? '+' : ''}${money(totProfit)}</span></td>` : ''}
     <td class="center">${stSummary}</td>
+    <td class="center">—</td>
     <td class="center">—</td>
     <td></td>
   </tr>`;
