@@ -98,9 +98,11 @@ export default async function handler(req, res) {
     res.status(200).json(mc.data);
     return;
   }
-  // 2) แคชถาวรบน Blob — ไม่ต้องเรียก PSA เลยถ้าเคยดึงแล้ว
+  // 2) แคชถาวรบน Blob — ไม่ต้องเรียก PSA เลยถ้าเคยดึงครบแล้ว
+  //    "ครบ" = มีรูป หรือ ยืนยันแล้วว่าใบนี้ไม่มีรูปจริง (imgChecked)
+  //    ถ้าเป็นแคชเก่าที่ไม่มีรูปเพราะโดน 429 (ไม่มี imgChecked) → ปล่อยให้ดึงรูปใหม่ด้านล่าง
   const cachedBlob = await readBlobCache(cert);
-  if (cachedBlob && cachedBlob.found) {
+  if (cachedBlob && cachedBlob.found && (cachedBlob.frontImage || cachedBlob.imgChecked)) {
     memCache[cert] = { at: Date.now(), data: cachedBlob };
     res.setHeader('Cache-Control', 's-maxage=86400, stale-while-revalidate');
     res.status(200).json(cachedBlob);
@@ -138,10 +140,12 @@ export default async function handler(req, res) {
     }
 
     // รูปการ์ด (อาจไม่มีในบางใบ) — 429 ตรงนี้ไม่ทำให้ทั้งคำขอล้ม
-    let frontImage = '', backImage = '';
+    // imgRateLimited = call รูปโดนจำกัดโควต้า (ไม่ใช่ "ไม่มีรูปจริง") → ห้ามแคชถาวร ไม่งั้นใบนี้จะไม่มีรูปตลอดไป
+    let frontImage = '', backImage = '', imgRateLimited = false, imgChecked = false;
     try {
       const imgResp = await psaFetch(`${PSA_BASE}/cert/GetImagesByCertNumber/${cert}`, tokens, 1);
       if (imgResp.ok) {
+        imgChecked = true; // ถาม PSA เรื่องรูปสำเร็จแล้ว (มีหรือไม่มีรูปก็ถือว่าครบ)
         const imgs = await imgResp.json();
         if (Array.isArray(imgs)) {
           for (const im of imgs) {
@@ -152,6 +156,8 @@ export default async function handler(req, res) {
           }
           if (!frontImage && imgs[0]) frontImage = imgs[0].ImageURL || imgs[0].imageURL || '';
         }
+      } else if (imgResp.status === 429) {
+        imgRateLimited = true; // โควต้ารูปเต็ม — เก็บแคชถาวรไม่ได้ เดี๋ยวรูปหายถาวร
       }
     } catch (_) { /* ไม่มีรูปก็ปล่อยผ่าน */ }
 
@@ -169,10 +175,17 @@ export default async function handler(req, res) {
       gradeNumber: (String(grade).match(/(\d+(\.\d+)?)/) || [''])[0],
       frontImage,
       backImage,
+      imgChecked, // true = ยืนยันสถานะรูปแล้ว (กันดึงซ้ำกับใบที่ไม่มีรูปจริง)
     };
-    memCache[cert] = { at: Date.now(), data: payload };
-    await writeBlobCache(cert, payload); // เก็บถาวร กันเรียก PSA ซ้ำในอนาคต
-    res.setHeader('Cache-Control', 's-maxage=86400, stale-while-revalidate');
+    // แคชเฉพาะผลที่ "ครบ" — ถ้ารูปโดน 429 (ยังไม่ได้รูปเพราะโควต้าเต็ม) อย่าเก็บถาวร
+    // ไม่งั้นใบนี้จะถูกเสิร์ฟแบบไม่มีรูปตลอดไป แม้แบนจะหมดแล้วก็ตาม
+    if (!imgRateLimited) {
+      memCache[cert] = { at: Date.now(), data: payload };
+      await writeBlobCache(cert, payload); // เก็บถาวร กันเรียก PSA ซ้ำในอนาคต
+      res.setHeader('Cache-Control', 's-maxage=86400, stale-while-revalidate');
+    } else {
+      res.setHeader('Cache-Control', 'no-store'); // ผลไม่ครบ (ขาดรูป) — ให้ดึงใหม่ทีหลัง
+    }
     res.status(200).json(payload);
   } catch (err) {
     res.status(500).json({ error: 'เรียก PSA ไม่สำเร็จ: ' + (err.message || err) });
