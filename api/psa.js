@@ -13,17 +13,6 @@
 //   จะสลับไปใช้ตัวถัดไปอัตโนมัติ เพราะโควต้าแยกตาม token. ถ้ามีตัวเดียว ทำงานเหมือนเดิม.
 
 import { put, list } from '@vercel/blob';
-import { ProxyAgent } from 'undici';
-
-// ถ้าตั้งค่า PSA_PROXY (เช่น http://user:pass@host:port) จะยิง PSA ผ่าน proxy IP นั้น
-// เพื่อเลี่ยง IP รวมของ Vercel ที่โดน PSA แบน — ไม่ตั้งค่า = ยิงตรงเหมือนเดิม
-let _psaDispatcher = null;
-function psaDispatcher() {
-  if (_psaDispatcher !== null) return _psaDispatcher || undefined;
-  const url = process.env.PSA_PROXY;
-  _psaDispatcher = url ? new ProxyAgent(url) : false;
-  return _psaDispatcher || undefined;
-}
 
 const PSA_BASE = 'https://api.psacard.com/publicapi';
 const CACHE_PREFIX = 'psa-cache/';
@@ -49,7 +38,7 @@ async function psaFetch(url, tokens, tries = 2) {
   let lastResp = null, limited = null;
   for (let attempt = 0; attempt < tries; attempt++) {
     for (const tk of tokens) {
-      const resp = await fetch(url, { headers: { Authorization: `Bearer ${tk}`, Accept: 'application/json' }, dispatcher: psaDispatcher() });
+      const resp = await fetch(url, { headers: { Authorization: `Bearer ${tk}`, Accept: 'application/json' } });
       if (resp.status === 429) { limited = resp; lastResp = resp; continue; } // token นี้เต็ม → ลองตัวถัดไป
       if (resp.status === 401 || resp.status === 403) { lastResp = resp; continue; } // token เสีย → ลองตัวถัดไป
       return resp; // สำเร็จ (หรือ error อื่นที่ไม่เกี่ยวกับลิมิต) — ใช้เลย
