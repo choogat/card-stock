@@ -469,6 +469,11 @@
   .lang-badge { display: inline-block; background: var(--card2); border: 1px solid var(--border); color: var(--muted); padding: 1px 7px; border-radius: 6px; font-size: .68rem; font-weight: 700; }
   /* ป้ายร้านค้าในแถบสินค้าขาย (โชว์ต่อจากชื่อการ์ด) */
   .shop-tag { display: inline-block; background: rgba(99,102,241,.14); color: var(--accent); border: 1px solid var(--accent); padding: 1px 8px; border-radius: 999px; font-size: .7rem; font-weight: 700; white-space: nowrap; }
+  /* หมายเหตุพรีออเดอร์: ตัดเหลือ 2 บรรทัด กดดูเต็มใน popup */
+  .po-note { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; white-space: normal; word-break: break-word; }
+  .po-note.more { cursor: pointer; }
+  .po-note.more:hover { color: var(--accent); text-decoration: underline; }
+  .note-popup-body { white-space: pre-wrap; word-break: break-word; color: var(--text); font-size: .92rem; line-height: 1.5; max-height: 60vh; overflow-y: auto; margin: 6px 0 4px; }
   tr.group-head { cursor: pointer; }
   tr.group-head td { background: var(--card2); }
   tr.group-head:hover td { filter: brightness(0.96); }
@@ -968,6 +973,17 @@
     <div class="modal-actions">
       <button class="btn btn-ghost" onclick="closePreorderForm()">ยกเลิก</button>
       <button class="btn btn-primary" onclick="submitPreorder()">บันทึก</button>
+    </div>
+  </div>
+</div>
+
+<!-- พรีออเดอร์: popup แสดงหมายเหตุเต็ม -->
+<div class="overlay" id="notePopupOverlay">
+  <div class="modal" style="max-width:420px">
+    <h2>📝 หมายเหตุ</h2>
+    <div class="note-popup-body" id="notePopupBody"></div>
+    <div class="modal-actions">
+      <button class="btn btn-primary" onclick="closeNotePopup()">ปิด</button>
     </div>
   </div>
 </div>
@@ -4265,7 +4281,7 @@ function renderPreorder() {
       <td class="num">${poNum(poAvg(o))}</td>
       <td>${o.source ? esc(o.source) : '<span class="muted">—</span>'}</td>
       <td class="po-date center">${o.recvDate ? esc(poDateLabel(o.recvDate)) : '<span class="muted">—</span>'}</td>
-      <td>${o.note ? esc(o.note) : '<span class="muted">—</span>'}</td>
+      <td>${o.note ? `<div class="po-note" data-full="${esc(o.note)}">${esc(o.note)}</div>` : '<span class="muted">—</span>'}</td>
       <td class="center"><button class="po-icon" title="แก้ไข" onclick="openPreorderForm('${o.id}')">✏️</button><button class="po-icon" title="ลบ" onclick="deletePreorder('${o.id}')">🗑️</button></td>
     </tr>`;
   }).join('');
@@ -4281,7 +4297,23 @@ function renderPreorder() {
     <thead><tr>${ths}<th></th></tr></thead>
     <tbody>${rows}</tbody>
   </table>`;
+
+  // หมายเหตุยาวเกิน 2 บรรทัด → ตัดโชว์ 2 บรรทัด กดแล้วเปิด popup ดูเต็ม
+  area.querySelectorAll('.po-note').forEach(el => {
+    if (el.scrollHeight - el.clientHeight > 1) {
+      el.classList.add('more');
+      el.title = 'กดเพื่อดูหมายเหตุเต็ม';
+      el.onclick = () => openNotePopup(el.getAttribute('data-full'));
+    }
+  });
 }
+
+// ---- popup แสดงหมายเหตุพรีออเดอร์แบบเต็ม ----
+function openNotePopup(text) {
+  document.getElementById('notePopupBody').textContent = text || '';
+  document.getElementById('notePopupOverlay').classList.add('open');
+}
+function closeNotePopup() { document.getElementById('notePopupOverlay').classList.remove('open'); }
 
 // ================= ยอดจุ่ม (ตู้จุ่ม) =================
 // แต่ละตู้: { id, name, slots(จำนวนใบ), price(ราคาต่อครั้ง), note, prizes:[{name, qty}] }
@@ -5486,6 +5518,9 @@ document.addEventListener('click', e => {
 document.getElementById('gachaOverlay').addEventListener('click', e => {
   if (e.target.id === 'gachaOverlay') closeGachaForm();
 });
+document.getElementById('notePopupOverlay').addEventListener('click', e => {
+  if (e.target.id === 'notePopupOverlay') closeNotePopup();
+});
 document.getElementById('preorderOverlay').addEventListener('click', e => {
   if (e.target.id === 'preorderOverlay') closePreorderForm();
 });
@@ -5495,7 +5530,7 @@ document.getElementById('shopOverlay').addEventListener('click', e => {
 document.getElementById('saleShopOverlay').addEventListener('click', e => {
   if (e.target.id === 'saleShopOverlay') closeSaleShop();
 });
-document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeLogin(); closePSASearch(); closeSale(); closeSplit(); closeProductEdit(); closeBuyConfirm(); closeBuyPopup(); closeGachaForm(); closeBuyEdit(); closeNewBuy(); closeSaleEdit(); closePreorderForm(); closeShopForm(); closeSaleShop(); } });
+document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeLogin(); closePSASearch(); closeSale(); closeSplit(); closeProductEdit(); closeBuyConfirm(); closeBuyPopup(); closeGachaForm(); closeBuyEdit(); closeNewBuy(); closeSaleEdit(); closePreorderForm(); closeShopForm(); closeSaleShop(); closeNotePopup(); } });
 
 render();
 applyPermissions(); // ตั้งเมนู/แถบตามสิทธิ์ + คงแถบ/ร้านล่าสุดหลัง F5 (รวมคืนหน้าร้านจากแคชทันที)
