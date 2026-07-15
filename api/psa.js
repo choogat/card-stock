@@ -164,9 +164,24 @@ export default async function handler(req, res) {
       return;
     }
 
-    memCache[cert] = { at: Date.now(), data: payload };
-    await writeBlobCache(cert, payload);
-    res.setHeader('Cache-Control', 's-maxage=86400, stale-while-revalidate');
+    // กันแคช "ผลไม่ครบ": ถ้าหน้าเพี้ยน/เรนเดอร์ไม่เสร็จ อาจ found=true แต่ฟิลด์หลักว่าง
+    // → อย่าเก็บ ให้ผู้ใช้ลองใหม่ (ไม่งั้นจะ lock ข้อมูลเปล่าไว้ถาวร)
+    const hasCore = !!(payload.subject || payload.brand || payload.grade);
+    if (!hasCore) {
+      res.setHeader('Cache-Control', 'no-store');
+      res.status(502).json({ error: 'อ่านข้อมูล cert ได้ไม่ครบ — ลองใหม่อีกครั้ง' });
+      return;
+    }
+
+    // แคชถาวร (Blob + mem) เฉพาะเมื่อได้รูปแล้วเท่านั้น — ถ้ายังไม่มีรูป (อาจเรนเดอร์ไม่ทัน)
+    // ยังคืนข้อมูลการ์ดให้ใช้ได้ แต่ไม่ lock ถาวร เพื่อให้ดึงครั้งหน้าเก็บรูปเพิ่มได้
+    if (payload.frontImage) {
+      memCache[cert] = { at: Date.now(), data: payload };
+      await writeBlobCache(cert, payload);
+      res.setHeader('Cache-Control', 's-maxage=86400, stale-while-revalidate');
+    } else {
+      res.setHeader('Cache-Control', 'no-store');
+    }
     res.status(200).json(payload);
   } catch (err) {
     res.setHeader('Cache-Control', 'no-store');
