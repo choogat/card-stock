@@ -1,58 +1,101 @@
-// Vercel Serverless Function — ตัวกลางเรียก PSA Public API
-// เก็บ token ไว้ฝั่งเซิร์ฟเวอร์ (process.env.PSA_TOKEN) ไม่หลุดไปฝั่งเบราว์เซอร์
+// Vercel Serverless Function — ดึงข้อมูล cert จากหน้าเว็บสาธารณะของ PSA
+//
+// ⚠️ PSA ยกเลิก free public API (api.psacard.com/publicapi) แล้ว (แจ้ง ก.ค. 2026)
+//    จึงเปลี่ยนมา "อ่าน" หน้า cert สาธารณะ https://www.psacard.com/cert/<cert> แทน
+//    ข้อดี: ไม่ต้องใช้ token, ไม่มีโควต้า/429 แบบเดิม, ได้ทั้งข้อมูลการ์ด + รูปหน้า/หลัง
 //
 // เรียกใช้:  /api/psa?cert=12345678
-// คืนค่า:    { found, cert, year, brand, subject, cardNumber, grade, category, variety, frontImage, backImage }
+// คืนค่า:    { found, cert, year, brand, subject, cardNumber, category, variety,
+//              grade, gradeNumber, labelType, frontImage, backImage, imgChecked }
+//   (โครงสร้างเดิม — ฝั่งเว็บไม่ต้องแก้)
 //
-// แคช 2 ชั้นกันโดน PSA จำกัดโควต้า (429):
-//   1) in-memory ต่อ lambda (เร็วสุด)
-//   2) Vercel Blob ถาวร (psa-cache/<cert>.json) — cert ที่เคยดึงแล้วจะไม่เรียก PSA ซ้ำอีกเลย
-//
-// Token rotation: ใส่ได้หลาย token ผ่าน env — PSA_TOKEN, PSA_TOKEN2, PSA_TOKEN3, ...
-//   (หรือ PSA_TOKENS = หลายอันคั่นด้วย comma). พอ token หนึ่งโดนจำกัด (429/401/403)
-//   จะสลับไปใช้ตัวถัดไปอัตโนมัติ เพราะโควต้าแยกตาม token. ถ้ามีตัวเดียว ทำงานเหมือนเดิม.
+// แคชถาวรบน Vercel Blob (psa-cache/<cert>.json) — cert ที่เคยอ่านแล้วจะไม่ไปดึงซ้ำ
+// (เร็วขึ้น + สุภาพกับเซิร์ฟเวอร์ PSA)
 
 import { put, list } from '@vercel/blob';
 
-const PSA_BASE = 'https://api.psacard.com/publicapi';
+const CERT_BASE = 'https://www.psacard.com/cert/';
 const CACHE_PREFIX = 'psa-cache/';
 const MEM_TTL_MS = 6 * 60 * 60 * 1000; // 6 ชั่วโมง
 const memCache = {}; // cert -> { at, data }
 
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const blobOpts = () => { const t = process.env.BLOB_READ_WRITE_TOKEN; return t ? { token: t } : {}; };
 
-// รวบรวม token ทั้งหมดจาก env (PSA_TOKEN, PSA_TOKEN2..PSA_TOKEN10, PSA_TOKENS)
-function getTokens() {
-  const list = [];
-  const push = (v) => { if (v && typeof v === 'string') v.split(',').forEach((t) => { const s = t.trim(); if (s) list.push(s); }); };
-  push(process.env.PSA_TOKEN);
-  for (let i = 2; i <= 10; i++) push(process.env['PSA_TOKEN' + i]);
-  push(process.env.PSA_TOKENS);
-  return [...new Set(list)];
-}
+// headers แบบเบราว์เซอร์ Chrome จริง ลดโอกาสโดน Cloudflare bot-protection บล็อก
+const BROWSER_HEADERS = {
+  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36',
+  'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+  'Accept-Language': 'en-US,en;q=0.9',
+  'sec-ch-ua': '"Not/A)Brand";v="8", "Chromium";v="126", "Google Chrome";v="126"',
+  'sec-ch-ua-mobile': '?0',
+  'sec-ch-ua-platform': '"Windows"',
+  'sec-fetch-dest': 'document',
+  'sec-fetch-mode': 'navigate',
+  'sec-fetch-site': 'none',
+  'sec-fetch-user': '?1',
+  'upgrade-insecure-requests': '1',
+  'Cookie': 'psa-locale=en-US; env=prod',
+};
 
-// เรียก PSA โดยหมุนหลาย token — token ไหนโดนจำกัด (429) หรือใช้ไม่ได้ (401/403) ก็ข้ามไปตัวถัดไป
-// ถ้าทุก token โดน 429 จะ backoff ตาม Retry-After แล้วลองใหม่ (เผื่อ 429 ชั่วคราว)
-async function psaFetch(url, tokens, tries = 2) {
-  let lastResp = null, limited = null;
-  for (let attempt = 0; attempt < tries; attempt++) {
-    for (const tk of tokens) {
-      const resp = await fetch(url, { headers: { Authorization: `Bearer ${tk}`, Accept: 'application/json' } });
-      if (resp.status === 429) { limited = resp; lastResp = resp; continue; } // token นี้เต็ม → ลองตัวถัดไป
-      if (resp.status === 401 || resp.status === 403) { lastResp = resp; continue; } // token เสีย → ลองตัวถัดไป
-      return resp; // สำเร็จ (หรือ error อื่นที่ไม่เกี่ยวกับลิมิต) — ใช้เลย
-    }
-    // ทุก token รอบนี้ใช้ไม่ได้ — ถ้ายังมีรอบเหลือและมีอย่างน้อยตัวที่ 429 ค่อย backoff แล้วลองใหม่
-    if (attempt < tries - 1 && limited) {
-      const ra = parseFloat(limited.headers.get('retry-after'));
-      await sleep(Number.isFinite(ra) ? Math.min(ra * 1000, 8000) : 800 * Math.pow(2, attempt));
-    } else break;
+// ---------- ตัวแปลง HTML → ข้อมูล cert ----------
+function decodeEntities(s) {
+  return s
+    .replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"').replace(/&#(\d+);/g, (_, n) => String.fromCharCode(+n))
+    .replace(/&#x([0-9a-f]+);/gi, (_, n) => String.fromCharCode(parseInt(n, 16)));
+}
+const stripTags = (s) => decodeEntities(s.replace(/<[^>]+>/g, ' ')).replace(/\s+/g, ' ').trim();
+
+function parseCertHtml(html, cert) {
+  // 1) ตาราง label/ค่า (โครง <dt>ป้าย</dt><dd>ค่า</dd>)
+  const fields = {};
+  for (const m of html.matchAll(/<dt[^>]*>([\s\S]*?)<\/dt>\s*<dd[^>]*>([\s\S]*?)<\/dd>/g)) {
+    const k = stripTags(m[1]).toLowerCase();
+    if (k) fields[k] = stripTags(m[2]);
   }
-  return limited || lastResp;
+  const pick = (...needles) => {
+    for (const n of needles) {
+      const key = Object.keys(fields).find((k) => k.includes(n));
+      if (key && fields[key]) return fields[key];
+    }
+    return '';
+  };
+  // ต้องมีอย่างน้อยเลข cert หรือเกรด ไม่งั้นถือว่าไม่พบ/หน้าไม่ใช่ cert
+  if (!fields['cert number'] && !fields['item grade']) return { found: false };
+
+  const grade = pick('item grade', 'grade');
+
+  // 2) รูป — เอา full-res จาก payload ของหน้า (originalPath), ลำดับ = หน้า, หลัง
+  let imgs = [];
+  const anchor = html.indexOf('originalPath');
+  if (anchor !== -1) {
+    const seg = html.slice(Math.max(0, anchor - 4000), anchor + 4000).replace(/\\"/g, '"');
+    imgs = [...seg.matchAll(/"originalPath":"([^"]+)"/g)].map((m) => m[1]);
+  }
+  // สำรอง: <img alt="Cert image N"> ที่ render มาแล้ว (เป็นภาพย่อ)
+  if (!imgs.length) {
+    imgs = [...html.matchAll(/<img[^>]*alt="Cert image \d+"[^>]*src="([^"]+)"/g)].map((m) => m[1]);
+  }
+
+  return {
+    found: true,
+    cert: pick('cert number') || cert,
+    year: pick('year'),
+    brand: pick('brand/title', 'brand', 'title'),
+    subject: pick('subject'),
+    cardNumber: pick('card number'),
+    category: pick('category'),
+    variety: pick('variety/pedigree', 'variety', 'pedigree'),
+    grade,
+    gradeNumber: (String(grade).match(/(\d+(\.\d+)?)/) || [''])[0],
+    labelType: pick('label type'),
+    frontImage: imgs[0] || '',
+    backImage: imgs[1] || '',
+    imgChecked: true,
+  };
 }
 
-// อ่าน/เขียนแคชถาวรบน Blob — ล้มเหลวไม่เป็นไร (ค่อยไปเรียก PSA ตรง)
+// ---------- แคช Blob (ล้มเหลวไม่เป็นไร) ----------
 async function readBlobCache(cert) {
   try {
     const path = CACHE_PREFIX + cert + '.json';
@@ -79,12 +122,6 @@ export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   if (req.method === 'OPTIONS') { res.status(204).end(); return; }
 
-  const tokens = getTokens();
-  if (!tokens.length) {
-    res.status(500).json({ error: 'ยังไม่ได้ตั้งค่า PSA_TOKEN ในเซิร์ฟเวอร์' });
-    return;
-  }
-
   const cert = String(req.query.cert || '').trim().replace(/\D/g, '');
   if (!cert) {
     res.status(400).json({ error: 'กรุณาระบุเลข cert (?cert=...)' });
@@ -98,11 +135,9 @@ export default async function handler(req, res) {
     res.status(200).json(mc.data);
     return;
   }
-  // 2) แคชถาวรบน Blob — ไม่ต้องเรียก PSA เลยถ้าเคยดึงครบแล้ว
-  //    "ครบ" = มีรูป หรือ ยืนยันแล้วว่าใบนี้ไม่มีรูปจริง (imgChecked)
-  //    ถ้าเป็นแคชเก่าที่ไม่มีรูปเพราะโดน 429 (ไม่มี imgChecked) → ปล่อยให้ดึงรูปใหม่ด้านล่าง
+  // 2) แคชถาวรบน Blob — เคยอ่านครบแล้วไม่ต้องไปดึงหน้าเว็บซ้ำ
   const cachedBlob = await readBlobCache(cert);
-  if (cachedBlob && cachedBlob.found && (cachedBlob.frontImage || cachedBlob.imgChecked)) {
+  if (cachedBlob && cachedBlob.found) {
     memCache[cert] = { at: Date.now(), data: cachedBlob };
     res.setHeader('Cache-Control', 's-maxage=86400, stale-while-revalidate');
     res.status(200).json(cachedBlob);
@@ -110,84 +145,33 @@ export default async function handler(req, res) {
   }
 
   try {
-    // ข้อมูลการ์ด
-    const certResp = await psaFetch(`${PSA_BASE}/cert/GetByCertNumber/${cert}`, tokens);
-    if (certResp.status === 401 || certResp.status === 403) {
-      res.status(502).json({ error: 'token PSA ไม่ถูกต้องหรือหมดสิทธิ์' });
+    // ยิง URL สุดท้ายตรง ๆ (/cert/<n>/psa) เลี่ยง redirect 307 ที่ทำ cookie หลุด
+    const resp = await fetch(CERT_BASE + cert + '/psa', { headers: BROWSER_HEADERS, redirect: 'follow' });
+
+    if (resp.status === 404) {
+      res.status(404).json({ found: false, error: 'ไม่พบเลข cert นี้ในระบบ PSA' });
       return;
     }
-    if (certResp.status === 429) {
-      const ra = parseFloat(certResp.headers.get('retry-after'));
-      const mins = Number.isFinite(ra) ? Math.ceil(ra / 60) : 0;
-      res.setHeader('Retry-After', Number.isFinite(ra) ? String(Math.ceil(ra)) : '60');
-      res.status(429).json({
-        error: mins
-          ? `โควต้า PSA เต็มชั่วคราว (429) — ลองใหม่ในอีกประมาณ ${mins} นาที`
-          : 'โควต้า PSA เต็มชั่วคราว (429) — รอสักครู่แล้วลองใหม่',
-        retryAfterSec: Number.isFinite(ra) ? Math.ceil(ra) : null,
-      });
+    if (!resp.ok) {
+      // 403/429/5xx = PSA บล็อก/ขัดข้องชั่วคราว (ไม่ใช่ว่า cert ไม่มี) — ให้ลองใหม่ทีหลัง
+      res.setHeader('Cache-Control', 'no-store');
+      res.status(502).json({ error: `PSA ตอบกลับผิดพลาด (${resp.status}) — ลองใหม่อีกครั้ง` });
       return;
     }
-    if (!certResp.ok) {
-      res.status(502).json({ error: `PSA ตอบกลับผิดพลาด (${certResp.status})` });
-      return;
-    }
-    const certData = await certResp.json();
-    const c = certData && (certData.PSACert || certData.psaCert || certData);
-    if (!c || !(c.CertNumber || c.certNumber)) {
+
+    const html = await resp.text();
+    const payload = parseCertHtml(html, cert);
+    if (!payload.found) {
       res.status(404).json({ found: false, error: 'ไม่พบเลข cert นี้ในระบบ PSA' });
       return;
     }
 
-    // รูปการ์ด (อาจไม่มีในบางใบ) — 429 ตรงนี้ไม่ทำให้ทั้งคำขอล้ม
-    // imgRateLimited = call รูปโดนจำกัดโควต้า (ไม่ใช่ "ไม่มีรูปจริง") → ห้ามแคชถาวร ไม่งั้นใบนี้จะไม่มีรูปตลอดไป
-    let frontImage = '', backImage = '', imgRateLimited = false, imgChecked = false;
-    try {
-      const imgResp = await psaFetch(`${PSA_BASE}/cert/GetImagesByCertNumber/${cert}`, tokens, 1);
-      if (imgResp.ok) {
-        imgChecked = true; // ถาม PSA เรื่องรูปสำเร็จแล้ว (มีหรือไม่มีรูปก็ถือว่าครบ)
-        const imgs = await imgResp.json();
-        if (Array.isArray(imgs)) {
-          for (const im of imgs) {
-            const url = im.ImageURL || im.imageURL || im.imageUrl || '';
-            const isFront = im.IsFrontImage ?? im.isFrontImage;
-            if (isFront && !frontImage) frontImage = url;
-            else if (!isFront && !backImage) backImage = url;
-          }
-          if (!frontImage && imgs[0]) frontImage = imgs[0].ImageURL || imgs[0].imageURL || '';
-        }
-      } else if (imgResp.status === 429) {
-        imgRateLimited = true; // โควต้ารูปเต็ม — เก็บแคชถาวรไม่ได้ เดี๋ยวรูปหายถาวร
-      }
-    } catch (_) { /* ไม่มีรูปก็ปล่อยผ่าน */ }
-
-    const grade = c.CardGrade || c.GradeDescription || c.cardGrade || c.gradeDescription || '';
-    const payload = {
-      found: true,
-      cert: c.CertNumber || c.certNumber || cert,
-      year: c.Year || c.year || '',
-      brand: c.Brand || c.brand || '',
-      subject: c.Subject || c.subject || '',
-      cardNumber: c.CardNumber || c.cardNumber || '',
-      category: c.Category || c.CategoryName || c.category || '',
-      variety: c.Variety || c.variety || '',
-      grade,
-      gradeNumber: (String(grade).match(/(\d+(\.\d+)?)/) || [''])[0],
-      frontImage,
-      backImage,
-      imgChecked, // true = ยืนยันสถานะรูปแล้ว (กันดึงซ้ำกับใบที่ไม่มีรูปจริง)
-    };
-    // แคชเฉพาะผลที่ "ครบ" — ถ้ารูปโดน 429 (ยังไม่ได้รูปเพราะโควต้าเต็ม) อย่าเก็บถาวร
-    // ไม่งั้นใบนี้จะถูกเสิร์ฟแบบไม่มีรูปตลอดไป แม้แบนจะหมดแล้วก็ตาม
-    if (!imgRateLimited) {
-      memCache[cert] = { at: Date.now(), data: payload };
-      await writeBlobCache(cert, payload); // เก็บถาวร กันเรียก PSA ซ้ำในอนาคต
-      res.setHeader('Cache-Control', 's-maxage=86400, stale-while-revalidate');
-    } else {
-      res.setHeader('Cache-Control', 'no-store'); // ผลไม่ครบ (ขาดรูป) — ให้ดึงใหม่ทีหลัง
-    }
+    memCache[cert] = { at: Date.now(), data: payload };
+    await writeBlobCache(cert, payload);
+    res.setHeader('Cache-Control', 's-maxage=86400, stale-while-revalidate');
     res.status(200).json(payload);
   } catch (err) {
-    res.status(500).json({ error: 'เรียก PSA ไม่สำเร็จ: ' + (err.message || err) });
+    res.setHeader('Cache-Control', 'no-store');
+    res.status(500).json({ error: 'เรียกข้อมูล PSA ไม่สำเร็จ: ' + (err.message || err) });
   }
 }
