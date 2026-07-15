@@ -1,8 +1,12 @@
 // Vercel Serverless Function — ดึงข้อมูล cert จากหน้าเว็บสาธารณะของ PSA
 //
 // ⚠️ PSA ยกเลิก free public API (api.psacard.com/publicapi) แล้ว (แจ้ง ก.ค. 2026)
-//    จึงเปลี่ยนมา "อ่าน" หน้า cert สาธารณะ https://www.psacard.com/cert/<cert> แทน
+//    จึงเปลี่ยนมา "อ่าน" หน้า cert สาธารณะ https://www.psacard.com/cert/<cert>/psa แทน
 //    ข้อดี: ไม่ต้องใช้ token, ไม่มีโควต้า/429 แบบเดิม, ได้ทั้งข้อมูลการ์ด + รูปหน้า/หลัง
+//
+// ⚠️ www.psacard.com อยู่หลัง Cloudflare bot-protection — ยิงตรงจาก IP ของ Vercel
+//    จะโดน 403 ทันที จึงต้องผ่าน Jina Reader (r.jina.ai) ที่ทะลุ Cloudflare ให้
+//    ฟรี ไม่ต้องคีย์; ใส่ env JINA_API_KEY เพื่อเพิ่มลิมิตได้ (ไม่ใส่ก็ทำงาน)
 //
 // เรียกใช้:  /api/psa?cert=12345678
 // คืนค่า:    { found, cert, year, brand, subject, cardNumber, category, variety,
@@ -10,32 +14,30 @@
 //   (โครงสร้างเดิม — ฝั่งเว็บไม่ต้องแก้)
 //
 // แคชถาวรบน Vercel Blob (psa-cache/<cert>.json) — cert ที่เคยอ่านแล้วจะไม่ไปดึงซ้ำ
-// (เร็วขึ้น + สุภาพกับเซิร์ฟเวอร์ PSA)
+// (เร็วขึ้น + สุภาพกับเซิร์ฟเวอร์ PSA + ประหยัดลิมิต Jina)
 
 import { put, list } from '@vercel/blob';
 
-const CERT_BASE = 'https://www.psacard.com/cert/';
+const CERT_URL = (cert) => `https://www.psacard.com/cert/${cert}/psa`;
+const JINA_PREFIX = 'https://r.jina.ai/';
 const CACHE_PREFIX = 'psa-cache/';
 const MEM_TTL_MS = 6 * 60 * 60 * 1000; // 6 ชั่วโมง
 const memCache = {}; // cert -> { at, data }
 
 const blobOpts = () => { const t = process.env.BLOB_READ_WRITE_TOKEN; return t ? { token: t } : {}; };
 
-// headers แบบเบราว์เซอร์ Chrome จริง ลดโอกาสโดน Cloudflare bot-protection บล็อก
-const BROWSER_HEADERS = {
-  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36',
-  'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
-  'Accept-Language': 'en-US,en;q=0.9',
-  'sec-ch-ua': '"Not/A)Brand";v="8", "Chromium";v="126", "Google Chrome";v="126"',
-  'sec-ch-ua-mobile': '?0',
-  'sec-ch-ua-platform': '"Windows"',
-  'sec-fetch-dest': 'document',
-  'sec-fetch-mode': 'navigate',
-  'sec-fetch-site': 'none',
-  'sec-fetch-user': '?1',
-  'upgrade-insecure-requests': '1',
-  'Cookie': 'psa-locale=en-US; env=prod',
-};
+// ดึงหน้า cert ผ่าน Jina Reader — สั่งให้คืน HTML ดิบ (X-Return-Format: html)
+// เพื่อใช้ parser ตัวเดิม (อ่าน dt/dd + รูป full-res จาก originalPath)
+function jinaFetch(cert) {
+  const headers = {
+    'X-Return-Format': 'html',
+    'X-Timeout': '30',
+    Accept: 'text/html,*/*',
+  };
+  const key = process.env.JINA_API_KEY;
+  if (key) headers.Authorization = `Bearer ${key}`;
+  return fetch(JINA_PREFIX + CERT_URL(cert), { headers });
+}
 
 // ---------- ตัวแปลง HTML → ข้อมูล cert ----------
 function decodeEntities(s) {
@@ -145,17 +147,13 @@ export default async function handler(req, res) {
   }
 
   try {
-    // ยิง URL สุดท้ายตรง ๆ (/cert/<n>/psa) เลี่ยง redirect 307 ที่ทำ cookie หลุด
-    const resp = await fetch(CERT_BASE + cert + '/psa', { headers: BROWSER_HEADERS, redirect: 'follow' });
+    const resp = await jinaFetch(cert);
 
-    if (resp.status === 404) {
-      res.status(404).json({ found: false, error: 'ไม่พบเลข cert นี้ในระบบ PSA' });
-      return;
-    }
     if (!resp.ok) {
-      // 403/429/5xx = PSA บล็อก/ขัดข้องชั่วคราว (ไม่ใช่ว่า cert ไม่มี) — ให้ลองใหม่ทีหลัง
+      // Jina ขัดข้อง/ชนลิมิต (429/402/5xx) — ไม่ใช่ว่า cert ไม่มี ให้ลองใหม่ทีหลัง
       res.setHeader('Cache-Control', 'no-store');
-      res.status(502).json({ error: `PSA ตอบกลับผิดพลาด (${resp.status}) — ลองใหม่อีกครั้ง` });
+      const hint = resp.status === 429 ? ' (ดึงถี่เกินไป รอสักครู่)' : '';
+      res.status(502).json({ error: `ดึงข้อมูล PSA ไม่สำเร็จ (${resp.status})${hint} — ลองใหม่อีกครั้ง` });
       return;
     }
 
