@@ -1503,7 +1503,44 @@ function load() {
   try { return JSON.parse(localStorage.getItem(KEY)) || []; }
   catch { return []; }
 }
+
+// ---- ซิงก์แบบรวมทีละใบ (per-card merge) ----
+// _cardSnap = สภาพการ์ดตอน save/pull ล่าสุด ใช้ตรวจว่าใบไหน "แก้จริง" เพื่อปั๊ม updatedAt เฉพาะใบนั้น
+let _cardSnap = new Map();
+function cardBody(c) { const { updatedAt, ...rest } = c || {}; return JSON.stringify(rest); }
+function snapshotCards() {
+  _cardSnap = new Map();
+  for (const c of cards) if (c && c.id != null) _cardSnap.set(c.id, cardBody(c));
+}
+// ปั๊ม updatedAt ให้เฉพาะใบที่เนื้อหาเปลี่ยนไปจาก snapshot (จุดเดียว ครอบคลุมทุกฟังก์ชันที่แก้การ์ด)
+function stampUpdated() {
+  const now = Date.now();
+  for (const c of cards) {
+    if (!c || c.id == null) continue;
+    const body = cardBody(c);
+    if (_cardSnap.get(c.id) !== body) c.updatedAt = now; // ใบใหม่หรือแก้จริง → ประทับเวลา
+    _cardSnap.set(c.id, body);
+  }
+}
+// log การลบ (tombstone ฝั่ง client) — ส่งไปให้เซิร์ฟเวอร์รวม กันใบที่ลบฟื้นข้ามเครื่อง
+const DEL_KEY = 'cards_deletions';
+let deletions = (() => { try { return JSON.parse(localStorage.getItem(DEL_KEY)) || []; } catch { return []; } })();
+function recordDeletion(id) {
+  if (id == null) return;
+  deletions.push({ id, at: Date.now() });
+  try { localStorage.setItem(DEL_KEY, JSON.stringify(deletions)); } catch (e) {}
+}
+function clearDeletions() { deletions = []; try { localStorage.removeItem(DEL_KEY); } catch (e) {} }
+// รับ "ผลรวมทีละใบ" จากเซิร์ฟเวอร์มาเป็นความจริงล่าสุด (เรียกเมื่อ push/replace/pull สำเร็จ)
+function adoptServerCards(arr) {
+  cards = Array.isArray(arr) ? arr : [];
+  try { localStorage.setItem(KEY, JSON.stringify(cards)); } catch (e) {}
+  snapshotCards();
+}
+snapshotCards();
+
 function save() {
+  stampUpdated(); // ประทับ updatedAt ให้เฉพาะใบที่แก้จริง ก่อนเก็บ/ดันขึ้นเซิร์ฟเวอร์
   // เก็บสำเนาในเครื่อง (cache / ใช้ตอนออฟไลน์)
   try { localStorage.setItem(KEY, JSON.stringify(cards)); }
   catch (e) { /* เครื่องเต็ม — ยังเก็บขึ้นเซิร์ฟเวอร์ได้ */ }
@@ -1554,14 +1591,25 @@ async function pushToServer() {
   setSync('⏳ กำลังบันทึกขึ้นเซิร์ฟเวอร์...', 'load');
   try {
     await externalizeImages(); // แปลงรูป base64 → URL ก่อน กัน 413
+    const sentRef = cards;              // อ้างอิงก้อนที่ส่ง ณ ตอนนี้
+    const sentDel = deletions.slice();  // การลบที่ส่งไปรอบนี้
     const r = await fetch(CARDS_API, {
       method: 'POST',
       headers: authHeaders({ 'Content-Type': 'application/json' }),
-      body: JSON.stringify(cards),
+      body: JSON.stringify({ cards, deletions: sentDel }), // เซิร์ฟเวอร์รวมทีละใบ (ไม่เขียนทับ)
     });
     if (r.status === 401) { setSync('🔒 รหัสผ่านไม่ถูกต้อง', 'err'); return; }
     if (!r.ok) { const d = await r.json().catch(() => ({})); setSync('⚠️ บันทึกไม่สำเร็จ: ' + (d.error || r.status), 'err'); return; }
     clearDirty(); // ยืนยันว่าขึ้นเซิร์ฟเวอร์แล้ว
+    const resp = await r.json().catch(() => ({}));
+    // ล้าง log การลบที่เพิ่งส่งสำเร็จ (เซิร์ฟเวอร์เก็บเป็น tombstone แล้ว)
+    if (sentDel.length && deletions.length >= sentDel.length) { deletions = deletions.slice(sentDel.length); try { localStorage.setItem(DEL_KEY, JSON.stringify(deletions)); } catch (e) {} }
+    // รับ "ผลรวมทีละใบ" กลับมาใช้ — เฉพาะเมื่อไม่มีการแก้ใหม่แทรกระหว่าง push (กันทับ edit ที่เพิ่งทำ)
+    if (Array.isArray(resp.cards) && !pushQueued && cards === sentRef) {
+      const changed = resp.cards.length !== cards.length;
+      adoptServerCards(resp.cards);
+      if (changed) render();
+    }
     setSync('✓ ซิงก์แล้ว', 'ok');
   } catch (e) {
     setSync('⚠️ ออฟไลน์ — เก็บในเครื่องไว้ก่อน', 'err');
@@ -1569,6 +1617,29 @@ async function pushToServer() {
     pushing = false;
     // ถ้ามีการแก้เพิ่มระหว่างกำลัง push → ดันสถานะล่าสุดต่ออีกรอบ
     if (pushQueued) { pushQueued = false; pushToServer(); }
+  }
+}
+
+// ใช้เฉพาะการกระทำที่ "ตั้งใจแทนที่ทั้งหมด" (ล้างข้อมูล / นำเข้าแบบแทนที่ / อัปโหลดทับเซิร์ฟเวอร์)
+// ส่ง replace:true ให้เซิร์ฟเวอร์เขียนทับทั้งไฟล์ + ล้าง tombstone (ไม่ merge)
+async function replaceOnServer() {
+  if (!passcode) return;
+  setSync('⏳ กำลังบันทึกขึ้นเซิร์ฟเวอร์...', 'load');
+  try {
+    await externalizeImages();
+    const r = await fetch(CARDS_API, {
+      method: 'POST',
+      headers: authHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify({ cards, replace: true }),
+    });
+    if (r.status === 401) { setSync('🔒 รหัสผ่านไม่ถูกต้อง', 'err'); return; }
+    if (!r.ok) { const d = await r.json().catch(() => ({})); setSync('⚠️ บันทึกไม่สำเร็จ: ' + (d.error || r.status), 'err'); return; }
+    clearDirty(); clearDeletions();
+    const resp = await r.json().catch(() => ({}));
+    if (Array.isArray(resp.cards)) adoptServerCards(resp.cards);
+    setSync('✓ ซิงก์แล้ว', 'ok');
+  } catch (e) {
+    setSync('⚠️ ออฟไลน์ — เก็บในเครื่องไว้ก่อน', 'err');
   }
 }
 
@@ -2336,6 +2407,7 @@ function deleteBuyItem() {
   const c = cards.find(x => x.id === id);
   if (!c) return;
   if (!confirm(`ลบรายการรับซื้อ "${c.name}" ?\n(การ์ดใบนี้จะถูกลบออกจากสต็อกด้วย)`)) return;
+  recordDeletion(id);
   cards = cards.filter(x => x.id !== id);
   save();
   render();
@@ -5073,6 +5145,7 @@ function delCard(id) {
   const c = cards.find(x => x.id === id);
   if (!c) return;
   if (confirm(`ลบการ์ด "${c.name}" ?`)) {
+    recordDeletion(id);
     cards = cards.filter(x => x.id !== id);
     save();
     render();
@@ -5135,15 +5208,21 @@ function importJSON(e) {
         : true;
       const incoming = data.map(c => ({ ...c, id: c.id || uid() }));
       if (mode) {
+        // รวมเข้ากับข้อมูลเดิม → ใช้ save() (merge ปกติ)
         const ids = new Set(cards.map(c => c.id));
         incoming.forEach(c => { if (ids.has(c.id)) c.id = uid(); });
         cards = cards.concat(incoming);
+        save();
+        render();
+        alert(`นำเข้าสำเร็จ ${incoming.length} การ์ด`);
       } else {
+        // แทนที่ข้อมูลเดิมทั้งหมด → replace mode (เขียนทับเซิร์ฟเวอร์ + ล้าง tombstone)
         cards = incoming;
+        try { localStorage.setItem(KEY, JSON.stringify(cards)); } catch (e) {}
+        snapshotCards();
+        render();
+        replaceOnServer().then(() => alert(`นำเข้าสำเร็จ ${incoming.length} การ์ด`));
       }
-      save();
-      render();
-      alert(`นำเข้าสำเร็จ ${incoming.length} การ์ด`);
     } catch (err) {
       alert('นำเข้าไม่สำเร็จ: ' + err.message);
     }
@@ -5220,10 +5299,9 @@ async function doLogin() {
   if (res.ok && res.cards.length) {
     // เซิร์ฟเวอร์มีข้อมูล
     if (cards.length && !confirm(`เซิร์ฟเวอร์มี ${res.cards.length} การ์ด\nในเครื่องนี้มี ${cards.length} การ์ด\n\nกด "OK" = ใช้ข้อมูลจากเซิร์ฟเวอร์ (แนะนำ)\nกด "Cancel" = อัปโหลดข้อมูลในเครื่องทับเซิร์ฟเวอร์`)) {
-      await pushToServer();
+      await replaceOnServer(); // ผู้ใช้เลือก "ทับเซิร์ฟเวอร์" → replace mode
     } else {
-      cards = res.cards;
-      try { localStorage.setItem(KEY, JSON.stringify(cards)); } catch (e) {}
+      adoptServerCards(res.cards);
       setSync('✓ ซิงก์แล้ว', 'ok');
     }
   } else if (cards.length) {
@@ -5325,8 +5403,7 @@ async function syncOnStart() {
       render();
     } else {
       // เซิร์ฟเวอร์เป็นแหล่งข้อมูลหลัก — รวมถึงตอนว่าง (= ถูกล้าง) ก็ล้าง cache ตาม
-      cards = res.cards;
-      try { localStorage.setItem(KEY, JSON.stringify(cards)); } catch (e) {}
+      adoptServerCards(res.cards);
       setSync('✓ ซิงก์แล้ว', 'ok');
       render();
     }
@@ -5467,7 +5544,8 @@ async function clearAllCards() {
   if (p !== 'CLEAR') { alert('ยกเลิก — ไม่ได้ล้างข้อมูล'); return; }
   cards = [];
   try { localStorage.setItem(KEY, JSON.stringify(cards)); } catch (e) {}
-  await pushToServer(); // ดันค่าว่างขึ้นเซิร์ฟเวอร์ทันที (ไม่รอ debounce)
+  snapshotCards();
+  await replaceOnServer(); // แทนที่ทั้งไฟล์ด้วยค่าว่าง + ล้าง tombstone (merge จะไม่ล้างให้)
   render();
   alert('✓ ล้างข้อมูลการ์ดทั้งหมดแล้ว');
 }
