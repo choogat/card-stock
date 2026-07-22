@@ -1658,6 +1658,105 @@ async function pullFromServer() {
   }
 }
 
+// ---- คลังซิงก์ใช้ซ้ำ (ตู้จุ่ม / พรีออเดอร์ / ร้านค้า) ----
+// ยกกลไกกันข้อมูลหายของการ์ดมาใช้ซ้ำทั้งชุด:
+//   1) ปั๊ม updatedAt เฉพาะรายการที่แก้จริง → เซิร์ฟเวอร์รวมทีละรายการ (ไม่เขียนทับกัน)
+//   2) จำ dirty + รายการที่ลบไว้ใน localStorage → รีเฟรช/ปิดหน้าแล้วของค้างไม่หาย
+//   3) ก่อนดึงของเซิร์ฟเวอร์ ถ้ามีของค้างในเครื่อง ให้ดันขึ้นก่อน ไม่ให้ถูกทับ
+function makeSyncStore({ key, api, respKey, get, set, onChange, debounce = 150 }) {
+  const DIRTY_K = key + '_dirty';
+  const DEL_K = key + '_del';
+  let pushing = false, queued = false, timer = null, snap = new Map();
+
+  const readDel = () => { try { return JSON.parse(localStorage.getItem(DEL_K)) || []; } catch (e) { return []; } };
+  const writeDel = (d) => { try { localStorage.setItem(DEL_K, JSON.stringify(d)); } catch (e) {} };
+  const bodyOf = (o) => { const { updatedAt, ...rest } = o || {}; return JSON.stringify(rest); };
+  const persist = () => { try { localStorage.setItem(key, JSON.stringify(get())); } catch (e) {} };
+
+  function snapshot() {
+    snap = new Map();
+    for (const o of get()) if (o && o.id != null) snap.set(o.id, bodyOf(o));
+  }
+  // ประทับเวลาเฉพาะรายการที่เนื้อหาเปลี่ยนจริง (จุดเดียว ครอบคลุมทุกฟังก์ชันที่แก้)
+  function stamp() {
+    const now = Date.now();
+    for (const o of get()) {
+      if (!o || o.id == null) continue;
+      const b = bodyOf(o);
+      if (snap.get(o.id) !== b) o.updatedAt = now;
+      snap.set(o.id, b);
+    }
+  }
+  const isDirty = () => localStorage.getItem(DIRTY_K) === '1';
+  // "มีของค้างที่ยังไม่ขึ้นเซิร์ฟเวอร์" — ใช้กันไม่ให้ดึงของเซิร์ฟเวอร์มาทับ
+  const hasPending = () => isDirty() || pushing || queued || !!timer;
+
+  function recordDeletion(id) {
+    if (id == null) return;
+    const d = readDel(); d.push({ id, at: Date.now() }); writeDel(d);
+  }
+
+  function adopt(arr) { set(arr); persist(); snapshot(); }
+
+  function save() {
+    stamp();
+    persist();
+    try { localStorage.setItem(DIRTY_K, '1'); } catch (e) {}
+    if (passcode) { clearTimeout(timer); timer = setTimeout(() => { timer = null; push(); }, debounce); }
+  }
+
+  async function push() {
+    if (!passcode) return false;
+    if (pushing) { queued = true; return false; } // กันยิงซ้อนจนก้อนเก่าทับก้อนใหม่
+    pushing = true;
+    let ok = false;
+    try {
+      const sentDel = readDel();
+      const r = await fetch(api, {
+        method: 'POST',
+        headers: authHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({ items: get(), deletions: sentDel }),
+      });
+      if (r.ok) {
+        ok = true;
+        try { localStorage.removeItem(DIRTY_K); } catch (e) {}
+        // ตัดเฉพาะรายการลบที่ส่งสำเร็จ (ที่เพิ่งลบระหว่างส่งยังค้างไว้รอบหน้า)
+        if (sentDel.length) writeDel(readDel().slice(sentDel.length));
+        const d = await r.json().catch(() => ({}));
+        // รับผลรวมจากเซิร์ฟเวอร์มาใช้ — เว้นตอนมีการแก้ใหม่แทรก (กันทับของที่เพิ่งพิมพ์)
+        if (Array.isArray(d[respKey]) && !queued) {
+          const before = JSON.stringify(get());
+          adopt(d[respKey]);
+          if (onChange && before !== JSON.stringify(get())) onChange();
+        }
+      }
+    } catch (e) { /* ออฟไลน์ — คง dirty ไว้ ดันใหม่รอบหน้า */ }
+    finally { pushing = false; if (queued) { queued = false; push(); } }
+    return ok;
+  }
+
+  async function pull() {
+    if (!passcode) return false;
+    // มีของค้างในเครื่อง → ดันขึ้นก่อน ไม่ให้ของเซิร์ฟเวอร์ทับจนหาย
+    if (hasPending()) { clearTimeout(timer); timer = null; await push(); }
+    try {
+      const r = await fetch(api, { headers: authHeaders(), cache: 'no-store' });
+      if (!r.ok) return false;
+      const d = await r.json();
+      if (!Array.isArray(d[respKey])) return false;
+      if (hasPending()) return false; // มีแก้ใหม่แทรกระหว่างดึง — อย่าทับ
+      adopt(d[respKey]);
+      return true;
+    } catch (e) { return false; } // ออฟไลน์ — ใช้ค่าในเครื่อง
+  }
+
+  // ดันของค้างขึ้นทันที (ใช้ตอนสลับแท็บ/ปิดหน้า)
+  function flush() { if (hasPending()) { clearTimeout(timer); timer = null; push(); } }
+
+  snapshot();
+  return { save, push, pull, flush, hasPending, recordDeletion, snapshot };
+}
+
 function money(n) {
   const v = Number(n) || 0;
   return '฿' + v.toLocaleString('th-TH', { maximumFractionDigits: 0 });
@@ -3657,7 +3756,11 @@ function checkPriceFromBuy() {
 // การ์ด/ตู้จุ่มมี shopId ผูกไว้ → เมนูในร้านกรองเฉพาะของร้านนั้น · เมนูบนสุด (viewShopId=null) เห็นรวมทุกร้าน
 const KEY_SHOPS = 'psa_shops_v1';
 let shops = (() => { try { return JSON.parse(localStorage.getItem(KEY_SHOPS)) || []; } catch (e) { return []; } })();
-let shopsPushing = false, shopsQueued = false, shopsTimer = null, shopsDirty = false;
+const shopsStore = makeSyncStore({
+  key: KEY_SHOPS, api: SHOPS_API, respKey: 'shops',
+  get: () => shops, set: (a) => { shops = a; },
+  onChange: () => { try { renderShopNav(); } catch (e) {} },
+});
 let viewShopId = null;   // ร้านที่กำลังเปิดดูอยู่ (null = เมนูภาพรวมด้านบน)
 let expandedShop = null; // ร้านที่กางเมนูย่อยอยู่ใน sidebar
 const ALL_VIEW_IDS = ['viewStock', 'viewSoldStock', 'viewPreorder', 'viewSales', 'viewReport', 'viewBuy', 'viewProduct', 'viewGacha', 'viewShop', 'viewShopHome', 'viewSettings', 'viewUsers'];
@@ -3703,31 +3806,9 @@ function userCanUseShopFeature(shopId, fKey) {
   return feats.includes(fKey);
 }
 
-function saveShops() {
-  try { localStorage.setItem(KEY_SHOPS, JSON.stringify(shops)); } catch (e) {}
-  shopsDirty = true;
-  if (passcode) { clearTimeout(shopsTimer); shopsTimer = setTimeout(pushShops, 150); }
-}
-async function pushShops() {
-  if (!passcode) return;
-  if (shopsPushing) { shopsQueued = true; return; }
-  shopsPushing = true;
-  try {
-    const r = await fetch(SHOPS_API, { method: 'POST', headers: authHeaders({ 'Content-Type': 'application/json' }), body: JSON.stringify(shops) });
-    if (r.ok) shopsDirty = false;
-  } catch (e) { /* ออฟไลน์ */ }
-  finally { shopsPushing = false; if (shopsQueued) { shopsQueued = false; pushShops(); } }
-}
-async function pullShops() {
-  if (!passcode) return;
-  try {
-    const r = await fetch(SHOPS_API, { headers: authHeaders(), cache: 'no-store' });
-    if (!r.ok) return;
-    const d = await r.json();
-    shops = Array.isArray(d.shops) ? d.shops : [];
-    try { localStorage.setItem(KEY_SHOPS, JSON.stringify(shops)); } catch (e) {}
-  } catch (e) { /* ออฟไลน์ */ }
-}
+function saveShops() { shopsStore.save(); }
+async function pushShops() { return shopsStore.push(); }
+async function pullShops() { return shopsStore.pull(); }
 
 // ---- เมนู sidebar ของร้านค้า (เพิ่มร้าน + รายชื่อร้าน + เมนูย่อย 4 หัวข้อ) ----
 function renderShopNav() {
@@ -3904,6 +3985,7 @@ function deleteShopFromForm() {
   const s = shopById(id); if (!s) return;
   const n = cards.filter(c => c.shopId === id).length + gachaBoxes.filter(b => b.shopId === id).length;
   if (!confirm('ลบร้าน "' + (s.name || '') + '" ?' + (n ? '\n(ข้อมูลในร้านนี้ ' + n + ' รายการจะไม่ถูกลบ แต่จะไปรวมอยู่ในเมนูภาพรวมด้านบน)' : ''))) return;
+  shopsStore.recordDeletion(id); // บันทึก tombstone กันร้านที่ลบแล้วฟื้นจากเครื่องอื่น
   shops = shops.filter(x => x.id !== id);
   if (expandedShop === id) expandedShop = null;
   if (viewShopId === id) { viewShopId = null; curShopFeature = null; }
@@ -3945,37 +4027,20 @@ function renderShopManage() {
 //   คงเหลือ = price - deposit · ราคาเฉลี่ย = price / qty
 const KEY_PREORDER = 'psa_preorder_v1';
 let preorders = (() => { try { return JSON.parse(localStorage.getItem(KEY_PREORDER)) || []; } catch (e) { return []; } })();
-let poPushing = false, poQueued = false, poTimer = null, poDirty = false, poPollTimer = null;
+let poPollTimer = null;
+const poStore = makeSyncStore({
+  key: KEY_PREORDER, api: PREORDER_API, respKey: 'orders',
+  get: () => preorders, set: (a) => { preorders = a; },
+  onChange: () => { try { renderPreorder(); } catch (e) {} },
+});
 const PO_STATUS = { wait: 'รอส่งของ', received: 'รับสินค้าแล้ว', cancel: 'ยกเลิก' };
 
-function savePreorder() {
-  try { localStorage.setItem(KEY_PREORDER, JSON.stringify(preorders)); } catch (e) {}
-  poDirty = true;
-  if (passcode) { clearTimeout(poTimer); poTimer = setTimeout(pushPreorder, 150); }
-}
-async function pushPreorder() {
-  if (!passcode) return;
-  if (poPushing) { poQueued = true; return; }
-  poPushing = true;
-  try {
-    const r = await fetch(PREORDER_API, { method: 'POST', headers: authHeaders({ 'Content-Type': 'application/json' }), body: JSON.stringify(preorders) });
-    if (r.ok) poDirty = false;
-  } catch (e) { /* ออฟไลน์ — ไว้ดันใหม่ตอนแก้ครั้งหน้า */ }
-  finally { poPushing = false; if (poQueued) { poQueued = false; pushPreorder(); } }
-}
-async function pullPreorder() {
-  if (!passcode) return;
-  try {
-    const r = await fetch(PREORDER_API, { headers: authHeaders(), cache: 'no-store' });
-    if (!r.ok) return;
-    const d = await r.json();
-    preorders = Array.isArray(d.orders) ? d.orders : [];
-    try { localStorage.setItem(KEY_PREORDER, JSON.stringify(preorders)); } catch (e) {}
-  } catch (e) { /* ออฟไลน์ — ใช้ค่าในเครื่อง */ }
-}
+function savePreorder() { poStore.save(); }
+async function pushPreorder() { return poStore.push(); }
+async function pullPreorder() { return poStore.pull(); }
 async function refreshPreorder() {
   if (!passcode) return;
-  if (poDirty || poPushing || poQueued || poTimer) return; // มีของค้างในเครื่อง — ดันขึ้นก่อน
+  if (poStore.hasPending()) return; // มีของค้างในเครื่อง — ดันขึ้นก่อน
   const before = JSON.stringify(preorders);
   await pullPreorder();
   if (JSON.stringify(preorders) === before) return;
@@ -4225,6 +4290,7 @@ function updatePreorderStatus(id, val) {
 function deletePreorder(id) {
   const o = preorders.find(x => x.id === id); if (!o) return;
   if (!confirm('ลบรายการพรีออเดอร์ "' + (o.name || '') + '" ?')) return;
+  poStore.recordDeletion(id); // บันทึก tombstone กันรายการที่ลบแล้วฟื้นจากเครื่องอื่น
   preorders = preorders.filter(x => x.id !== id);
   savePreorder();
   renderPreorder();
@@ -4391,40 +4457,23 @@ function closeNotePopup() { document.getElementById('notePopupOverlay').classLis
 // แต่ละตู้: { id, name, slots(จำนวนใบ), price(ราคาต่อครั้ง), note, prizes:[{name, qty}] }
 const KEY_GACHA = 'psa_gacha_v1';
 let gachaBoxes = (() => { try { return JSON.parse(localStorage.getItem(KEY_GACHA)) || []; } catch (e) { return []; } })();
-let gachaPushing = false, gachaQueued = false, gachaTimer = null, gachaDirty = false, gachaPollTimer = null;
+let gachaPollTimer = null;
+const gachaStore = makeSyncStore({
+  key: KEY_GACHA, api: GACHA_API, respKey: 'boxes',
+  get: () => gachaBoxes, set: (a) => { gachaBoxes = a; },
+  onChange: () => { try { renderGacha(); } catch (e) {} },
+});
 let gachaPending = new Set(); // รางวัลที่เลือกติ๊กไว้ (ยังไม่ยืนยัน) — key = "boxIdx|prizeIdx"
 
-function saveGacha() {
-  try { localStorage.setItem(KEY_GACHA, JSON.stringify(gachaBoxes)); } catch (e) {}
-  gachaDirty = true;
-  // ดันขึ้นเซิร์ฟเวอร์เร็ว ๆ (กันรัวหลายครั้งติด ๆ ด้วย debounce สั้น) เพื่อให้คนอื่นเห็นไว
-  if (passcode) { clearTimeout(gachaTimer); gachaTimer = setTimeout(pushGacha, 150); }
-}
-async function pushGacha() {
-  if (!passcode) return;
-  if (gachaPushing) { gachaQueued = true; return; }
-  gachaPushing = true;
-  try {
-    const r = await fetch(GACHA_API, { method: 'POST', headers: authHeaders({ 'Content-Type': 'application/json' }), body: JSON.stringify(gachaBoxes) });
-    if (r.ok) gachaDirty = false; // ซิงก์ขึ้นเซิร์ฟเวอร์สำเร็จ
-  } catch (e) { /* ออฟไลน์ — ไว้ดันใหม่ตอนแก้ครั้งหน้า */ }
-  finally { gachaPushing = false; if (gachaQueued) { gachaQueued = false; pushGacha(); } }
-}
-async function pullGacha() {
-  if (!passcode) return;
-  try {
-    const r = await fetch(GACHA_API, { headers: authHeaders(), cache: 'no-store' });
-    if (!r.ok) return;
-    const d = await r.json();
-    gachaBoxes = Array.isArray(d.boxes) ? d.boxes : [];
-    try { localStorage.setItem(KEY_GACHA, JSON.stringify(gachaBoxes)); } catch (e) {}
-  } catch (e) { /* ออฟไลน์ — ใช้ค่าในเครื่อง */ }
-}
+// ดันขึ้นเซิร์ฟเวอร์เร็ว ๆ (debounce สั้น) เพื่อให้คนอื่นเห็นไว
+function saveGacha() { gachaStore.save(); }
+async function pushGacha() { return gachaStore.push(); }
+async function pullGacha() { return gachaStore.pull(); }
 // ดึงข้อมูลยอดจุ่มสดจากเซิร์ฟเวอร์ให้ทุกคนเห็นตรงกัน — กันไม่ทับยอดที่เพิ่งแก้แต่ยังไม่ซิงก์
 async function refreshGacha() {
   if (!passcode) return;
   if (gachaPending.size) return; // กำลังเลือกติ๊กค้างอยู่ — อย่า re-render ทับ
-  if (gachaDirty || gachaPushing || gachaQueued || gachaTimer) return; // มีของค้างในเครื่อง — ดันขึ้นก่อน อย่าดึงทับ
+  if (gachaStore.hasPending()) return; // มีของค้างในเครื่อง — ดันขึ้นก่อน อย่าดึงทับ
   const before = JSON.stringify(gachaBoxes);
   await pullGacha();
   if (JSON.stringify(gachaBoxes) === before) return; // ไม่มีอะไรเปลี่ยน — ไม่ต้อง re-render (กันยุบกล่องที่เปิดอยู่)
@@ -4820,6 +4869,7 @@ function deleteGachaBox(i) {
   if (!canEditGacha()) return;
   if (!gachaBoxes[i]) return;
   if (!confirm('ลบตู้จุ่ม "' + (gachaBoxes[i].name || '') + '" ?')) return;
+  gachaStore.recordDeletion(gachaBoxes[i].id); // บันทึก tombstone กันตู้ที่ลบแล้วฟื้นจากเครื่องอื่น
   gachaBoxes.splice(i, 1);
   saveGacha();
   renderGacha();
@@ -5631,6 +5681,8 @@ window.addEventListener('hashchange', maybeOpenAdd);
 // เซฟขึ้นเซิร์ฟเวอร์ทันทีเมื่อสลับแท็บ/ย่อแอป/ปิดหน้า (กันข้อมูลค้างไม่ทันขึ้น)
 function flushPendingSave() {
   if (passcode && isDirty() && !pushing) { clearTimeout(syncTimer); pushToServer(); }
+  // ชุดข้อมูลอื่นก็ต้องดันของค้างขึ้นด้วย ไม่งั้นแก้แล้วปิดหน้าเร็ว = หาย
+  if (passcode) { gachaStore.flush(); poStore.flush(); shopsStore.flush(); }
 }
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'hidden') { flushPendingSave(); }
