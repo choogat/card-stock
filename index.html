@@ -1892,9 +1892,7 @@ function render() {
     profit_desc: (a, b) => cardProfit(b) - cardProfit(a),
     buyDate_desc: (a, b) => (b.buyDate || '').localeCompare(a.buyDate || ''),
   };
-  const baseSort = sorters[sortBy] || sorters.newest;
-  // ดู "ทั้งหมด" ให้เซตขึ้นก่อนใบเดี่ยว (ภายในกลุ่มยังเรียงตามที่เลือก)
-  list.sort(kf ? baseSort : (a, b) => (isSetCard(b) - isSetCard(a)) || baseSort(a, b));
+  list.sort(sorters[sortBy] || sorters.newest);
 
   if (list.length === 0) {
     area.innerHTML = `<div class="empty"><div class="big">📭</div>
