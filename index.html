@@ -3662,6 +3662,33 @@ async function psaLookup(cert, tries = 3) {
   return { resp, data };
 }
 
+// หาการ์ด "ใบเดียวกัน" (ชื่อ+รุ่นตรงกัน คนละเกรด/คนละ cert) ที่เพิ่มไว้แล้ว
+// แล้วดึงราคารับซื้อ+ขายมาเติม (เฉพาะช่องที่ยังว่าง จะได้ไม่ทับที่พิมพ์เอง)
+// คืนใบต้นทางที่ใช้เติม (ถ้ามี) เพื่อเอาไปแจ้งผู้ใช้
+function prefillPriceFromExisting() {
+  const buyEl = document.getElementById('f_buy');
+  const sellEl = document.getElementById('f_sell');
+  if (buyEl.value.trim() && sellEl.value.trim()) return null; // กรอกครบแล้ว ไม่ต้องเติม
+  const norm = s => (s || '').trim().toLowerCase();
+  const name = norm(document.getElementById('f_name').value);
+  const set = norm(document.getElementById('f_set').value);
+  if (!name) return null;
+  const editId = document.getElementById('f_id').value;
+  // ใบเดียวกัน = ชื่อ+รุ่นตรงกัน, เป็นการ์ดเดี่ยว (ไม่ใช่ชุด/ของสะสม/ข้อมูลสินค้าอย่างเดียว), และมีราคา
+  const matches = cards.filter(c => c.id !== editId && c.type !== 'set' && c.type !== 'collect' && !c.productOnly
+    && norm(c.name) === name && norm(c.set) === set && (Number(c.buy) || Number(c.sell)));
+  if (!matches.length) return null;
+  // เลือกใบที่ยังอยู่ในสต็อกก่อน (ไม่ใช่ขายแล้ว) แล้วเอาใบที่เพิ่มล่าสุด
+  const idx = new Map(cards.map((c, i) => [c.id, i]));
+  matches.sort((a, b) =>
+    ((a.status === 'sold' ? 0 : 1) - (b.status === 'sold' ? 0 : 1)) || (idx.get(b.id) - idx.get(a.id)));
+  const src = matches[0];
+  if (!buyEl.value.trim() && Number(src.buy)) buyEl.value = src.buy;
+  if (!sellEl.value.trim() && Number(src.sell)) sellEl.value = src.sell;
+  updateQtyTotals();
+  return src;
+}
+
 async function fetchPSA() {
   const cert = document.getElementById('f_cert').value.trim().replace(/\D/g, '');
   if (!cert) { psaSay('กรุณากรอกเลข cert ก่อน', 'err'); return; }
@@ -3706,7 +3733,10 @@ async function fetchPSA() {
     if (extra && !detailEl.value.trim()) detailEl.value = extra;
     // รูปจาก PSA
     if (data.frontImage) setImage(data.frontImage);
-    psaSay('✓ ดึงข้อมูลสำเร็จ' + (data.frontImage ? ' (พร้อมรูป)' : ' (ใบนี้ไม่มีรูปใน PSA)'), 'ok');
+    // มีการ์ดใบเดียวกันอยู่แล้ว (คนละเกรด) → ดึงราคารับซื้อ+ขายมาเติมให้
+    const priceSrc = prefillPriceFromExisting();
+    const priceMsg = priceSrc ? ' · เติมราคารับซื้อ/ขายจากใบเดิม' : '';
+    psaSay('✓ ดึงข้อมูลสำเร็จ' + (data.frontImage ? ' (พร้อมรูป)' : ' (ใบนี้ไม่มีรูปใน PSA)') + priceMsg, 'ok');
   } catch (err) {
     psaSay('เชื่อมต่อหลังบ้านไม่ได้ — ตรวจสอบว่า Vercel ตั้งค่าแล้ว', 'err');
   } finally {
