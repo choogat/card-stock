@@ -1920,8 +1920,16 @@ function render() {
     <tbody>${rows}</tbody>
   </table>`;
 
-  renderSales();
-  renderReport();
+  // อัปเดตหน้าอื่นเฉพาะที่กำลังเปิดอยู่ — หน้าที่ซ่อนอยู่ค่อยสร้างตอนสลับไป (switchView)
+  // กันการเพิ่ม/แก้การ์ดครั้งเดียวไปสร้างตารางที่มองไม่เห็นซ้ำหลายชุดจนหน่วง
+  if (isViewVisible('viewSales')) renderSales();
+  if (isViewVisible('viewReport')) renderReport();
+}
+
+// หน้า (view) นี้กำลังแสดงอยู่ไหม — ใช้ตัดงาน render ของหน้าที่ซ่อนอยู่ทิ้ง
+function isViewVisible(id) {
+  const el = document.getElementById(id);
+  return !!el && el.style.display !== 'none';
 }
 
 // ---- รวมกลุ่มการ์ดชื่อเดียวกัน (เกรด PSA ต่างได้) ----
@@ -2022,7 +2030,7 @@ function stockShopName(c) {
 function stockRow(c, isChild) {
   const st = STATUS[c.status] || STATUS.show;
   const img = c.image
-    ? `<img class="thumb" src="${c.image}" onclick="openLightbox('${c.id}')" alt="">`
+    ? `<img class="thumb" loading="lazy" decoding="async" src="${c.image}" onclick="openLightbox('${c.id}')" alt="">`
     : `<div class="thumb-empty">🃏</div>`;
   const p = cardProfit(c);
   const profitCell = `<span class="${p > 0 ? 'profit-pos' : p < 0 ? 'profit-neg' : 'muted'}">${p > 0 ? '+' : ''}${money(p)}</span>`;
@@ -2065,7 +2073,7 @@ function groupRow(g) {
   items.forEach(c => { cnt[c.status] = (cnt[c.status] || 0) + 1; });
   const stSummary = statPills(cnt);
   const img = rep.image
-    ? `<img class="thumb" src="${rep.image}" onclick="event.stopPropagation();openLightbox('${rep.id}')" alt="">`
+    ? `<img class="thumb" loading="lazy" decoding="async" src="${rep.image}" onclick="event.stopPropagation();openLightbox('${rep.id}')" alt="">`
     : `<div class="thumb-empty">🃏</div>`;
   const pCls = totProfit > 0 ? 'profit-pos' : totProfit < 0 ? 'profit-neg' : 'muted';
   const k = encodeURIComponent(g.key).replace(/'/g, '%27');
@@ -2248,7 +2256,7 @@ function renderProductSearch() {
   const rows = groups.map((g, i) => {
     const c = g.repLive || g.rep; // โชว์ราคาจากใบที่ยังไม่ขายก่อน
     const img = g.img
-      ? `<img class="thumb" src="${g.img}" onclick="openLightbox('${c.id}')" alt="">`
+      ? `<img class="thumb" loading="lazy" decoding="async" src="${g.img}" onclick="openLightbox('${c.id}')" alt="">`
       : `<div class="thumb-empty">🃏</div>`;
     return `<tr>
       <td>${img}</td>
@@ -2318,7 +2326,7 @@ function openBuyPopup() {
   }
   html += groups.map((g, i) => {
     const c = g.repLive || g.rep;
-    const img = g.img ? `<img class="thumb" src="${g.img}" onclick="event.stopPropagation();openBuyPopupImg(${i})" style="cursor:zoom-in" alt="">` : `<div class="thumb-empty">🃏</div>`;
+    const img = g.img ? `<img class="thumb" loading="lazy" decoding="async" src="${g.img}" onclick="event.stopPropagation();openBuyPopupImg(${i})" style="cursor:zoom-in" alt="">` : `<div class="thumb-empty">🃏</div>`;
     return `<div class="bp-item">
       ${img}
       <div class="bp-info">
@@ -2462,7 +2470,7 @@ function renderBuyList() {
   const rows = list.map(c => {
     const amt = Number(c.buy) || 0;
     n++; if (c.buyPayment === 'transfer') transfer += amt; else cash += amt;
-    const img = c.image ? `<img class="thumb" src="${c.image}" onclick="openLightbox('${c.id}')" alt="">` : `<div class="thumb-empty">🃏</div>`;
+    const img = c.image ? `<img class="thumb" loading="lazy" decoding="async" src="${c.image}" onclick="openLightbox('${c.id}')" alt="">` : `<div class="thumb-empty">🃏</div>`;
     const actions = canEdit ? `<td class="center"><button class="icon-btn" onclick="openBuyEdit('${c.id}')" title="แก้ไข">✏️</button></td>` : '';
     return `<tr>
       <td>${img}</td>
@@ -2628,7 +2636,7 @@ function renderReport() {
     return;
   }
   const rows = rowItems.sort(reportSorters[rsort] || reportSorters.time_desc).map(c => {
-    const img = c.image ? `<img class="thumb" src="${c.image}" onclick="openLightbox('${c.id}')" alt="">` : `<div class="thumb-empty">🃏</div>`;
+    const img = c.image ? `<img class="thumb" loading="lazy" decoding="async" src="${c.image}" onclick="openLightbox('${c.id}')" alt="">` : `<div class="thumb-empty">🃏</div>`;
     const disc = Number(c.discount) || 0;
     const net = Number(c.sell) || 0;
     const gross = net + disc;
@@ -2734,7 +2742,7 @@ function renderSoldStock() {
   list = list.slice().sort((a, b) => (b.sellDate || '').localeCompare(a.sellDate || '') || (b.sellTime || '').localeCompare(a.sellTime || ''));
   const totalSell = list.reduce((s, c) => s + (Number(c.sell) || 0), 0);
   const rows = list.map(c => {
-    const img = c.image ? `<img class="thumb" src="${c.image}" onclick="openLightbox('${c.id}')" alt="">` : `<div class="thumb-empty">🃏</div>`;
+    const img = c.image ? `<img class="thumb" loading="lazy" decoding="async" src="${c.image}" onclick="openLightbox('${c.id}')" alt="">` : `<div class="thumb-empty">🃏</div>`;
     const p = (Number(c.sell) || 0) - (Number(c.buy) || 0);
     return `<tr>
       <td>${img}</td>
@@ -2844,7 +2852,7 @@ function saleShopLabelsFor(items) {
 }
 function salesRow(c, isChild) {
   const img = c.image
-    ? `<img class="thumb" src="${c.image}" onclick="openLightbox('${c.id}')" alt="">`
+    ? `<img class="thumb" loading="lazy" decoding="async" src="${c.image}" onclick="openLightbox('${c.id}')" alt="">`
     : `<div class="thumb-empty">🃏</div>`;
   // สถานะ: โชว์แค่ "รอขาย" — ใบที่ขายแล้วเว้นว่าง
   const statusCell = c.status === 'sold' ? '' : `<span class="badge wait">รอขาย</span>`;
@@ -2872,7 +2880,7 @@ function salesGroupRow(g) {
   const waitN = items.filter(c => c.status === 'wait').length;
   const stSummary = waitN ? `<span class="stat-pill wait">รอขาย ${waitN}</span>` : '';
   const img = rep.image
-    ? `<img class="thumb" src="${rep.image}" onclick="event.stopPropagation();openLightbox('${rep.id}')" alt="">`
+    ? `<img class="thumb" loading="lazy" decoding="async" src="${rep.image}" onclick="event.stopPropagation();openLightbox('${rep.id}')" alt="">`
     : `<div class="thumb-empty">🃏</div>`;
   const k = encodeURIComponent(g.key).replace(/'/g, '%27');
   return `<tr class="group-head" onclick="toggleSalesGroup('${k}')">
@@ -5191,7 +5199,7 @@ function saveCard() {
       save();
       closeForm();
       render();
-      renderProductSearch();
+      if (isViewVisible('viewProduct')) renderProductSearch();
       alert(`รวมกับของเดิมแล้ว — "${match.name}" รวมเป็น ${newQty} ชิ้น`);
       return;
     }
@@ -5215,8 +5223,9 @@ function saveCard() {
   save();
   closeForm();
   render();
-  renderBuyList();       // อัปเดตรายการรับซื้อ (ถ้าเพิ่มผ่านโหมดรับซื้อ)
-  renderProductSearch(); // อัปเดตหน้าข้อมูลสินค้า
+  // อัปเดตหน้ารับซื้อ/ข้อมูลสินค้าเฉพาะตอนกำลังเปิดอยู่ (หน้าซ่อนค่อยสร้างตอนสลับไป) — กันหน่วง
+  if (isViewVisible('viewBuy')) renderBuyList();
+  if (isViewVisible('viewProduct')) renderProductSearch();
   buyMode = false;
   productMode = false;
 }
