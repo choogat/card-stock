@@ -1339,7 +1339,7 @@
       <div class="field" id="fld_psaGrade">
         <label>Grade</label>
         <div class="grade-row">
-          <select id="f_grader" title="บริษัทเกรด">
+          <select id="f_grader" title="บริษัทเกรด" onchange="onGraderChange()">
             <option value="PSA">PSA</option>
             <option value="BGS">BGS</option>
             <option value="PCG">PCG</option>
@@ -1347,6 +1347,7 @@
             <option value="SGC">SGC</option>
             <option value="TAG">TAG</option>
             <option value="SQC">SQC</option>
+            <option value="RAW">RAW</option>
           </select>
           <input id="f_psa" placeholder="10">
         </div>
@@ -2002,6 +2003,12 @@ function setMetaHTML(c) {
   return badge + list;
 }
 
+// ป้ายเกรดต่อท้ายชื่อ: RAW = การ์ดไม่เกรด, มีเลขเกรด = (บริษัท เกรด)
+function gradeTag(c) {
+  if ((c.grader || '') === 'RAW') return ' <span class="muted">(RAW)</span>';
+  return c.psa ? ` <span class="muted">(${esc(c.grader || 'PSA')} ${esc(c.psa)})</span>` : '';
+}
+
 // ชื่อร้านค้าสำหรับคอลัมน์ "ร้านค้า" ในตารางสต็อก — สะสม = '-', รอขาย/ขายแล้ว = ชื่อร้านที่ส่งไปขาย
 function stockShopName(c) {
   if (c.status === 'show') return '-';
@@ -2021,7 +2028,7 @@ function stockRow(c, isChild) {
   const profitCell = `<span class="${p > 0 ? 'profit-pos' : p < 0 ? 'profit-neg' : 'muted'}">${p > 0 ? '+' : ''}${money(p)}</span>`;
   return `<tr class="${isChild ? 'child-row' : ''}">
     <td>${img}</td>
-    <td class="name">${c.topic ? `<div class="topic">${esc(c.topic)}</div>` : ''}${esc(c.name)}${c.lang ? ` <span class="lang-badge">${esc(c.lang)}</span>` : ''}${c.psa ? ` <span class="muted">(${esc(c.grader || 'PSA')} ${esc(c.psa)})</span>` : ''}${(c.qty && c.qty > 1) ? ` <span class="qty-badge">×${c.qty}${c.unit ? ' ' + esc(c.unit) : ''}</span>` : ''}${setMetaHTML(c)}${c.set ? `<div class="cardset">รุ่น: ${esc(c.set)}</div>` : ''}${c.detail ? `<div class="detail">${esc(c.detail)}</div>` : ''}</td>
+    <td class="name">${c.topic ? `<div class="topic">${esc(c.topic)}</div>` : ''}${esc(c.name)}${c.lang ? ` <span class="lang-badge">${esc(c.lang)}</span>` : ''}${gradeTag(c)}${(c.qty && c.qty > 1) ? ` <span class="qty-badge">×${c.qty}${c.unit ? ' ' + esc(c.unit) : ''}</span>` : ''}${setMetaHTML(c)}${c.set ? `<div class="cardset">รุ่น: ${esc(c.set)}</div>` : ''}${c.detail ? `<div class="detail">${esc(c.detail)}</div>` : ''}</td>
     <td class="num">${money(c.median)}</td>
     <td class="num hide-sm">${money(c.buy)}</td>
     <td class="num hide-sm">${money(c.sell)}</td>
@@ -2629,7 +2636,7 @@ function renderReport() {
     const cx = !!c.cancelled; // ยกเลิกแล้ว = แสดงอยู่แต่ไม่นับยอด
     return `<tr class="${cx ? 'cancelled-row' : ''}">
       <td>${img}</td>
-      <td class="name">${c.topic ? `<div class="topic">${esc(c.topic)}</div>` : ''}${esc(c.name)}${c.lang ? ` <span class="lang-badge">${esc(c.lang)}</span>` : ''}${c.psa ? ` <span class="muted">(${esc(c.grader || 'PSA')} ${esc(c.psa)})</span>` : ''}${setMetaHTML(c)}</td>
+      <td class="name">${c.topic ? `<div class="topic">${esc(c.topic)}</div>` : ''}${esc(c.name)}${c.lang ? ` <span class="lang-badge">${esc(c.lang)}</span>` : ''}${gradeTag(c)}${setMetaHTML(c)}</td>
       ${showShop ? `<td class="center">${saleShopLabel(c)}</td>` : ''}
       <td class="center">${c.seller ? `<span class="seller-tag">${esc(c.seller)}</span>` : '<span class="muted">-</span>'}</td>
       <td class="center"><span class="qty-badge">${Number(c.qty) || 1}${c.unit ? ' ' + esc(c.unit) : ''}</span></td>
@@ -2731,7 +2738,7 @@ function renderSoldStock() {
     const p = (Number(c.sell) || 0) - (Number(c.buy) || 0);
     return `<tr>
       <td>${img}</td>
-      <td class="name">${c.topic ? `<div class="topic">${esc(c.topic)}</div>` : ''}${esc(c.name)}${c.lang ? ` <span class="lang-badge">${esc(c.lang)}</span>` : ''}${c.psa ? ` <span class="muted">(${esc(c.grader || 'PSA')} ${esc(c.psa)})</span>` : ''}${c.cert ? ` <span class="muted">cert ${esc(c.cert)}</span>` : ''}${(c.qty && c.qty > 1) ? ` <span class="qty-badge">×${c.qty}${c.unit ? ' ' + esc(c.unit) : ''}</span>` : ''}${setMetaHTML(c)}</td>
+      <td class="name">${c.topic ? `<div class="topic">${esc(c.topic)}</div>` : ''}${esc(c.name)}${c.lang ? ` <span class="lang-badge">${esc(c.lang)}</span>` : ''}${gradeTag(c)}${c.cert ? ` <span class="muted">cert ${esc(c.cert)}</span>` : ''}${(c.qty && c.qty > 1) ? ` <span class="qty-badge">×${c.qty}${c.unit ? ' ' + esc(c.unit) : ''}</span>` : ''}${setMetaHTML(c)}</td>
       <td class="center muted">${c.sellDate ? fmtDate(c.sellDate) : '-'}${c.sellTime ? '<br>' + c.sellTime : ''}</td>
       <td class="num hide-sm">${money(c.buy)}</td>
       <td class="num">${money(c.sell)}</td>
@@ -2847,7 +2854,7 @@ function salesRow(c, isChild) {
   const qtyText = `${Number(c.qty) || 1}${c.unit ? ' ' + esc(c.unit) : ''}`;
   return `<tr class="${isChild ? 'child-row' : ''}">
     <td>${img}</td>
-    <td class="name">${c.topic ? `<div class="topic">${esc(c.topic)}</div>` : ''}${esc(c.name)}${c.lang ? ` <span class="lang-badge">${esc(c.lang)}</span>` : ''}${c.psa ? ` <span class="muted">(${esc(c.grader || 'PSA')} ${esc(c.psa)})</span>` : ''}${saleShopLabel(c)}${setMetaHTML(c)}${c.detail ? `<div class="detail">${esc(c.detail)}</div>` : ''}</td>
+    <td class="name">${c.topic ? `<div class="topic">${esc(c.topic)}</div>` : ''}${esc(c.name)}${c.lang ? ` <span class="lang-badge">${esc(c.lang)}</span>` : ''}${gradeTag(c)}${saleShopLabel(c)}${setMetaHTML(c)}${c.detail ? `<div class="detail">${esc(c.detail)}</div>` : ''}</td>
     <td class="center"><span class="qty-badge">${qtyText}</span></td>
     <td class="num">${money(c.buy)}</td>
     <td class="num">${money(c.sell)}</td>
@@ -3265,6 +3272,15 @@ function applyFormMode(mode) {
 }
 function toggleSetMode(checked) { applyFormMode(checked ? 'set' : 'card'); }
 
+// RAW = การ์ดไม่เกรด → ไม่มีเลขเกรด: ปิด+ล้างช่องเลข, บริษัทอื่น = เปิดช่องเลขตามปกติ
+function onGraderChange() {
+  const raw = document.getElementById('f_grader').value === 'RAW';
+  const psa = document.getElementById('f_psa');
+  psa.disabled = raw;
+  if (raw) { psa.value = ''; psa.placeholder = '— ไม่เกรด —'; }
+  else if (psa.placeholder !== '10') psa.placeholder = '10';
+}
+
 // โหมด "เพิ่มข้อมูลสินค้า" (จากหน้าข้อมูลสินค้า) → บันทึกเป็นข้อมูลสินค้าอย่างเดียว ไม่เข้าสต็อก
 // ซ่อน: ดึง PSA / ราคากลาง / สถานะ / วันที่ซื้อ / last sold (เหลือชื่อ-เรื่อง-ภาษา-รุ่น-เกรด-ราคารับซื้อ-ราคาขาย-รายละเอียด-รูป)
 let productMode = false;
@@ -3462,6 +3478,7 @@ function openForm(mode = 'card') {
   document.getElementById('f_set').value = '';
   document.getElementById('f_psa').value = '10'; // ค่าเริ่มต้นเกรด = 10
   document.getElementById('f_grader').value = 'PSA';
+  onGraderChange(); // ปรับช่องเลขเกรดตามบริษัท (RAW = ปิดช่องเลข)
   document.getElementById('f_median').value = '';
   document.getElementById('f_buy').value = '';
   document.getElementById('f_sell').value = '';
@@ -3497,6 +3514,7 @@ function editCard(id) {
   document.getElementById('f_set').value = c.set || '';
   document.getElementById('f_psa').value = c.psa || '';
   document.getElementById('f_grader').value = c.grader || 'PSA';
+  onGraderChange(); // RAW = ปิดช่องเลขเกรด
   document.getElementById('f_qty').value = c.qty || 1;
   document.getElementById('f_unit').value = c.unit || 'Box';
   // ของสะสมเก็บราคาต่อชิ้นไว้ใน unit* — โหลดราคาต่อชิ้นมาแก้
