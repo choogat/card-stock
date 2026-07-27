@@ -5035,14 +5035,24 @@ function pokemonSuffix(text) {
   if (/\bV\b/.test(t)) return 'V';
   return '';
 }
+// แกะเลขการ์ดจากข้อความ — รองรับ "การ์ดเลข 119" (One Piece) และ "#091" (Pokemon)
+function cardNoFrom(text) {
+  const t = text || '';
+  let m = t.match(/การ์ดเลข\s*([^\s·]+)/);
+  if (m) return m[1].trim();
+  m = t.match(/#\s*([A-Za-z0-9]+)/);
+  if (m) return m[1].trim();
+  return '';
+}
+function isPokemon(text) { return /pok[eé]mon|โปเกมอน/i.test(text || ''); }
 // คำค้น SNKRDUNK จากข้อมูล PSA:
 //   Pokemon → "Pokemon <เลขการ์ด> <Gx/ex/Vmax/V ถ้ามี>" เช่น "Pokemon 161 ex"
 //   อื่น ๆ  → ชื่อการ์ดตามเดิม
 function snkrKeyword(d) {
-  const hay = [d.brand, d.category, d.subject].filter(Boolean).join(' ');
-  if (/pok[eé]mon/i.test(hay)) {
-    const no = (d.cardNumber || '').trim();
-    const suffix = pokemonSuffix([d.subject, d.variety].filter(Boolean).join(' '));
+  const hay = [d.brand, d.category, d.subject, d.variety].filter(Boolean).join(' ');
+  if (isPokemon(hay)) {
+    const no = (d.cardNumber || '').trim() || cardNoFrom(hay);
+    const suffix = pokemonSuffix([d.subject, d.variety, d.brand].filter(Boolean).join(' '));
     return ['Pokemon', no, suffix].filter(Boolean).join(' ');
   }
   return (d.subject || '').trim();
@@ -5107,6 +5117,17 @@ async function translateToJP(text) {
 async function openSnkrFromForm() {
   const name = (document.getElementById('f_name').value || '').trim();
   if (!name) { alert('ใส่ชื่อการ์ดก่อน แล้วค่อยกดค้นหา SNKRDUNK'); return; }
+  const topic = document.getElementById('f_topic').value || '';
+  const set = document.getElementById('f_set').value || '';
+  const detail = document.getElementById('f_detail').value || '';
+  // การ์ด Pokemon → ค้นด้วย "Pokemon <เลขการ์ด> <Gx/ex/Vmax/V ถ้ามี>" (ไม่ต้องแปลชื่อ)
+  if (isPokemon([topic, set, name].join(' '))) {
+    const no = cardNoFrom([detail, set, name].join(' ')); // การ์ดเลข X หรือ #091
+    const suffix = pokemonSuffix([name, detail, set].join(' '));
+    const kw = ['Pokemon', no, suffix].filter(Boolean).join(' ');
+    window.open(snkrdunkUrl(kw), '_blank');
+    return;
+  }
   const code = snkrCardCode(); // เช่น OP12-093 (โค้ด/รุ่น)
   // เปิดแท็บทันที (อยู่ใน user gesture กันโดน popup block) แล้วค่อยพาไปหลังแปลเสร็จ
   const win = window.open('about:blank', '_blank');
