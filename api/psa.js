@@ -183,7 +183,16 @@ export default async function handler(req, res) {
       // (นี่คือกรณีปลอดภัย: Jina ตอบ 200 ปกติ ไม่ได้บอกให้ชะลอ)
       if (attempt < TRIES) { await sleep(800 * attempt); continue; }
       res.setHeader('Cache-Control', 'no-store');
-      res.status(404).json({ found: false, error: 'ไม่พบเลข cert นี้ในระบบ PSA' });
+      // หน้า cert จริงของ PSA ~150KB — ได้หน้าเล็ก = โหลด/เรนเดอร์ไม่ทัน ไม่ใช่ว่า cert ไม่มี
+      // จึงไม่บอกว่า "ไม่มีในระบบ" (กันเข้าใจผิดจนเลิกลอง) แต่ชวนให้กดดึงใหม่
+      const looksTruncated = html.length < 20000;
+      res.status(404).json({
+        found: false,
+        retryable: looksTruncated, // อ่านไม่ทัน → ฝั่งเว็บลองใหม่ให้เงียบ ๆ ได้
+        error: looksTruncated
+          ? 'โหลดข้อมูลจาก PSA ไม่ทัน — กดดึงใหม่อีกครั้ง'
+          : 'ไม่พบข้อมูล cert นี้ — ตรวจสอบเลข cert อีกครั้ง หรือกดดึงใหม่',
+      });
       return;
     }
 

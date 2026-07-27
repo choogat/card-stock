@@ -3649,6 +3649,7 @@ function psaSay(msg, cls) {
 // เรียกหลังบ้าน PSA พร้อมลองใหม่อัตโนมัติเมื่อโดน rate limit (429)
 async function psaLookup(cert, tries = 3) {
   let resp, data = {};
+  let softRetried = false; // กันลองซ้ำเคส "อ่านไม่ทัน" เกิน 1 ครั้ง (ยิงน้อย กันโดนจำกัดอัตรา)
   for (let i = 0; i < tries; i++) {
     resp = await fetch(`${PSA_API_BASE}?cert=${encodeURIComponent(cert)}`);
     try { data = await resp.json(); } catch (_) { data = {}; }
@@ -3656,6 +3657,13 @@ async function psaLookup(cert, tries = 3) {
       const ra = parseFloat(resp.headers.get('retry-after'));
       if (Number.isFinite(ra) && ra > 15) break; // โควต้าเต็มจริง — ไม่ต้องลองซ้ำสั้น ๆ
       await new Promise(r => setTimeout(r, Number.isFinite(ra) ? Math.min(ra * 1000, 6000) : 1200 * (i + 1)));
+      continue;
+    }
+    // 404 แบบ "โหลดหน้าไม่ทัน" (retryable) — ลองใหม่เงียบ ๆ อีกครั้งเดียว ก่อนแจ้งผู้ใช้
+    // (cert มีจริงแต่ Jina เรนเดอร์หน้าไม่ทัน — เจอบ่อยกว่าที่คิด)
+    if (resp.status === 404 && data && data.retryable && !softRetried && i < tries - 1) {
+      softRetried = true;
+      await new Promise(r => setTimeout(r, 900));
       continue;
     }
     break;
