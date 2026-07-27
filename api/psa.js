@@ -156,11 +156,16 @@ export default async function handler(req, res) {
       const resp = await jinaFetch(cert);
 
       if (!resp.ok) {
-        // Jina ขัดข้อง/ชนลิมิต (429/402/5xx) — ไม่ใช่ว่า cert ไม่มี
-        if (attempt < TRIES) { await sleep(600 * attempt); continue; }
+        // ⚠️ 429/402 = โดน rate limit/quota — "ห้าม" retry (ยิงซ้ำยิ่งโดนแบนหนัก) หยุดทันที
+        if (resp.status === 429 || resp.status === 402) {
+          res.setHeader('Cache-Control', 'no-store');
+          res.status(502).json({ error: 'ดึงข้อมูล PSA ถี่เกินไป — รอสักครู่แล้วลองใหม่' });
+          return;
+        }
+        // 5xx/เน็ตสะดุดชั่วคราว — ลองใหม่ได้ (ไม่ใช่สัญญาณให้หยุด)
+        if (attempt < TRIES) { await sleep(800 * attempt); continue; }
         res.setHeader('Cache-Control', 'no-store');
-        const hint = resp.status === 429 ? ' (ดึงถี่เกินไป รอสักครู่)' : '';
-        res.status(502).json({ error: `ดึงข้อมูล PSA ไม่สำเร็จ (${resp.status})${hint} — ลองใหม่อีกครั้ง` });
+        res.status(502).json({ error: `ดึงข้อมูล PSA ไม่สำเร็จ (${resp.status}) — ลองใหม่อีกครั้ง` });
         return;
       }
 
@@ -170,8 +175,9 @@ export default async function handler(req, res) {
       const hasCore = p.found && !!(p.subject || p.brand || p.grade);
       if (hasCore) { payload = p; break; }
 
-      // 200 แต่หน้าไม่ครบ/หาฟิลด์ไม่เจอ → น่าจะโหลดไม่ทัน ลองใหม่ ก่อนจะสรุปว่าไม่พบ
-      if (attempt < TRIES) { await sleep(600 * attempt); continue; }
+      // fetch สำเร็จ (200) แต่หน้าไม่ครบ/หาฟิลด์ไม่เจอ → โหลดไม่ทัน ไม่ใช่โดนแบน — ลองใหม่ได้
+      // (นี่คือกรณีปลอดภัย: Jina ตอบ 200 ปกติ ไม่ได้บอกให้ชะลอ)
+      if (attempt < TRIES) { await sleep(800 * attempt); continue; }
       res.setHeader('Cache-Control', 'no-store');
       res.status(404).json({ found: false, error: 'ไม่พบเลข cert นี้ในระบบ PSA' });
       return;
