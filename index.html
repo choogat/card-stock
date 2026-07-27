@@ -3663,7 +3663,13 @@ async function psaLookup(cert, tries = 3) {
   return { resp, data };
 }
 
-// หาการ์ด "ใบเดียวกัน" (ชื่อ+รุ่นตรงกัน คนละเกรด/คนละ cert) ที่เพิ่มไว้แล้ว
+// ดึง "เลขการ์ด" จาก detail (รูปแบบ "การ์ดเลข 119 · ...") — คนละเลข = คนละใบ
+function cardNoFromDetail(detail) {
+  const m = /การ์ดเลข\s*([^\s·]+)/.exec(detail || '');
+  return m ? m[1].trim().toLowerCase() : '';
+}
+
+// หาการ์ด "ใบเดียวกัน" (ชื่อ+รุ่น+เลขการ์ดตรงกัน คนละเกรด/คนละ cert) ที่เพิ่มไว้แล้ว
 // แล้วดึงราคารับซื้อ+ขายมาเติม (เฉพาะช่องที่ยังว่าง จะได้ไม่ทับที่พิมพ์เอง)
 // คืนใบต้นทางที่ใช้เติม (ถ้ามี) เพื่อเอาไปแจ้งผู้ใช้
 function prefillPriceFromExisting() {
@@ -3674,10 +3680,13 @@ function prefillPriceFromExisting() {
   const name = norm(document.getElementById('f_name').value);
   const set = norm(document.getElementById('f_set').value);
   if (!name) return null;
+  const newNo = cardNoFromDetail(document.getElementById('f_detail').value); // เลขการ์ดของใบที่กำลังเพิ่ม
   const editId = document.getElementById('f_id').value;
-  // ใบเดียวกัน = ชื่อ+รุ่นตรงกัน, เป็นการ์ดเดี่ยว (ไม่ใช่ชุด/ของสะสม/ข้อมูลสินค้าอย่างเดียว), และมีราคา
+  // ใบเดียวกัน = ชื่อ+รุ่นตรงกัน + เลขการ์ดตรงกัน (ถ้ามีเลข) + เป็นการ์ดเดี่ยว + มีราคา
+  // ถ้าใบใหม่มีเลขการ์ด ต้องตรงกันเป๊ะ (คนละเลข = คนละใบ ไม่ดึงราคาข้ามกัน)
   const matches = cards.filter(c => c.id !== editId && c.type !== 'set' && c.type !== 'collect' && !c.productOnly
-    && norm(c.name) === name && norm(c.set) === set && (Number(c.buy) || Number(c.sell)));
+    && norm(c.name) === name && norm(c.set) === set && (Number(c.buy) || Number(c.sell))
+    && (!newNo || cardNoFromDetail(c.detail) === newNo));
   if (!matches.length) return null;
   // เลือกใบที่ยังอยู่ในสต็อกก่อน (ไม่ใช่ขายแล้ว) แล้วเอาใบที่เพิ่มล่าสุด
   const idx = new Map(cards.map((c, i) => [c.id, i]));
