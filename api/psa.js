@@ -25,6 +25,7 @@ const MEM_TTL_MS = 6 * 60 * 60 * 1000; // 6 ชั่วโมง
 const memCache = {}; // cert -> { at, data }
 
 const blobOpts = () => { const t = process.env.BLOB_READ_WRITE_TOKEN; return t ? { token: t } : {}; };
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 // ดึงหน้า cert ผ่าน Jina Reader — สั่งให้คืน HTML ดิบ (X-Return-Format: html)
 // เพื่อใช้ parser ตัวเดิม (อ่าน dt/dd + รูป full-res จาก originalPath)
@@ -147,29 +148,32 @@ export default async function handler(req, res) {
   }
 
   try {
-    const resp = await jinaFetch(cert);
+    // ลองดึง+อ่านสูงสุด 3 ครั้ง — Jina บางทีคืน 200 แต่หน้าโหลดไม่ครบ (เรนเดอร์ไม่ทัน)
+    // ทำให้ parser หาฟิลด์ไม่เจอ แล้วดูเหมือน "ไม่พบ cert" ทั้งที่ cert มีจริง → ลองใหม่ก่อนสรุป
+    const TRIES = 3;
+    let payload = null;
+    for (let attempt = 1; attempt <= TRIES; attempt++) {
+      const resp = await jinaFetch(cert);
 
-    if (!resp.ok) {
-      // Jina ขัดข้อง/ชนลิมิต (429/402/5xx) — ไม่ใช่ว่า cert ไม่มี ให้ลองใหม่ทีหลัง
+      if (!resp.ok) {
+        // Jina ขัดข้อง/ชนลิมิต (429/402/5xx) — ไม่ใช่ว่า cert ไม่มี
+        if (attempt < TRIES) { await sleep(600 * attempt); continue; }
+        res.setHeader('Cache-Control', 'no-store');
+        const hint = resp.status === 429 ? ' (ดึงถี่เกินไป รอสักครู่)' : '';
+        res.status(502).json({ error: `ดึงข้อมูล PSA ไม่สำเร็จ (${resp.status})${hint} — ลองใหม่อีกครั้ง` });
+        return;
+      }
+
+      const html = await resp.text();
+      const p = parseCertHtml(html, cert);
+      // ครบเมื่อ found + มีฟิลด์หลักอย่างน้อย 1 (กันหน้าเพี้ยน/เรนเดอร์ไม่เสร็จ)
+      const hasCore = p.found && !!(p.subject || p.brand || p.grade);
+      if (hasCore) { payload = p; break; }
+
+      // 200 แต่หน้าไม่ครบ/หาฟิลด์ไม่เจอ → น่าจะโหลดไม่ทัน ลองใหม่ ก่อนจะสรุปว่าไม่พบ
+      if (attempt < TRIES) { await sleep(600 * attempt); continue; }
       res.setHeader('Cache-Control', 'no-store');
-      const hint = resp.status === 429 ? ' (ดึงถี่เกินไป รอสักครู่)' : '';
-      res.status(502).json({ error: `ดึงข้อมูล PSA ไม่สำเร็จ (${resp.status})${hint} — ลองใหม่อีกครั้ง` });
-      return;
-    }
-
-    const html = await resp.text();
-    const payload = parseCertHtml(html, cert);
-    if (!payload.found) {
       res.status(404).json({ found: false, error: 'ไม่พบเลข cert นี้ในระบบ PSA' });
-      return;
-    }
-
-    // กันแคช "ผลไม่ครบ": ถ้าหน้าเพี้ยน/เรนเดอร์ไม่เสร็จ อาจ found=true แต่ฟิลด์หลักว่าง
-    // → อย่าเก็บ ให้ผู้ใช้ลองใหม่ (ไม่งั้นจะ lock ข้อมูลเปล่าไว้ถาวร)
-    const hasCore = !!(payload.subject || payload.brand || payload.grade);
-    if (!hasCore) {
-      res.setHeader('Cache-Control', 'no-store');
-      res.status(502).json({ error: 'อ่านข้อมูล cert ได้ไม่ครบ — ลองใหม่อีกครั้ง' });
       return;
     }
 
