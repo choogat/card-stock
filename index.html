@@ -510,12 +510,13 @@
   .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
   .grid-topic-lang { display: grid; grid-template-columns: 3fr 1fr; gap: 12px; }
   .grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
-  /* แถว รุ่น(50%) / PSA.BGS(25%) / สถานะ(25%) */
-  .grid-setpsa { display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 12px; }
-  /* ช่อง PSA.BGS: เลือกบริษัท (PSA/BGS) + เลขเกรด */
+  /* แถว cert / เกรด / สถานะ — ขยายคอลัมน์เกรดให้กว้างขึ้น ช่องเลขจะได้ไม่โดนบัง */
+  .grid-setpsa { display: grid; grid-template-columns: 1.6fr 1.3fr 1.1fr; gap: 12px; }
+  /* ช่องเกรด: เลือกบริษัท (PSA/BGS/...) + เลขเกรด */
   .grade-row { display: flex; gap: 6px; }
   .grade-row select { flex: 0 0 auto; width: auto; padding-left: 8px; padding-right: 6px; }
-  .grade-row input { flex: 1 1 auto; min-width: 0; }
+  /* ช่องเลขเกรด: กว้างพอโชว์ "10" ได้เต็ม (min-width) + จัดกลางให้อ่านง่าย */
+  .grade-row input { flex: 1 1 auto; min-width: 48px; text-align: center; }
   /* dropdown แนะนำ "รุ่น" ที่เคยพิมพ์ — กว้างตามข้อความ ไม่ตัดคำ */
   .ac-wrap { position: relative; }
   .ac-list { position: absolute; top: calc(100% + 4px); left: 0; z-index: 60;
