@@ -4996,7 +4996,7 @@ function renderPSResult(d) {
         ${rows.map(r => `<div class="k">${esc(r[0])}</div><div class="v">${esc(r[1])}</div>`).join('')}
         <div class="k">เกรด PSA</div><div class="v"><span class="ps-grade">${esc(d.grade || '-')}</span></div>
       </div>
-      <button class="btn btn-ghost ps-add" onclick="window.open(snkrdunkUrl('${esc((d.subject || '').replace(/'/g, ''))}', '${esc((d.brand || '').replace(/'/g, ''))}'),'_blank')">🔎 เช็คราคา Last sold ใน SNKRDUNK</button>
+      <button class="btn btn-ghost ps-add" onclick="window.open(snkrdunkUrl('${esc(snkrKeyword(d).replace(/'/g, ''))}'),'_blank')">🔎 เช็คราคา Last sold ใน SNKRDUNK</button>
       ${psaCheckOnly ? '' : '<button class="btn btn-primary ps-add" onclick="addFromPSASearch()">+ เพิ่มการ์ดนี้เข้าสต็อก</button>'}
     </div>`;
 }
@@ -5025,6 +5025,27 @@ function snkrBrandSlug(topic) {
 // ใส่คำค้นลงช่องค้นหาของ SNKRDUNK (เว็บญี่ปุ่น)
 function snkrdunkUrl(keyword) {
   return 'https://snkrdunk.com/search?keywords=' + encodeURIComponent(keyword || '');
+}
+// ประเภทท้ายชื่อการ์ด Pokemon — เช็ค VMAX ก่อน V (VMAX มี V อยู่ในตัว)
+function pokemonSuffix(text) {
+  const t = ' ' + (text || '').toUpperCase() + ' ';
+  if (/\bVMAX\b/.test(t)) return 'Vmax';
+  if (/\bGX\b/.test(t)) return 'Gx';
+  if (/\bEX\b/.test(t)) return 'ex';
+  if (/\bV\b/.test(t)) return 'V';
+  return '';
+}
+// คำค้น SNKRDUNK จากข้อมูล PSA:
+//   Pokemon → "Pokemon <เลขการ์ด> <Gx/ex/Vmax/V ถ้ามี>" เช่น "Pokemon 161 ex"
+//   อื่น ๆ  → ชื่อการ์ดตามเดิม
+function snkrKeyword(d) {
+  const hay = [d.brand, d.category, d.subject].filter(Boolean).join(' ');
+  if (/pok[eé]mon/i.test(hay)) {
+    const no = (d.cardNumber || '').trim();
+    const suffix = pokemonSuffix([d.subject, d.variety].filter(Boolean).join(' '));
+    return ['Pokemon', no, suffix].filter(Boolean).join(' ');
+  }
+  return (d.subject || '').trim();
 }
 // ---- ช่อง "รุ่น": dropdown แนะนำค่าที่เคยใช้ (แสดงเต็ม ไม่ตัดคำ) ----
 // รวมรายการ "รุ่น" ที่ไม่ซ้ำจากการ์ดทั้งหมด
