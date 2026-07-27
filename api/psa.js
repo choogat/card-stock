@@ -32,7 +32,11 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 function jinaFetch(cert) {
   const headers = {
     'X-Return-Format': 'html',
-    'X-Timeout': '30',
+    // รอจนตารางข้อมูล cert (dt/dd) เรนเดอร์เสร็จก่อนค่อยคืน — กัน Jina คืนหน้า React
+    // ที่ยังโหลดไม่ทันจน parser หาไม่เจอ (เคส "ไม่พบ cert" ทั้งที่มีจริง)
+    // ผลพลอยได้: ยิงครั้งเดียวก็ครบ ไม่ต้อง retry ถี่ ๆ จนเสี่ยงโดนจำกัดอัตรา
+    'X-Wait-For-Selector': 'dd',
+    'X-Timeout': '12',
     Accept: 'text/html,*/*',
   };
   const key = process.env.JINA_API_KEY;
@@ -150,7 +154,7 @@ export default async function handler(req, res) {
   try {
     // ลองดึง+อ่านสูงสุด 3 ครั้ง — Jina บางทีคืน 200 แต่หน้าโหลดไม่ครบ (เรนเดอร์ไม่ทัน)
     // ทำให้ parser หาฟิลด์ไม่เจอ แล้วดูเหมือน "ไม่พบ cert" ทั้งที่ cert มีจริง → ลองใหม่ก่อนสรุป
-    const TRIES = 3;
+    const TRIES = 2; // wait-for-selector ทำให้ครั้งเดียวมักครบแล้ว เหลือ retry สำรอง 1 ครั้ง (ยิงน้อย = กันแบน)
     let payload = null;
     for (let attempt = 1; attempt <= TRIES; attempt++) {
       const resp = await jinaFetch(cert);
