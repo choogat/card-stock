@@ -282,6 +282,11 @@
   .pay-tag { display: inline-block; padding: 3px 9px; border-radius: 999px; font-size: .74rem; font-weight: 600; background: var(--card2); color: var(--muted); }
   .pay-tag.cash { background: rgba(24,165,88,.15); color: var(--green); }
   .pay-tag.transfer { background: rgba(47,111,237,.14); color: var(--accent); }
+  /* หน้าสต็อกขายแล้ว: แถบข้อมูลย่อยใต้ชื่อการ์ด + หัวข้อจัดกลุ่มตามวันที่ */
+  .sold-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 6px; }
+  .sold-meta .sm-time { color: var(--muted); font-size: .76rem; white-space: nowrap; }
+  tr.sold-date-head td { background: var(--card2); font-weight: 700; font-size: .9rem; box-shadow: inset 3px 0 0 var(--accent); padding: 10px 14px; }
+  tr.sold-date-head .sdh-meta { color: var(--muted); font-weight: 500; font-size: .82rem; }
   .stat-pill { display: inline-block; padding: 3px 9px; border-radius: 999px; font-size: .72rem; font-weight: 700; margin: 1px 2px; }
   .stat-pill.show { background: rgba(47,111,237,.16); color: #1d4ed8; }
   .stat-pill.wait { background: rgba(192,138,0,.22); color: #92600a; }
@@ -706,7 +711,10 @@
   <div id="viewSoldStock" style="display:none">
     <h2 class="view-title">🗂️ สต็อกการ์ดขายแล้ว</h2>
     <div class="toolbar">
-      <input class="search" id="soldStockSearch" placeholder="ค้นหา เรื่อง / ชื่อ / รุ่น / PSA / cert..." oninput="renderSoldStock()" style="width:100%">
+      <input class="search" id="soldStockSearch" placeholder="ค้นหา เรื่อง / ชื่อ / รุ่น / PSA / cert..." oninput="renderSoldStock()" style="flex:1;min-width:220px">
+      <select class="filter" id="soldMonthFilter" onchange="renderSoldStock()">
+        <option value="">ทุกเดือน</option>
+      </select>
     </div>
     <div id="soldStockArea"></div>
   </div><!-- /viewSoldStock -->
@@ -2789,41 +2797,97 @@ function saveSaleEdit() {
 }
 
 // ---- เมนูย่อย "สต็อกการ์ดขายแล้ว" — รายการที่ขายแล้วทั้งหมด (อ่านอย่างเดียว) ----
+const THAI_MONTHS = ['', 'มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน', 'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'];
+function thaiMonth(ym) { const [y, m] = (ym || '').split('-'); return (THAI_MONTHS[+m] || '') + ' ' + (y || ''); }
+// ป้ายร้านที่ขาย (คืน '' ถ้าเป็นส่วนกลาง — ไม่ต้องรก)
+function soldShopTag(c) {
+  const sid = (c.soldShopId != null && c.soldShopId !== '') ? c.soldShopId : c.shopId;
+  if (sid === '__all__') return '<span class="shop-tag">ทุกร้าน</span>';
+  const s = shopById(sid);
+  return s ? `<span class="shop-tag">🏪 ${esc(s.name)}</span>` : '';
+}
+
 function renderSoldStock() {
   const area = document.getElementById('soldStockArea');
   if (!area) return;
   const q = (document.getElementById('soldStockSearch').value || '').trim().toLowerCase();
-  let list = cards.filter(c => c.status === 'sold' && !c.cancelled && !c.productOnly); // ไม่รวมที่ยกเลิก/ข้อมูลสินค้าอย่างเดียว
-  // ทุกคนเห็นการ์ดที่ขายแล้วครบเหมือนแอดมิน (เดิมผู้ช่วยเห็นเฉพาะที่ตัวเองขาย)
+  const monthSel = document.getElementById('soldMonthFilter');
+
+  // ฐาน: การ์ดที่ขายแล้ว (ไม่รวมยกเลิก/ข้อมูลสินค้าอย่างเดียว) — ทุกคนเห็นครบเหมือนแอดมิน
+  const base = cards.filter(c => c.status === 'sold' && !c.cancelled && !c.productOnly);
+
+  // เติมตัวเลือก "เดือน" จากข้อมูล (คงค่าที่เลือกไว้ ถ้ายังมีเดือนนั้น)
+  if (monthSel) {
+    const months = [...new Set(base.map(c => (c.sellDate || '').slice(0, 7)).filter(Boolean))].sort().reverse();
+    const sig = months.join(',');
+    if (monthSel.dataset.sig !== sig) {
+      const cur = monthSel.value;
+      monthSel.innerHTML = '<option value="">ทุกเดือน</option>' + months.map(m => `<option value="${m}">${esc(thaiMonth(m))}</option>`).join('');
+      if (months.includes(cur)) monthSel.value = cur;
+      monthSel.dataset.sig = sig;
+    }
+  }
+  const curMonth = monthSel ? monthSel.value : '';
+
+  let list = base.slice();
+  if (curMonth) list = list.filter(c => (c.sellDate || '').slice(0, 7) === curMonth);
   if (q) {
     const terms = q.split(/\s+/).filter(Boolean);
     list = list.filter(c => {
-      const hay = [c.topic, c.name, c.set, c.psa, c.grader, c.cert, c.detail, c.lang].filter(Boolean).join(' ').toLowerCase();
+      const hay = [c.topic, c.name, c.set, c.psa, c.grader, c.cert, c.detail, c.lang, c.seller].filter(Boolean).join(' ').toLowerCase();
       return terms.every(t => hay.includes(t));
     });
   }
+
+  // การ์ดสรุปด้านบน
+  const totalSell = list.reduce((s, c) => s + (Number(c.sell) || 0), 0);
+  const totalBuy = list.reduce((s, c) => s + (Number(c.buy) || 0), 0);
+  const totalProfit = totalSell - totalBuy;
+  const pcls = totalProfit > 0 ? 'profit-pos' : totalProfit < 0 ? 'profit-neg' : '';
+  const stats = `<div class="stats" style="margin-bottom:18px">
+    <div class="stat"><div class="label">ขายแล้ว</div><div class="value num">${list.length.toLocaleString('th-TH')} <span style="font-size:.55em;color:var(--muted);font-weight:600">ใบ</span></div></div>
+    <div class="stat"><div class="label">ยอดขายรวม</div><div class="value num">${money(totalSell)}</div></div>
+    ${canSeeProfit() ? `<div class="stat"><div class="label">กำไรรวม</div><div class="value num ${pcls}">${totalProfit > 0 ? '+' : ''}${money(totalProfit)}</div></div>` : ''}
+  </div>`;
+
   if (!list.length) {
-    area.innerHTML = `<div class="empty"><div class="big">🗂️</div>${q ? 'ไม่พบการ์ดที่ตรงกับ “' + esc(q) + '”' : 'ยังไม่มีการ์ดที่ขายแล้ว'}</div>`;
+    area.innerHTML = stats + `<div class="empty"><div class="big">🗂️</div>${(q || curMonth) ? 'ไม่พบการ์ดที่ตรงกับเงื่อนไข' : 'ยังไม่มีการ์ดที่ขายแล้ว'}</div>`;
     return;
   }
-  list = list.slice().sort((a, b) => (b.sellDate || '').localeCompare(a.sellDate || '') || (b.sellTime || '').localeCompare(a.sellTime || ''));
-  const totalSell = list.reduce((s, c) => s + (Number(c.sell) || 0), 0);
-  const rows = list.map(c => {
-    const img = c.image ? `<img class="thumb" loading="lazy" decoding="async" src="${c.image}" onclick="openLightbox('${c.id}')" alt="">` : `<div class="thumb-empty">🃏</div>`;
-    const p = (Number(c.sell) || 0) - (Number(c.buy) || 0);
-    return `<tr>
-      <td>${img}</td>
-      <td class="name">${c.topic ? `<div class="topic">${esc(c.topic)}</div>` : ''}${esc(c.name)}${c.lang ? ` <span class="lang-badge">${esc(c.lang)}</span>` : ''}${gradeTag(c)}${c.cert ? ` <span class="muted">cert ${esc(c.cert)}</span>` : ''}${(c.qty && c.qty > 1) ? ` <span class="qty-badge">×${c.qty}${c.unit ? ' ' + esc(c.unit) : ''}</span>` : ''}${setMetaHTML(c)}</td>
-      <td class="center muted">${c.sellDate ? fmtDate(c.sellDate) : '-'}${c.sellTime ? '<br>' + c.sellTime : ''}</td>
-      <td class="num hide-sm">${money(c.buy)}</td>
-      <td class="num">${money(c.sell)}</td>
-      ${canSeeProfit() ? `<td class="num"><span class="${p > 0 ? 'profit-pos' : p < 0 ? 'profit-neg' : 'muted'}">${p > 0 ? '+' : ''}${money(p)}</span></td>` : ''}
-    </tr>` + (c.type === 'set' && expandedSets.has(c.id) ? setCardsRow(c) : '');
-  }).join('');
-  area.innerHTML = `<div class="sales-summary" style="margin:10px 0">ขายแล้ว ${list.length} ใบ · รวม ${money(totalSell)}</div>
-    <table>
-      <thead><tr><th>รูป</th><th>ชื่อการ์ด</th><th class="center">วันที่ขาย</th><th class="num hide-sm">รับซื้อ</th><th class="num">ราคาขาย</th>${canSeeProfit() ? '<th class="num">กำไร</th>' : ''}</tr></thead>
-      <tbody>${rows}</tbody>
+
+  // จัดกลุ่มตาม "วันที่ขาย" (ใหม่→เก่า) · ในกลุ่มเรียงตามเวลา (ใหม่→เก่า)
+  const groups = new Map();
+  for (const c of list) { const d = c.sellDate || ''; (groups.get(d) || groups.set(d, []).get(d)).push(c); }
+  const dates = [...groups.keys()].sort((a, b) => b.localeCompare(a));
+  const colspan = canSeeProfit() ? 5 : 4;
+  let body = '';
+  for (const d of dates) {
+    const items = groups.get(d).sort((a, b) => (b.sellTime || '').localeCompare(a.sellTime || ''));
+    const daySell = items.reduce((s, c) => s + (Number(c.sell) || 0), 0);
+    const dayProfit = items.reduce((s, c) => s + ((Number(c.sell) || 0) - (Number(c.buy) || 0)), 0);
+    const dpcls = dayProfit > 0 ? 'profit-pos' : dayProfit < 0 ? 'profit-neg' : '';
+    body += `<tr class="group-head sold-date-head"><td colspan="${colspan}">📅 ${d ? fmtDate(d) : 'ไม่ระบุวันที่'}<span class="sdh-meta"> · ${items.length} ใบ · ยอดขาย ${money(daySell)}${canSeeProfit() ? ` · กำไร <span class="${dpcls}">${dayProfit > 0 ? '+' : ''}${money(dayProfit)}</span>` : ''}</span></td></tr>`;
+    for (const c of items) {
+      const img = c.image ? `<img class="thumb" loading="lazy" decoding="async" src="${c.image}" onclick="openLightbox('${c.id}')" alt="">` : `<div class="thumb-empty">🃏</div>`;
+      const p = (Number(c.sell) || 0) - (Number(c.buy) || 0);
+      const meta = [
+        c.sellTime ? `<span class="sm-time">🕒 ${esc(c.sellTime)}</span>` : '',
+        c.payment ? `<span class="pay-tag ${c.payment}">${PAYMENT[c.payment] || ''}</span>` : '',
+        c.seller ? `<span class="seller-tag">${esc(c.seller)}</span>` : '',
+        soldShopTag(c),
+      ].filter(Boolean).join(' ');
+      body += `<tr>
+        <td>${img}</td>
+        <td class="name">${c.topic ? `<div class="topic">${esc(c.topic)}</div>` : ''}${esc(c.name)}${c.lang ? ` <span class="lang-badge">${esc(c.lang)}</span>` : ''}${gradeTag(c)}${c.cert ? ` <span class="muted">cert ${esc(c.cert)}</span>` : ''}${(c.qty && c.qty > 1) ? ` <span class="qty-badge">×${c.qty}${c.unit ? ' ' + esc(c.unit) : ''}</span>` : ''}${setMetaHTML(c)}${meta ? `<div class="sold-meta">${meta}</div>` : ''}</td>
+        <td class="num hide-sm">${money(c.buy)}</td>
+        <td class="num">${money(c.sell)}</td>
+        ${canSeeProfit() ? `<td class="num"><span class="${p > 0 ? 'profit-pos' : p < 0 ? 'profit-neg' : 'muted'}">${p > 0 ? '+' : ''}${money(p)}</span></td>` : ''}
+      </tr>` + (c.type === 'set' && expandedSets.has(c.id) ? setCardsRow(c) : '');
+    }
+  }
+  area.innerHTML = stats + `<table>
+      <thead><tr><th>รูป</th><th>ชื่อการ์ด</th><th class="num hide-sm">รับซื้อ</th><th class="num">ราคาขาย</th>${canSeeProfit() ? '<th class="num">กำไร</th>' : ''}</tr></thead>
+      <tbody>${body}</tbody>
     </table>`;
 }
 
