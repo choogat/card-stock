@@ -38,7 +38,9 @@
     display: flex; flex-direction: column; gap: 8px;
   }
   .sidebar .brand { font-size: 1.15rem; font-weight: 700; padding: 6px 8px 14px; }
-  .nav { display: flex; flex-direction: column; gap: 6px; }
+  .nav { display: flex; flex-direction: column; gap: 5px; }
+  .nav-group { font-size: .68rem; font-weight: 700; letter-spacing: .6px; color: var(--muted); text-transform: uppercase; padding: 2px 14px 3px; margin-top: 11px; opacity: .7; }
+  .nav-group:first-child { margin-top: 0; }
   .nav-item {
     text-align: left; background: transparent; border: 1px solid transparent; color: var(--muted);
     padding: 12px 14px; border-radius: 12px; cursor: pointer; font-size: .95rem; font-weight: 600; font-family: inherit;
@@ -60,7 +62,7 @@
   }
   .nav-sub2:hover { background: var(--card2); color: var(--text); }
   .nav-sub2.active { background: linear-gradient(135deg, var(--accent), var(--accent2)); color: #fff; }
-  #shopNav, #settingsNav { display: flex; flex-direction: column; gap: 4px; }
+  #shopNav { display: flex; flex-direction: column; gap: 4px; }
   .shop-banner {
     background: linear-gradient(135deg, rgba(47,111,237,.12), rgba(108,92,231,.12));
     border: 1px solid var(--border); border-radius: 12px; padding: 10px 16px; margin-bottom: 16px;
@@ -298,7 +300,8 @@
     .layout { flex-direction: column; gap: 16px; }
     .sidebar { width: auto; position: static; flex-direction: row; flex-wrap: wrap; align-items: center; }
     .sidebar .brand { padding: 6px 8px; }
-    .nav { flex-direction: row; flex: 1; }
+    .nav { flex-direction: row; flex: 1; flex-wrap: wrap; }
+    .nav-group { display: none; }
     .sidebar-foot { margin-top: 0; padding-top: 0; border-top: none; flex-direction: row; align-items: center; width: 100%; }
   }
   header {
@@ -704,19 +707,28 @@
   <aside class="sidebar">
     <div class="brand">🃏 CielLand <span class="pill">PSA</span></div>
     <nav class="nav">
+      <div class="nav-group" id="navGrpOverview">ภาพรวม</div>
       <button class="nav-item" data-view="dashboard" onclick="switchView('dashboard')" style="display:none">📊 แดชบอร์ด</button>
+
+      <div class="nav-group" id="navGrpInventory">คลังสินค้า</div>
       <button class="nav-item active" data-view="stock" onclick="switchView('stock')">📦 สต็อกการ์ด</button>
       <button class="nav-sub" id="navSoldStock" onclick="switchView('soldstock')" style="display:none">↳ สต็อกการ์ดขายแล้ว</button>
       <button class="nav-item" data-view="preorder" onclick="switchView('preorder')">📝 พรีออเดอร์</button>
       <button class="nav-item" data-view="sales" onclick="switchView('sales')">🏷️ สินค้าขาย</button>
-      <button class="nav-item" data-view="report" onclick="switchView('report')">📊 การขายทั้งหมด</button>
+      <button class="nav-item" data-view="product" onclick="switchView('product')">📋 ข้อมูลสินค้า</button>
+
+      <div class="nav-group" id="navGrpTrade">การซื้อ-ขาย</div>
       <button class="nav-item" data-view="buy" onclick="switchView('buy')">🛒 รับซื้อสินค้า</button>
+      <button class="nav-item" data-view="report" onclick="switchView('report')">📊 การขายทั้งหมด</button>
       <button class="nav-item" data-view="gacha" onclick="switchView('gacha')">🎲 ยอดจุ่ม</button>
+
+      <div class="nav-group" id="navGrpPartners">ร้านคู่ค้า</div>
       <button class="nav-item" data-view="shop" onclick="switchView('shop')">🏬 ร้านค้า</button>
       <div id="shopNav"></div>
-      <button class="nav-item" data-view="product" onclick="switchView('product')">📋 ข้อมูลสินค้า</button>
-      <button class="nav-item" data-view="settings" onclick="switchView('settings')" style="display:none">⚙️ ตั้งค่า</button>
-      <div id="settingsNav"></div>
+      <button class="nav-sub" id="navAddShop" onclick="openShopForm()" style="display:none">➕ เพิ่มร้านค้า</button>
+
+      <div class="nav-group" id="navGrpSettings" style="display:none">ตั้งค่า</div>
+      <button class="nav-sub" id="navUsers" onclick="switchView('users')" style="display:none">👥 ผู้ใช้งาน</button>
     </nav>
     <div class="sidebar-foot">
       <span class="sync" id="syncStatus"></span>
@@ -2321,9 +2333,9 @@ function switchView(view) {
   document.getElementById('viewShopHome').style.display = 'none'; // หน้าสรุปร้าน เปิดผ่าน openShopHome เท่านั้น
   document.getElementById('viewSettings').style.display = view === 'settings' ? '' : 'none';
   document.getElementById('viewUsers').style.display = view === 'users' ? '' : 'none';
-  // เมนู "ผู้ใช้งาน" เป็นเมนูย่อยของ "ตั้งค่า" → คงไฮไลต์ตั้งค่าไว้ตอนเข้าหน้าผู้ใช้งาน
-  const navSettings = document.querySelector('.nav-item[data-view="settings"]');
-  if (navSettings && view === 'users') navSettings.classList.add('active');
+  // ไฮไลต์เมนูย่อย "ผู้ใช้งาน" ตอนเข้าหน้าจัดการผู้ใช้
+  const navUsers = document.getElementById('navUsers');
+  if (navUsers) navUsers.classList.toggle('active', view === 'users');
   // เมนูย่อย "สต็อกการ์ดขายแล้ว" → โผล่เมื่ออยู่ในกลุ่มสต็อก (กดสต็อกการ์ดก่อน)
   const navSold = document.getElementById('navSoldStock');
   if (navSold) {
@@ -2343,22 +2355,9 @@ function switchView(view) {
   if (view === 'shop') renderShopManage();
   if (view === 'users') renderUsers();
   renderShopNav();
-  renderSettingsNav(view);
   localStorage.setItem('app_view', view); // จำแถบล่าสุด ไว้คงหน้าตอน F5
   localStorage.removeItem('app_shopview'); // ออกจากบริบทร้านเฉพาะ
 }
-// เมนูย่อยของ "ตั้งค่า": ผู้ใช้งาน + เพิ่มร้านค้า (เฉพาะแอดมิน)
-function renderSettingsNav(view) {
-  const el = document.getElementById('settingsNav');
-  if (!el) return;
-  if (!canViewTab('settings')) { el.innerHTML = ''; el.style.display = 'none'; return; }
-  el.style.display = '';
-  let html = '';
-  if (canViewTab('users')) html += `<button class="nav-sub${view === 'users' ? ' active' : ''}" onclick="switchView('users')">👥 ผู้ใช้งาน</button>`;
-  html += `<button class="nav-sub" onclick="openShopForm()">➕ เพิ่มร้านค้า</button>`;
-  el.innerHTML = html;
-}
-
 // แถบที่ผู้ใช้ปัจจุบันเข้าได้ (ไม่ล็อกอิน=ทุกแถบ / แอดมิน=ทุกแถบ+users / ผู้ช่วย=ตามสิทธิ์)
 function allowedTabs() {
   // แดชบอร์ด = เฉพาะเจ้าของเครื่อง (ไม่ล็อกอิน) หรือแอดมิน — เป็นภาพรวมการเงินธุรกิจ
@@ -2375,6 +2374,18 @@ function applyPermissions() {
   document.querySelectorAll('.nav-item[data-view]').forEach(b => {
     b.style.display = allowed.includes(b.dataset.view) ? '' : 'none';
   });
+  // เมนูย่อยแบบคงที่ (ผู้ใช้งาน = แอดมิน · เพิ่มร้านค้า = แอดมิน/เจ้าของเครื่อง)
+  const canUsers = canViewTab('users'), canAddShop = canViewTab('settings');
+  const setDisp = (id, show) => { const el = document.getElementById(id); if (el) el.style.display = show ? '' : 'none'; };
+  setDisp('navUsers', canUsers);
+  setDisp('navAddShop', canAddShop);
+  // หัวข้อกลุ่ม — ซ่อนเมื่อไม่มีเมนูในกลุ่มนั้นให้เห็นเลย
+  const has = (...vs) => vs.some(v => allowed.includes(v));
+  setDisp('navGrpOverview', has('dashboard'));
+  setDisp('navGrpInventory', has('stock', 'preorder', 'sales', 'product'));
+  setDisp('navGrpTrade', has('buy', 'report', 'gacha'));
+  setDisp('navGrpPartners', has('shop') || canAddShop);
+  setDisp('navGrpSettings', canUsers);
   updateStats(); // รีเฟรชการซ่อน/โชว์การ์ดสรุปยอดรวมตามสิทธิ์ (เผื่อสิทธิ์เปลี่ยนสด)
   // หน้าล่าสุดเป็นหน้าร้าน → คืนร้าน+ฟังก์ชันเดิมทันที (กันแวบไปหน้าจัดการร้าน)
   if ((localStorage.getItem('app_view') === 'shop' || BOOT_VIEW === 'shop') && restoreShopView()) return;
