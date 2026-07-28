@@ -545,6 +545,31 @@
   .po-sortable .po-arrow { color: var(--accent); font-size: .7rem; }
   .po-dep { width: 100%; box-sizing: border-box; }
   .po-status { width: 100%; box-sizing: border-box; }
+  /* พรีออเดอร์แบบการ์ด (แทนตารางกว้าง — อ่านง่าย ใช้บนมือถือได้) */
+  .po-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 12px; }
+  .po-card { background: var(--card); border: 1px solid var(--border); border-left: 4px solid var(--border); border-radius: 14px; padding: 13px 15px; display: flex; flex-direction: column; gap: 9px; transition: box-shadow .12s, border-color .12s; }
+  .po-card:hover { box-shadow: 0 2px 12px rgba(20,30,60,.08); }
+  .po-card.due { border-left-color: var(--yellow); background: rgba(230,178,58,.07); }
+  .po-card.received { border-left-color: #54b878; }
+  .po-card.cancel { border-left-color: #e8707b; opacity: .62; }
+  .poc-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .poc-top .po-status { width: auto; flex: none; }
+  .poc-actions { display: flex; gap: 2px; flex: none; }
+  .poc-title { font-weight: 700; font-size: 1rem; line-height: 1.25; }
+  .poc-meta { color: var(--muted); font-size: .82rem; display: flex; flex-wrap: wrap; gap: 3px 10px; }
+  .poc-money { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 16px; font-size: .9rem; }
+  .poc-money .poc-lbl { color: var(--muted); font-size: .74rem; margin-right: 3px; }
+  .poc-money .poc-due { font-weight: 700; }
+  .poc-money .poc-due.owed { color: var(--yellow); }
+  .poc-money .poc-due.clear { color: var(--green); }
+  .poc-dep { display: inline-flex; align-items: center; gap: 4px; }
+  .poc-dep .po-dep { width: 88px; }
+  .po-prog { height: 7px; background: var(--card2); border-radius: 999px; overflow: hidden; }
+  .po-prog > i { display: block; height: 100%; background: var(--accent); border-radius: 999px; transition: width .2s; }
+  .po-card.received .po-prog > i { background: #54b878; }
+  .poc-foot { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: .8rem; color: var(--muted); }
+  .poc-foot b { color: var(--text); font-weight: 600; }
+  .po-card .po-note { font-size: .82rem; color: var(--muted); background: var(--bg); border-radius: 8px; padding: 6px 9px; }
   .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
   .grid-topic-lang { display: grid; grid-template-columns: 3fr 1fr; gap: 12px; }
   .grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
@@ -746,6 +771,15 @@
         <option value="wait">รอส่งของ</option>
         <option value="received">รับสินค้าแล้ว</option>
         <option value="cancel">ยกเลิก</option>
+      </select>
+      <select class="filter" id="poSortSel" onchange="renderPreorder()">
+        <option value="">เรียง: ค่าเริ่มต้น</option>
+        <option value="date_desc">วันที่ล่าสุด</option>
+        <option value="date_asc">วันที่เก่าสุด</option>
+        <option value="price_desc">ราคา มาก→น้อย</option>
+        <option value="remaining_desc">ยอดค้าง มาก→น้อย</option>
+        <option value="deposit_desc">มัดจำ มาก→น้อย</option>
+        <option value="name_asc">ชื่อ ก→ฮ</option>
       </select>
       <button class="btn btn-ghost" onclick="document.getElementById('poExcelFile').click()">📥 โหลดจาก Excel</button>
       <button class="btn btn-ghost" onclick="downloadPreorderExcel()">⬇️ Download</button>
@@ -4580,11 +4614,14 @@ function renderPreorder() {
       return terms.every(t => hay.includes(t));
     });
   }
-  if (poSort.key) {
-    // เรียงตามคอลัมน์ที่กดเลือก — เลขนับเป็นเลข, ตัวอักษรนับเป็นอักษร (รองรับไทย)
-    const mul = poSort.dir === 'asc' ? 1 : -1;
+  const sortVal = document.getElementById('poSortSel')?.value || '';
+  if (sortVal) {
+    // เรียงตามที่เลือกในดรอปดาวน์ (key_dir) — เลขนับเป็นเลข, ตัวอักษรนับเป็นอักษร (รองรับไทย)
+    const us = sortVal.lastIndexOf('_');
+    const key = sortVal.slice(0, us), dir = sortVal.slice(us + 1);
+    const mul = dir === 'asc' ? 1 : -1;
     list.sort((a, b) => {
-      const va = poCellValue(a.o, poSort.key), vb = poCellValue(b.o, poSort.key);
+      const va = poCellValue(a.o, key), vb = poCellValue(b.o, key);
       let c;
       if (typeof va === 'number' && typeof vb === 'number') c = va - vb;
       else c = String(va).localeCompare(String(vb), 'th', { numeric: true });
@@ -4615,42 +4652,44 @@ function renderPreorder() {
   }
 
   poLastList = list.map(x => x.o); // เก็บไว้ใช้ตอน Download
-  const rows = list.map(({ o }) => {
+  const cardsHtml = list.map(({ o }) => {
     const st = o.status || 'wait';
-    // รอส่งของ + ถึง/เลย "วันที่ได้รับของ" แล้ว → ทั้งแถวเหลืองอ่อน (เตือนของถึงกำหนดแต่ยังไม่รับ)
+    // รอส่งของ + ถึง/เลย "วันที่ได้รับของ" แล้ว → การ์ดขึ้นแถบเหลือง (เตือนของถึงกำหนดแต่ยังไม่รับ)
     const due = st === 'wait' && o.recvDate && o.recvDate <= todayStr();
-    const trCls = st === 'received' ? ' class="po-row-received"' : st === 'cancel' ? ' class="po-row-cancel"' : due ? ' class="po-row-due"' : '';
+    const cardCls = st === 'received' ? 'received' : st === 'cancel' ? 'cancel' : due ? 'due' : '';
     const opts = Object.keys(PO_STATUS).map(k => `<option value="${k}"${k === st ? ' selected' : ''}>${PO_STATUS[k]}</option>`).join('');
-    return `<tr${trCls}>
-      <td class="po-date center">${esc(poDateLabel(o.date))}</td>
-      <td class="name">${esc(o.name)}</td>
-      <td>${o.set ? esc(o.set) : '<span class="muted">—</span>'}</td>
-      <td class="center">${o.lang ? `<span class="lang-badge">${esc(o.lang)}</span>` : '—'}</td>
-      <td class="num">${Number(o.qty) || 1}</td>
-      <td>${o.size ? esc(o.size) : '<span class="muted">—</span>'}</td>
-      <td class="num">${money(o.price)}</td>
-      <td class="num"><input class="po-dep" type="number" inputmode="decimal" value="${Number(o.deposit) || 0}" onchange="updatePreorderDeposit('${o.id}', this.value)"></td>
-      <td class="num">${money(poRemaining(o))}</td>
-      <td class="center"><select class="po-status po-status-${st}" onchange="updatePreorderStatus('${o.id}', this.value)">${opts}</select></td>
-      <td class="num">${poNum(poAvg(o))}</td>
-      <td>${o.source ? esc(o.source) : '<span class="muted">—</span>'}</td>
-      <td class="po-date center">${o.recvDate ? esc(poDateLabel(o.recvDate)) : '<span class="muted">—</span>'}</td>
-      <td>${o.note ? `<div class="po-note" data-full="${esc(o.note)}">${esc(o.note)}</div>` : '<span class="muted">—</span>'}</td>
-      <td class="center"><button class="po-icon" title="แก้ไข" onclick="openPreorderForm('${o.id}')">✏️</button><button class="po-icon" title="ลบ" onclick="deletePreorder('${o.id}')">🗑️</button></td>
-    </tr>`;
+    const price = Number(o.price) || 0, dep = Number(o.deposit) || 0, rem = poRemaining(o);
+    const pct = price > 0 ? Math.min(100, Math.round(dep / price * 100)) : (dep > 0 ? 100 : 0);
+    const meta = [
+      o.date ? `📅 ${esc(poDateLabel(o.date))}` : '',
+      o.set ? `รุ่น ${esc(o.set)}` : '',
+      o.size ? esc(o.size) : '',
+      `× ${Number(o.qty) || 1}`,
+    ].filter(Boolean).map(x => `<span>${x}</span>`).join('');
+    const foot = [
+      o.source ? `🏪 <b>${esc(o.source)}</b>` : '',
+      o.recvDate ? `📦 รับของ <b>${esc(poDateLabel(o.recvDate))}</b>` : '',
+      (Number(o.qty) || 1) > 1 ? `เฉลี่ย/ชิ้น <b>${money(poAvg(o))}</b>` : '',
+    ].filter(Boolean).map(x => `<span>${x}</span>`).join('');
+    return `<div class="po-card ${cardCls}">
+      <div class="poc-top">
+        <select class="po-status po-status-${st}" onchange="updatePreorderStatus('${o.id}', this.value)">${opts}</select>
+        <div class="poc-actions"><button class="po-icon" title="แก้ไข" onclick="openPreorderForm('${o.id}')">✏️</button><button class="po-icon" title="ลบ" onclick="deletePreorder('${o.id}')">🗑️</button></div>
+      </div>
+      <div class="poc-title">${esc(o.name)}${o.lang ? ` <span class="lang-badge">${esc(o.lang)}</span>` : ''}</div>
+      ${meta ? `<div class="poc-meta">${meta}</div>` : ''}
+      <div class="poc-money">
+        <span><span class="poc-lbl">ราคา</span>${money(price)}</span>
+        <span class="poc-dep"><span class="poc-lbl">มัดจำ</span><input class="po-dep" type="number" inputmode="decimal" value="${dep}" onchange="updatePreorderDeposit('${o.id}', this.value)"></span>
+        <span><span class="poc-lbl">ค้าง</span><span class="poc-due ${rem <= 0 ? 'clear' : 'owed'}">${money(rem)}</span></span>
+      </div>
+      <div class="po-prog" title="จ่ายมัดจำแล้ว ${pct}%"><i style="width:${pct}%"></i></div>
+      ${foot ? `<div class="poc-foot">${foot}</div>` : ''}
+      ${o.note ? `<div class="po-note" data-full="${esc(o.note)}">${esc(o.note)}</div>` : ''}
+    </div>`;
   }).join('');
 
-  const cols = PO_COLS.map(c => `<col style="width:${c.w}">`).join('') + '<col style="width:56px">';
-  const ths = PO_COLS.map(c => {
-    const arrow = poSort.key === c.key ? `<span class="po-arrow">${poSort.dir === 'asc' ? ' ▲' : ' ▼'}</span>` : '';
-    return `<th class="po-sortable" onclick="poSortBy('${c.key}')" title="กดเพื่อเรียงลำดับ">${c.label}${arrow}</th>`;
-  }).join('');
-
-  area.innerHTML = `<table class="po-table">
-    <colgroup>${cols}</colgroup>
-    <thead><tr>${ths}<th></th></tr></thead>
-    <tbody>${rows}</tbody>
-  </table>`;
+  area.innerHTML = `<div class="po-grid">${cardsHtml}</div>`;
 
   // หมายเหตุยาวเกิน 2 บรรทัด → ตัดโชว์ 2 บรรทัด กดแล้วเปิด popup ดูเต็ม
   area.querySelectorAll('.po-note').forEach(el => {
