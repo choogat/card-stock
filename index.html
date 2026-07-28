@@ -237,6 +237,10 @@
   .uf-head .uf-ico { width: 40px; height: 40px; border-radius: 11px; background: linear-gradient(135deg,var(--accent),var(--accent2)); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; flex: none; }
   .uf-head .uf-title { font-weight: 700; font-size: 1.02rem; }
   .uf-head .uf-sub { color: var(--muted); font-size: .82rem; margin-top: 1px; }
+  /* หัวข้อหมวดในฟอร์มผู้ใช้ (popup) */
+  .uf-sec { font-size: .74rem; font-weight: 700; letter-spacing: .4px; color: var(--muted); text-transform: uppercase; margin: 18px 0 9px; padding-top: 15px; border-top: 1px solid var(--border); }
+  .uf-sec:first-of-type { border-top: none; padding-top: 0; margin-top: 8px; }
+  .uf-sec .uf-hint { text-transform: none; letter-spacing: 0; font-weight: 400; color: var(--muted); font-size: .78rem; margin-left: 4px; }
   /* ชิปเลือกสิทธิ์แถบ — กริดยืดหยุ่น ติ๊กแล้วไฮไลต์ทั้งใบ */
   .perm-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(158px, 1fr)); gap: 9px; }
   .perm-grid label { display: flex; align-items: center; gap: 9px; border: 1.5px solid var(--border); border-radius: 12px; padding: 10px 12px; font-size: .9rem; font-weight: 500; color: var(--text); background: var(--bg); cursor: pointer; user-select: none; transition: border-color .12s, background .12s, box-shadow .12s; }
@@ -275,6 +279,7 @@
   .u-actions { display: flex; align-items: center; gap: 6px; flex: none; }
   /* แผงตั้งค่าผู้ใช้ (แบบตาราง 2 แผง) */
   .set-panel { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 18px 20px; margin-bottom: 20px; box-shadow: 0 1px 3px rgba(20,30,60,.05); }
+  .set-panel-danger { border-color: rgba(226,59,78,.35); background: rgba(226,59,78,.04); }
   .set-panel-head { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
   .set-panel-head .sp-title { font-weight: 700; font-size: 1.02rem; display: flex; align-items: center; gap: 8px; }
   .set-panel-head .sp-spacer { flex: 1; }
@@ -1051,10 +1056,14 @@
 
     <div id="usersList"></div>
     </div><!-- /set-panel -->
-    <div class="danger-zone">
-      <div class="daily-title" style="color:var(--danger)">⚠️ ล้างข้อมูล</div>
-      <p style="color:var(--muted);font-size:.85rem;margin-bottom:10px">ลบข้อมูลการ์ด/สินค้าทั้งหมด (สต็อก · สินค้าขาย · รายงาน · ข้อมูลสินค้า · รับซื้อ) ออกจากเครื่องนี้และเซิร์ฟเวอร์ — กู้ไม่ได้ · ผู้ใช้งานไม่โดนลบ</p>
-      <button class="btn btn-danger" onclick="clearAllCards()">🗑️ ล้างข้อมูลการ์ดทั้งหมด</button>
+
+    <div class="set-panel set-panel-danger">
+      <div class="set-panel-head">
+        <div class="sp-title" style="color:var(--danger)">⚠️ ล้างข้อมูล</div>
+        <div class="sp-spacer"></div>
+        <button class="btn btn-danger btn-sm" onclick="clearAllCards()">🗑️ ล้างข้อมูลการ์ดทั้งหมด</button>
+      </div>
+      <p class="sp-desc" style="margin-bottom:0">ลบข้อมูลการ์ด/สินค้าทั้งหมด (สต็อก · สินค้าขาย · รายงาน · ข้อมูลสินค้า · รับซื้อ) ออกจากเครื่องนี้และเซิร์ฟเวอร์ — กู้ไม่ได้ · ผู้ใช้งานไม่โดนลบ</p>
     </div>
   </div><!-- /viewUsers -->
   </main>
@@ -1257,50 +1266,49 @@
         <div class="uf-sub">กำหนด ID · รหัสผ่าน · ชื่อ · สิทธิ์ที่เข้าถึงได้</div>
       </div>
     </div>
+    <div class="uf-sec">ข้อมูลบัญชี</div>
     <div class="grid2">
       <div class="field"><label>ID ผู้ใช้ (ใช้ล็อกอิน)</label><input id="u_id" placeholder="เช่น staff1"></div>
       <div class="field"><label>ชื่อที่แสดง</label><input id="u_name" placeholder="เช่น พนักงานเอ"></div>
     </div>
-    <div class="field"><label>รหัสผ่าน</label><input id="u_pass" placeholder="รหัสผ่าน"></div>
-    <div class="field">
-      <label>สิทธิ์เข้าแถบ <span style="color:var(--muted);font-weight:400;font-size:.8rem">(แตะเพื่อเลือก)</span></label>
-      <div class="perm-grid">
-        <label><input type="checkbox" id="u_tab_stock" value="stock"> 📦 สต็อกการ์ด</label>
-        <label><input type="checkbox" id="u_tab_preorder" value="preorder"> 📝 พรีออเดอร์</label>
-        <label><input type="checkbox" id="u_tab_sales" value="sales"> 🏷️ สินค้าขาย</label>
-        <label><input type="checkbox" id="u_tab_report" value="report"> 📊 รายงานการขาย</label>
-        <label><input type="checkbox" id="u_tab_buy" value="buy"> 🛒 รับซื้อสินค้า</label>
-        <label><input type="checkbox" id="u_tab_product" value="product"> 📋 ข้อมูลสินค้า</label>
-        <label><input type="checkbox" id="u_tab_gacha" value="gacha"> 🎲 ยอดจุ่ม</label>
-        <label><input type="checkbox" id="u_tab_shop" value="shop"> 🏬 ร้านค้า</label>
+    <div class="field" style="margin-bottom:0"><label>รหัสผ่าน</label><input id="u_pass" placeholder="รหัสผ่าน"></div>
+
+    <div class="uf-sec">เมนูที่เข้าได้ <span class="uf-hint">(แตะเพื่อเลือก)</span></div>
+    <div class="perm-grid">
+      <label><input type="checkbox" id="u_tab_stock" value="stock"> 📦 สต็อกการ์ด</label>
+      <label><input type="checkbox" id="u_tab_preorder" value="preorder"> 📝 พรีออเดอร์</label>
+      <label><input type="checkbox" id="u_tab_sales" value="sales"> 🏷️ สินค้าขาย</label>
+      <label><input type="checkbox" id="u_tab_report" value="report"> 📊 รายงานการขาย</label>
+      <label><input type="checkbox" id="u_tab_buy" value="buy"> 🛒 รับซื้อสินค้า</label>
+      <label><input type="checkbox" id="u_tab_product" value="product"> 📋 ข้อมูลสินค้า</label>
+      <label><input type="checkbox" id="u_tab_gacha" value="gacha"> 🎲 ยอดจุ่ม</label>
+      <label><input type="checkbox" id="u_tab_shop" value="shop"> 🏬 ร้านค้า</label>
+    </div>
+
+    <div class="uf-sec">ร้านค้า <span class="uf-hint">(ติ๊กฟังก์ชันที่เข้าได้ · ไม่เลือกเลย = เข้าได้ทุกร้าน)</span></div>
+    <div id="userShopPerms"></div>
+
+    <div class="uf-sec">สิทธิ์ดูข้อมูล</div>
+    <div class="toggle-list">
+      <div class="toggle-row">
+        <span class="tr-label">💰 ดูกำไรได้</span>
+        <label class="switch"><input type="checkbox" id="u_seeProfit" checked><span class="slider"></span></label>
+      </div>
+      <div class="toggle-row">
+        <span class="tr-label">📊 ดูยอดรวม (ราคากลาง/รับซื้อ/ขาย)</span>
+        <label class="switch"><input type="checkbox" id="u_seeTotals" checked><span class="slider"></span></label>
+      </div>
+      <div class="toggle-row">
+        <span class="tr-label">🎲 ยอดจุ่ม: แก้ไข/ลบตู้ได้</span>
+        <label class="switch"><input type="checkbox" id="u_gachaEdit"><span class="slider"></span></label>
+      </div>
+      <div class="toggle-row">
+        <span class="tr-label">🛒 รับซื้อ: แก้ไข/ลบรายการได้</span>
+        <label class="switch"><input type="checkbox" id="u_buyEdit"><span class="slider"></span></label>
       </div>
     </div>
-    <div class="field">
-      <label>ร้านค้า <span style="color:var(--muted);font-weight:400;font-size:.8rem">(ติ๊กฟังก์ชันที่เข้าได้ · ไม่เลือกเลย = เข้าได้ทุกร้าน)</span></label>
-      <div id="userShopPerms"></div>
-    </div>
-    <div class="field">
-      <label>สิทธิ์ดูข้อมูล</label>
-      <div class="toggle-list">
-        <div class="toggle-row">
-          <span class="tr-label">💰 ดูกำไรได้</span>
-          <label class="switch"><input type="checkbox" id="u_seeProfit" checked><span class="slider"></span></label>
-        </div>
-        <div class="toggle-row">
-          <span class="tr-label">📊 ดูยอดรวม (ราคากลาง/รับซื้อ/ขาย)</span>
-          <label class="switch"><input type="checkbox" id="u_seeTotals" checked><span class="slider"></span></label>
-        </div>
-        <div class="toggle-row">
-          <span class="tr-label">🎲 ยอดจุ่ม: แก้ไข/ลบตู้ได้</span>
-          <label class="switch"><input type="checkbox" id="u_gachaEdit"><span class="slider"></span></label>
-        </div>
-        <div class="toggle-row">
-          <span class="tr-label">🛒 รับซื้อ: แก้ไข/ลบรายการได้</span>
-          <label class="switch"><input type="checkbox" id="u_buyEdit"><span class="slider"></span></label>
-        </div>
-      </div>
-    </div>
-    <div class="usersMsg" id="usersMsg"></div>
+
+    <div class="usersMsg" id="usersMsg" style="margin-top:14px"></div>
     <div class="modal-actions">
       <button class="btn btn-primary" onclick="saveUser()">💾 บันทึกผู้ใช้</button>
       <button class="btn btn-ghost" onclick="cancelUserForm()">ยกเลิก</button>
