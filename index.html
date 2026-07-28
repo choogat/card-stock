@@ -548,31 +548,32 @@
   .po-sortable .po-arrow { color: var(--accent); font-size: .7rem; }
   .po-dep { width: 100%; box-sizing: border-box; }
   .po-status { width: 100%; box-sizing: border-box; }
-  /* พรีออเดอร์แบบการ์ด (แทนตารางกว้าง — อ่านง่าย ใช้บนมือถือได้) */
-  .po-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 12px; }
-  .po-card { background: var(--card); border: 1px solid var(--border); border-left: 4px solid var(--border); border-radius: 14px; padding: 13px 15px; display: flex; flex-direction: column; gap: 9px; transition: box-shadow .12s, border-color .12s; }
-  .po-card:hover { box-shadow: 0 2px 12px rgba(20,30,60,.08); }
+  /* พรีออเดอร์แบบการ์ด (แทนตารางกว้าง — อ่านง่าย ใช้บนมือถือได้) กระชับ */
+  .po-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(248px, 1fr)); gap: 10px; }
+  .po-card { background: var(--card); border: 1px solid var(--border); border-left: 3px solid var(--border); border-radius: 12px; padding: 10px 12px; display: flex; flex-direction: column; gap: 6px; transition: box-shadow .12s, border-color .12s; }
+  .po-card:hover { box-shadow: 0 2px 10px rgba(20,30,60,.07); }
   .po-card.due { border-left-color: var(--yellow); background: rgba(230,178,58,.07); }
   .po-card.received { border-left-color: #54b878; }
   .po-card.cancel { border-left-color: #e8707b; opacity: .62; }
   .poc-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-  .poc-top .po-status { width: auto; flex: none; }
-  .poc-actions { display: flex; gap: 2px; flex: none; }
-  .poc-title { font-weight: 700; font-size: 1rem; line-height: 1.25; }
-  .poc-meta { color: var(--muted); font-size: .82rem; display: flex; flex-wrap: wrap; gap: 3px 10px; }
-  .poc-money { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 16px; font-size: .9rem; }
-  .poc-money .poc-lbl { color: var(--muted); font-size: .74rem; margin-right: 3px; }
+  .poc-top .po-status { width: auto; flex: none; padding: 4px 7px; font-size: .78rem; }
+  .poc-actions { display: flex; gap: 1px; flex: none; }
+  .poc-actions .po-icon { font-size: .92rem; padding: 1px 3px; }
+  .poc-title { font-weight: 700; font-size: .92rem; line-height: 1.2; }
+  .poc-meta { color: var(--muted); font-size: .76rem; display: flex; flex-wrap: wrap; gap: 2px 9px; }
+  .poc-money { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; font-size: .84rem; }
+  .poc-money .poc-lbl { color: var(--muted); font-size: .7rem; margin-right: 2px; }
   .poc-money .poc-due { font-weight: 700; }
   .poc-money .poc-due.owed { color: var(--yellow); }
   .poc-money .poc-due.clear { color: var(--green); }
-  .poc-dep { display: inline-flex; align-items: center; gap: 4px; }
-  .poc-dep .po-dep { width: 88px; }
-  .po-prog { height: 7px; background: var(--card2); border-radius: 999px; overflow: hidden; }
+  .poc-dep { display: inline-flex; align-items: center; gap: 3px; }
+  .poc-dep .po-dep { width: 72px; padding: 4px 6px; font-size: .8rem; }
+  .po-prog { height: 5px; background: var(--card2); border-radius: 999px; overflow: hidden; }
   .po-prog > i { display: block; height: 100%; background: var(--accent); border-radius: 999px; transition: width .2s; }
   .po-card.received .po-prog > i { background: #54b878; }
-  .poc-foot { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: .8rem; color: var(--muted); }
+  .poc-foot { display: flex; flex-wrap: wrap; gap: 3px 11px; font-size: .74rem; color: var(--muted); }
   .poc-foot b { color: var(--text); font-weight: 600; }
-  .po-card .po-note { font-size: .84rem; color: var(--text); font-weight: 600; background: var(--bg); border-radius: 8px; padding: 6px 9px; }
+  .po-card .po-note { font-size: .78rem; color: var(--text); font-weight: 600; background: var(--bg); border-radius: 7px; padding: 5px 8px; }
   .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
   .grid-topic-lang { display: grid; grid-template-columns: 3fr 1fr; gap: 12px; }
   .grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
