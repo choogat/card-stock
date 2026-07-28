@@ -273,6 +273,32 @@
   .u-badge.shop { background: rgba(108,92,231,.14); color: #5a48c9; }
   .u-badge.extra { background: rgba(192,138,0,.16); color: #92600a; }
   .u-actions { display: flex; align-items: center; gap: 6px; flex: none; }
+  /* แผงตั้งค่าผู้ใช้ (แบบตาราง 2 แผง) */
+  .set-panel { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 18px 20px; margin-bottom: 20px; box-shadow: 0 1px 3px rgba(20,30,60,.05); }
+  .set-panel-head { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+  .set-panel-head .sp-title { font-weight: 700; font-size: 1.02rem; display: flex; align-items: center; gap: 8px; }
+  .set-panel-head .sp-spacer { flex: 1; }
+  .sp-desc { color: var(--muted); font-size: .84rem; line-height: 1.5; margin-bottom: 14px; }
+  .role-badge { display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: .72rem; font-weight: 700; white-space: nowrap; }
+  .role-badge.admin { background: rgba(24,165,88,.16); color: #0f7a3d; }
+  .role-badge.staff { background: var(--card2); color: var(--muted); }
+  .you-badge { display: inline-block; background: rgba(108,92,231,.16); color: #5a48c9; font-size: .64rem; font-weight: 700; padding: 1px 7px; border-radius: 999px; margin-left: 6px; vertical-align: middle; }
+  .utable-wrap { overflow-x: auto; }
+  .utable { width: 100%; border-collapse: separate; border-spacing: 0; min-width: 640px; }
+  .utable th { text-align: left; font-size: .72rem; color: var(--muted); font-weight: 700; padding: 7px 10px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+  .utable td { padding: 12px 10px; border-bottom: 1px solid var(--border); font-size: .86rem; vertical-align: top; }
+  .utable tr:last-child td { border-bottom: none; }
+  .utable tr:hover td { background: var(--card2); }
+  .utable .ut-id { font-weight: 700; }
+  .utable .ut-name { color: var(--muted); font-size: .8rem; margin-top: 2px; }
+  .utable .ut-menus { color: var(--muted); font-size: .8rem; line-height: 1.55; max-width: 440px; }
+  .utable .ut-date { color: var(--muted); font-size: .82rem; white-space: nowrap; }
+  .utable .ut-act { text-align: right; white-space: nowrap; }
+  .utable .ut-self { color: var(--muted); font-size: .82rem; font-style: italic; }
+  .btn-mini { background: var(--card2); border: 1px solid var(--border); color: var(--text); padding: 5px 10px; border-radius: 8px; font-size: .78rem; font-family: inherit; font-weight: 600; cursor: pointer; }
+  .btn-mini:hover { border-color: var(--accent); }
+  .btn-mini.danger { background: rgba(226,59,78,.1); border-color: transparent; color: var(--danger); }
+  .btn-mini.danger:hover { background: var(--danger); color: #fff; }
   .topic-chip.today { border-color: var(--green); background: rgba(46,204,113,.12); }
   .topic-chip.unsold { border-color: var(--yellow); background: rgba(192,138,0,.1); }
   .topic-chip.unsold .t-dot { color: var(--yellow); }
@@ -1014,18 +1040,30 @@
 
   <div id="viewUsers" style="display:none">
     <h2 class="view-title">👥 จัดการผู้ใช้งาน</h2>
-    <p style="color:var(--muted);font-size:.9rem;margin-bottom:16px">สร้างผู้ช่วย กำหนด ID/รหัสผ่าน และเลือกแถบที่เข้าได้</p>
-    <div class="user-form">
+
+    <div class="set-panel">
+      <div class="set-panel-head">
+        <div class="sp-title">🔒 สิทธิ์เข้าถึงข้อมูล</div>
+        <div class="sp-spacer"></div>
+        <button class="btn btn-primary btn-sm" onclick="openAddUser()">+ เพิ่มผู้ใช้</button>
+      </div>
+      <p class="sp-desc">เฉพาะผู้ที่อยู่ในรายชื่อนี้เท่านั้นที่ล็อกอินเข้าระบบได้ · กำหนด ID / รหัสผ่าน / ชื่อ และเลือกเมนู-สิทธิ์ที่เข้าถึงได้ต่อคน<br><b>วิธีเพิ่มพนักงาน:</b> กดปุ่ม “+ เพิ่มผู้ใช้” → ตั้ง ID + รหัสผ่านให้เขา → บอกให้เขาใช้เข้าสู่ระบบ</p>
+
+    <div class="user-form" id="userForm" style="display:none">
       <div class="uf-head">
         <div class="uf-ico">👤</div>
         <div>
-          <div class="uf-title">เพิ่ม / แก้ไขผู้ช่วย</div>
-          <div class="uf-sub">กำหนด ID · รหัสผ่าน · สิทธิ์ที่เข้าถึงได้</div>
+          <div class="uf-title" id="uf-title">เพิ่มผู้ใช้ใหม่</div>
+          <div class="uf-sub">กำหนด ID · รหัสผ่าน · ชื่อ · สิทธิ์ที่เข้าถึงได้</div>
         </div>
       </div>
       <div class="grid2">
-        <div class="field"><label>ID ผู้ช่วย</label><input id="u_id" placeholder="เช่น staff1"></div>
+        <div class="field"><label>ID ผู้ใช้ (ใช้ล็อกอิน)</label><input id="u_id" placeholder="เช่น staff1"></div>
+        <div class="field"><label>ชื่อที่แสดง</label><input id="u_name" placeholder="เช่น พนักงานเอ"></div>
+      </div>
+      <div class="grid2">
         <div class="field"><label>รหัสผ่าน</label><input id="u_pass" placeholder="รหัสผ่าน"></div>
+        <div class="field"></div>
       </div>
       <div class="field">
         <label>สิทธิ์เข้าแถบ <span style="color:var(--muted);font-weight:400;font-size:.8rem">(แตะเพื่อเลือก)</span></label>
@@ -1068,10 +1106,11 @@
       <div class="usersMsg" id="usersMsg"></div>
       <div class="uf-actions">
         <button class="btn btn-primary" onclick="saveUser()">💾 บันทึกผู้ใช้</button>
-        <button class="btn btn-ghost" onclick="clearUserForm()">ล้างฟอร์ม</button>
+        <button class="btn btn-ghost" onclick="cancelUserForm()">ยกเลิก</button>
       </div>
     </div>
     <div id="usersList"></div>
+    </div><!-- /set-panel -->
     <div class="danger-zone">
       <div class="daily-title" style="color:var(--danger)">⚠️ ล้างข้อมูล</div>
       <p style="color:var(--muted);font-size:.85rem;margin-bottom:10px">ลบข้อมูลการ์ด/สินค้าทั้งหมด (สต็อก · สินค้าขาย · รายงาน · ข้อมูลสินค้า · รับซื้อ) ออกจากเครื่องนี้และเซิร์ฟเวอร์ — กู้ไม่ได้ · ผู้ใช้งานไม่โดนลบ</p>
@@ -6029,43 +6068,67 @@ function avatarColor(id) {
   return AVATAR_COLORS[h % AVATAR_COLORS.length];
 }
 
+const THAI_MON_ABBR = ['', 'ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
+function thaiDateShort(s) {
+  if (!s) return '—';
+  const d = String(s).slice(0, 10).split('-');
+  if (d.length < 3) return '—';
+  return (+d[2]) + ' ' + (THAI_MON_ABBR[+d[1]] || '') + ' ' + (+d[0] + 543); // ปี พ.ศ.
+}
+// สร้าง 1 แถวของตารางสิทธิ์
+function userRow(u) {
+  const idJs = esc(String(u.id)).replace(/'/g, "\\'");
+  const roleBadge = u.role === 'admin'
+    ? '<span class="role-badge admin">ผู้ดูแลระบบ</span>'
+    : '<span class="role-badge staff">พนักงาน</span>';
+  const you = u.self ? '<span class="you-badge">คุณ</span>' : '';
+  const nameLine = u.name ? `<div class="ut-name">${esc(u.name)}</div>` : (u.allTabs ? '' : '<div class="ut-name">—</div>');
+  let menus;
+  if (u.allTabs) menus = 'ทุกเมนู';
+  else {
+    const tabs = u.tabs || [];
+    const parts = tabs.length ? tabs.map(t => TAB_NAME[t] || t) : ['— ไม่มีเมนู'];
+    const extra = [];
+    extra.push((u.shops && u.shops.length)
+      ? '🏪 ' + u.shops.map(sid => { const s = shopById(sid); return esc(s ? (s.name || 'ร้าน') : sid); }).join(', ')
+      : '🏪 ทุกร้าน');
+    if (u.seeProfit === false) extra.push('🚫 กำไร');
+    if (u.seeTotals === false) extra.push('🚫 ยอดรวม');
+    menus = esc(parts.join(', ')) + ' · ' + extra.join(' · ');
+  }
+  const actions = u.self
+    ? '<span class="ut-self">บัญชีของคุณ</span>'
+    : `<button class="btn-mini" onclick="editUser('${idJs}')">🔧 ตำแหน่ง/เมนู</button> <button class="btn-mini danger" onclick="deleteUser('${idJs}')">ถอนสิทธิ์</button>`;
+  return `<tr>
+    <td><div class="ut-id">${esc(String(u.id))}${you}</div>${nameLine}</td>
+    <td>${roleBadge}</td>
+    <td class="ut-date">${u.allTabs ? '—' : thaiDateShort(u.createdAt)}</td>
+    <td class="ut-menus">${menus}</td>
+    <td class="ut-act">${actions}</td>
+  </tr>`;
+}
 function renderUsersList() {
   const list = document.getElementById('usersList');
-  if (!usersCache.length) {
-    list.innerHTML = '<div class="users-head">รายชื่อผู้ช่วย</div>'
-      + '<div class="user-card" style="justify-content:center;color:var(--muted)">ยังไม่มีผู้ช่วย — เพิ่มด้านบนได้เลย</div>';
-    return;
-  }
-  const rows = usersCache.map(u => {
-    const idJs = esc(u.id).replace(/'/g, "\\'");
-    const tabs = u.tabs || [];
-    const tabBadges = tabs.length
-      ? tabs.map(t => `<span class="u-badge">${TAB_ICON[t] || ''} ${esc(TAB_NAME[t] || t)}</span>`).join('')
-      : '<span class="u-badge none">ไม่มีสิทธิ์แถบใด</span>';
-    const money = u.seeProfit === false
-      ? '<span class="u-badge off">🚫 กำไร</span>'
-      : '<span class="u-badge money">💰 กำไร</span>';
-    const totals = u.seeTotals === false ? '<span class="u-badge off">🚫 ยอดรวม</span>' : '';
-    const extras = (u.gachaEdit === true ? '<span class="u-badge extra">✏️ แก้ยอดจุ่ม</span>' : '')
-      + (u.buyEdit === true ? '<span class="u-badge extra">✏️ แก้รับซื้อ</span>' : '');
-    const shop = (u.shops && u.shops.length)
-      ? '<span class="u-badge shop">🏪 ' + u.shops.map(sid => { const s = shopById(sid); return esc(s ? (s.name || 'ร้าน') : sid); }).join(', ') + '</span>'
-      : '<span class="u-badge shop">🏪 ทุกร้าน</span>';
-    const letter = esc((u.id || '?').trim().charAt(0) || '?');
-    return `<div class="user-card">
-      <div class="u-avatar" style="background:${avatarColor(u.id || '?')}">${letter}</div>
-      <div class="u-info">
-        <div class="u-name">${esc(u.id)}</div>
-        <div class="u-badges">${tabBadges}${money}${totals}${extras}${shop}</div>
-      </div>
-      <div class="u-actions">
-        <button class="btn btn-ghost btn-sm" onclick="editUser('${idJs}')">แก้ไข</button>
-        <button class="icon-btn del" onclick="deleteUser('${idJs}')" title="ลบ">🗑️</button>
-      </div>
-    </div>`;
-  }).join('');
-  list.innerHTML = `<div class="users-head">รายชื่อผู้ช่วย <span class="uh-count">${usersCache.length} คน</span></div>${rows}`;
+  if (!list) return;
+  const rows = [];
+  // แถวบัญชีของแอดมินที่ล็อกอินอยู่ (บนสุด แก้/ถอนสิทธิ์ไม่ได้)
+  if (userRole === 'admin' && loginId) rows.push(userRow({ id: loginId, role: 'admin', self: true, allTabs: true }));
+  for (const u of usersCache) rows.push(userRow({ ...u, role: 'staff', self: u.id === loginId }));
+  list.innerHTML = `<div class="utable-wrap"><table class="utable">
+    <thead><tr><th>ผู้ใช้</th><th>สิทธิ์</th><th>เพิ่มเมื่อ</th><th>เมนูที่เห็น</th><th></th></tr></thead>
+    <tbody>${rows.join('') || '<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:24px">ยังไม่มีผู้ใช้ — กด “+ เพิ่มผู้ใช้”</td></tr>'}</tbody>
+  </table></div>`;
 }
+// เปิด/ปิดฟอร์มเพิ่ม-แก้ไขผู้ใช้
+function toggleUserForm(show) { const f = document.getElementById('userForm'); if (f) f.style.display = show ? '' : 'none'; }
+function openAddUser() {
+  clearUserForm();
+  document.getElementById('u_id').readOnly = false;
+  document.getElementById('uf-title').textContent = 'เพิ่มผู้ใช้ใหม่';
+  toggleUserForm(true);
+  document.getElementById('u_id').focus();
+}
+function cancelUserForm() { clearUserForm(); toggleUserForm(false); }
 // เช็คบ็อกซ์เลือกร้าน + ฟังก์ชันต่อร้าน ในฟอร์มผู้ใช้
 function renderUserShopPerms(selectedShops, shopFeats) {
   const box = document.getElementById('userShopPerms');
@@ -6118,6 +6181,8 @@ function editUser(id) {
   const u = usersCache.find(x => x.id === id);
   if (!u) return;
   document.getElementById('u_id').value = u.id;
+  document.getElementById('u_id').readOnly = true; // แก้ไขไม่เปลี่ยน ID (กันสร้างซ้ำ)
+  document.getElementById('u_name').value = u.name || '';
   document.getElementById('u_pass').value = '';
   document.getElementById('u_pass').placeholder = 'เว้นว่าง = ไม่เปลี่ยนรหัส';
   ALL_TABS.forEach(t => { document.getElementById('u_tab_' + t).checked = (u.tabs || []).includes(t); });
@@ -6126,11 +6191,16 @@ function editUser(id) {
   document.getElementById('u_gachaEdit').checked = u.gachaEdit === true;
   document.getElementById('u_buyEdit').checked = u.buyEdit === true;
   renderUserShopPerms(u.shops || [], u.shopFeats || {});
+  document.getElementById('uf-title').textContent = 'แก้ไขผู้ใช้: ' + u.id;
   usersMsg('กำลังแก้ไข "' + u.id + '" — เว้นรหัสว่างถ้าไม่เปลี่ยน', '');
+  toggleUserForm(true);
+  document.getElementById('userForm').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
 
 function clearUserForm() {
   document.getElementById('u_id').value = '';
+  document.getElementById('u_id').readOnly = false;
+  document.getElementById('u_name').value = '';
   document.getElementById('u_pass').value = '';
   document.getElementById('u_pass').placeholder = 'รหัสผ่าน';
   ALL_TABS.forEach(t => { document.getElementById('u_tab_' + t).checked = false; });
@@ -6144,6 +6214,7 @@ function clearUserForm() {
 
 async function saveUser() {
   const id = document.getElementById('u_id').value.trim();
+  const name = document.getElementById('u_name').value.trim();
   const pass = document.getElementById('u_pass').value;
   const tabs = ALL_TABS.filter(t => document.getElementById('u_tab_' + t).checked);
   const seeProfit = document.getElementById('u_seeProfit').checked;
@@ -6154,14 +6225,16 @@ async function saveUser() {
   const userShopFeatSel = selectedUserShopFeats();
   if (!id) { usersMsg('กรุณาระบุ ID', 'err'); return; }
   try {
-    const r = await fetch(USERS_API, { method: 'POST', headers: authHeaders({ 'Content-Type': 'application/json' }), body: JSON.stringify({ id, password: pass, tabs, seeProfit, seeTotals, gachaEdit, buyEdit, shops: userShopSel, shopFeats: userShopFeatSel }) });
+    const r = await fetch(USERS_API, { method: 'POST', headers: authHeaders({ 'Content-Type': 'application/json' }), body: JSON.stringify({ id, name, password: pass, tabs, seeProfit, seeTotals, gachaEdit, buyEdit, shops: userShopSel, shopFeats: userShopFeatSel }) });
     const d = await r.json().catch(() => ({}));
     if (!r.ok) { usersMsg(d.error || 'บันทึกไม่สำเร็จ', 'err'); return; }
     usersMsg('✓ บันทึกผู้ใช้แล้ว (ผู้ใช้ใหม่อาจล็อกอินได้หลัง ~15 วินาที)', 'ok');
     // อัปเดตรายการในเครื่องทันที (เซิร์ฟเวอร์มี cache หน่วงเล็กน้อย)
     const ex = usersCache.find(u => u.id === id);
-    if (ex) { ex.tabs = tabs; ex.seeProfit = seeProfit; ex.seeTotals = seeTotals; ex.gachaEdit = gachaEdit; ex.buyEdit = buyEdit; ex.shops = userShopSel; ex.shopFeats = userShopFeatSel; } else { usersCache.push({ id, tabs, seeProfit, seeTotals, gachaEdit, buyEdit, shops: userShopSel, shopFeats: userShopFeatSel }); }
+    if (ex) { ex.name = name; ex.tabs = tabs; ex.seeProfit = seeProfit; ex.seeTotals = seeTotals; ex.gachaEdit = gachaEdit; ex.buyEdit = buyEdit; ex.shops = userShopSel; ex.shopFeats = userShopFeatSel; }
+    else { usersCache.push({ id, name, createdAt: new Date().toISOString(), tabs, seeProfit, seeTotals, gachaEdit, buyEdit, shops: userShopSel, shopFeats: userShopFeatSel }); }
     clearUserForm();
+    toggleUserForm(false);
     renderUsersList();
   } catch (e) { usersMsg('เชื่อมต่อไม่ได้', 'err'); }
 }

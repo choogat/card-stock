@@ -20,7 +20,7 @@ export default async function handler(req, res) {
 
     if (req.method === 'GET') {
       const users = await loadUsers(opts);
-      res.status(200).json({ users: users.map(u => ({ id: u.id, tabs: u.tabs || [], seeProfit: u.seeProfit !== false, seeTotals: u.seeTotals !== false, gachaEdit: u.gachaEdit === true, buyEdit: u.buyEdit === true, shops: Array.isArray(u.shops) ? u.shops : [], shopFeats: (u.shopFeats && typeof u.shopFeats === 'object') ? u.shopFeats : {} })) });
+      res.status(200).json({ users: users.map(u => ({ id: u.id, name: u.name || '', createdAt: u.createdAt || null, tabs: u.tabs || [], seeProfit: u.seeProfit !== false, seeTotals: u.seeTotals !== false, gachaEdit: u.gachaEdit === true, buyEdit: u.buyEdit === true, shops: Array.isArray(u.shops) ? u.shops : [], shopFeats: (u.shopFeats && typeof u.shopFeats === 'object') ? u.shopFeats : {} })) });
       return;
     }
 
@@ -30,6 +30,7 @@ export default async function handler(req, res) {
       const id = (body.id || '').trim();
       if (!id) { res.status(400).json({ error: 'กรุณาระบุ ID' }); return; }
       if (id === ADMIN_ID) { res.status(400).json({ error: 'ใช้ ID นี้ไม่ได้ (สงวนไว้สำหรับแอดมิน)' }); return; }
+      const name = (body.name || '').trim().slice(0, 60);
       const tabs = Array.isArray(body.tabs) ? body.tabs.filter(t => ALL_TABS.includes(t)) : [];
       const seeProfit = body.seeProfit !== false;
       const seeTotals = body.seeTotals !== false;
@@ -48,6 +49,7 @@ export default async function handler(req, res) {
       const existing = users.find(u => u.id === id);
       if (existing) {
         if (body.password) existing.password = body.password;
+        existing.name = name;
         existing.tabs = tabs;
         existing.seeProfit = seeProfit;
         existing.seeTotals = seeTotals;
@@ -55,9 +57,10 @@ export default async function handler(req, res) {
         existing.buyEdit = buyEdit;
         existing.shops = shops;
         existing.shopFeats = shopFeats;
+        if (!existing.createdAt) existing.createdAt = new Date().toISOString();
       } else {
         if (!body.password) { res.status(400).json({ error: 'กรุณาตั้งรหัสผ่าน' }); return; }
-        users.push({ id, password: body.password, tabs, seeProfit, seeTotals, gachaEdit, buyEdit, shops, shopFeats });
+        users.push({ id, password: body.password, name, tabs, seeProfit, seeTotals, gachaEdit, buyEdit, shops, shopFeats, createdAt: new Date().toISOString() });
       }
       await saveUsers(users, opts);
       res.status(200).json({ ok: true });
