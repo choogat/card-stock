@@ -1049,66 +1049,6 @@
       </div>
       <p class="sp-desc">เฉพาะผู้ที่อยู่ในรายชื่อนี้เท่านั้นที่ล็อกอินเข้าระบบได้ · กำหนด ID / รหัสผ่าน / ชื่อ และเลือกเมนู-สิทธิ์ที่เข้าถึงได้ต่อคน<br><b>วิธีเพิ่มพนักงาน:</b> กดปุ่ม “+ เพิ่มผู้ใช้” → ตั้ง ID + รหัสผ่านให้เขา → บอกให้เขาใช้เข้าสู่ระบบ</p>
 
-    <div class="user-form" id="userForm" style="display:none">
-      <div class="uf-head">
-        <div class="uf-ico">👤</div>
-        <div>
-          <div class="uf-title" id="uf-title">เพิ่มผู้ใช้ใหม่</div>
-          <div class="uf-sub">กำหนด ID · รหัสผ่าน · ชื่อ · สิทธิ์ที่เข้าถึงได้</div>
-        </div>
-      </div>
-      <div class="grid2">
-        <div class="field"><label>ID ผู้ใช้ (ใช้ล็อกอิน)</label><input id="u_id" placeholder="เช่น staff1"></div>
-        <div class="field"><label>ชื่อที่แสดง</label><input id="u_name" placeholder="เช่น พนักงานเอ"></div>
-      </div>
-      <div class="grid2">
-        <div class="field"><label>รหัสผ่าน</label><input id="u_pass" placeholder="รหัสผ่าน"></div>
-        <div class="field"></div>
-      </div>
-      <div class="field">
-        <label>สิทธิ์เข้าแถบ <span style="color:var(--muted);font-weight:400;font-size:.8rem">(แตะเพื่อเลือก)</span></label>
-        <div class="perm-grid">
-          <label><input type="checkbox" id="u_tab_stock" value="stock"> 📦 สต็อกการ์ด</label>
-          <label><input type="checkbox" id="u_tab_preorder" value="preorder"> 📝 พรีออเดอร์</label>
-          <label><input type="checkbox" id="u_tab_sales" value="sales"> 🏷️ สินค้าขาย</label>
-          <label><input type="checkbox" id="u_tab_report" value="report"> 📊 รายงานการขาย</label>
-          <label><input type="checkbox" id="u_tab_buy" value="buy"> 🛒 รับซื้อสินค้า</label>
-          <label><input type="checkbox" id="u_tab_product" value="product"> 📋 ข้อมูลสินค้า</label>
-          <label><input type="checkbox" id="u_tab_gacha" value="gacha"> 🎲 ยอดจุ่ม</label>
-          <label><input type="checkbox" id="u_tab_shop" value="shop"> 🏬 ร้านค้า</label>
-        </div>
-      </div>
-      <div class="field">
-        <label>ร้านค้า <span style="color:var(--muted);font-weight:400;font-size:.8rem">(ติ๊กฟังก์ชันที่เข้าได้ · ไม่เลือกเลย = เข้าได้ทุกร้าน)</span></label>
-        <div id="userShopPerms"></div>
-      </div>
-      <div class="field">
-        <label>สิทธิ์ดูข้อมูล</label>
-        <div class="toggle-list">
-          <div class="toggle-row">
-            <span class="tr-label">💰 ดูกำไรได้</span>
-            <label class="switch"><input type="checkbox" id="u_seeProfit" checked><span class="slider"></span></label>
-          </div>
-          <div class="toggle-row">
-            <span class="tr-label">📊 ดูยอดรวม (ราคากลาง/รับซื้อ/ขาย)</span>
-            <label class="switch"><input type="checkbox" id="u_seeTotals" checked><span class="slider"></span></label>
-          </div>
-          <div class="toggle-row">
-            <span class="tr-label">🎲 ยอดจุ่ม: แก้ไข/ลบตู้ได้</span>
-            <label class="switch"><input type="checkbox" id="u_gachaEdit"><span class="slider"></span></label>
-          </div>
-          <div class="toggle-row">
-            <span class="tr-label">🛒 รับซื้อ: แก้ไข/ลบรายการได้</span>
-            <label class="switch"><input type="checkbox" id="u_buyEdit"><span class="slider"></span></label>
-          </div>
-        </div>
-      </div>
-      <div class="usersMsg" id="usersMsg"></div>
-      <div class="uf-actions">
-        <button class="btn btn-primary" onclick="saveUser()">💾 บันทึกผู้ใช้</button>
-        <button class="btn btn-ghost" onclick="cancelUserForm()">ยกเลิก</button>
-      </div>
-    </div>
     <div id="usersList"></div>
     </div><!-- /set-panel -->
     <div class="danger-zone">
@@ -1303,6 +1243,67 @@
     <div class="modal-actions">
       <button class="btn btn-ghost" onclick="closeNewBuy()">ยกเลิก</button>
       <button class="btn btn-primary" onclick="saveNewBuy()">บันทึก</button>
+    </div>
+  </div>
+</div>
+
+<!-- เพิ่ม/แก้ไขผู้ใช้ (popup) -->
+<div class="overlay" id="userFormOverlay">
+  <div class="modal" style="max-width:560px">
+    <div class="uf-head">
+      <div class="uf-ico">👤</div>
+      <div>
+        <div class="uf-title" id="uf-title">เพิ่มผู้ใช้ใหม่</div>
+        <div class="uf-sub">กำหนด ID · รหัสผ่าน · ชื่อ · สิทธิ์ที่เข้าถึงได้</div>
+      </div>
+    </div>
+    <div class="grid2">
+      <div class="field"><label>ID ผู้ใช้ (ใช้ล็อกอิน)</label><input id="u_id" placeholder="เช่น staff1"></div>
+      <div class="field"><label>ชื่อที่แสดง</label><input id="u_name" placeholder="เช่น พนักงานเอ"></div>
+    </div>
+    <div class="field"><label>รหัสผ่าน</label><input id="u_pass" placeholder="รหัสผ่าน"></div>
+    <div class="field">
+      <label>สิทธิ์เข้าแถบ <span style="color:var(--muted);font-weight:400;font-size:.8rem">(แตะเพื่อเลือก)</span></label>
+      <div class="perm-grid">
+        <label><input type="checkbox" id="u_tab_stock" value="stock"> 📦 สต็อกการ์ด</label>
+        <label><input type="checkbox" id="u_tab_preorder" value="preorder"> 📝 พรีออเดอร์</label>
+        <label><input type="checkbox" id="u_tab_sales" value="sales"> 🏷️ สินค้าขาย</label>
+        <label><input type="checkbox" id="u_tab_report" value="report"> 📊 รายงานการขาย</label>
+        <label><input type="checkbox" id="u_tab_buy" value="buy"> 🛒 รับซื้อสินค้า</label>
+        <label><input type="checkbox" id="u_tab_product" value="product"> 📋 ข้อมูลสินค้า</label>
+        <label><input type="checkbox" id="u_tab_gacha" value="gacha"> 🎲 ยอดจุ่ม</label>
+        <label><input type="checkbox" id="u_tab_shop" value="shop"> 🏬 ร้านค้า</label>
+      </div>
+    </div>
+    <div class="field">
+      <label>ร้านค้า <span style="color:var(--muted);font-weight:400;font-size:.8rem">(ติ๊กฟังก์ชันที่เข้าได้ · ไม่เลือกเลย = เข้าได้ทุกร้าน)</span></label>
+      <div id="userShopPerms"></div>
+    </div>
+    <div class="field">
+      <label>สิทธิ์ดูข้อมูล</label>
+      <div class="toggle-list">
+        <div class="toggle-row">
+          <span class="tr-label">💰 ดูกำไรได้</span>
+          <label class="switch"><input type="checkbox" id="u_seeProfit" checked><span class="slider"></span></label>
+        </div>
+        <div class="toggle-row">
+          <span class="tr-label">📊 ดูยอดรวม (ราคากลาง/รับซื้อ/ขาย)</span>
+          <label class="switch"><input type="checkbox" id="u_seeTotals" checked><span class="slider"></span></label>
+        </div>
+        <div class="toggle-row">
+          <span class="tr-label">🎲 ยอดจุ่ม: แก้ไข/ลบตู้ได้</span>
+          <label class="switch"><input type="checkbox" id="u_gachaEdit"><span class="slider"></span></label>
+        </div>
+        <div class="toggle-row">
+          <span class="tr-label">🛒 รับซื้อ: แก้ไข/ลบรายการได้</span>
+          <label class="switch"><input type="checkbox" id="u_buyEdit"><span class="slider"></span></label>
+        </div>
+      </div>
+    </div>
+    <div class="usersMsg" id="usersMsg"></div>
+    <div class="modal-actions">
+      <button class="btn btn-primary" onclick="saveUser()">💾 บันทึกผู้ใช้</button>
+      <button class="btn btn-ghost" onclick="cancelUserForm()">ยกเลิก</button>
     </div>
   </div>
 </div>
@@ -6119,8 +6120,8 @@ function renderUsersList() {
     <tbody>${rows.join('') || '<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:24px">ยังไม่มีผู้ใช้ — กด “+ เพิ่มผู้ใช้”</td></tr>'}</tbody>
   </table></div>`;
 }
-// เปิด/ปิดฟอร์มเพิ่ม-แก้ไขผู้ใช้
-function toggleUserForm(show) { const f = document.getElementById('userForm'); if (f) f.style.display = show ? '' : 'none'; }
+// เปิด/ปิดฟอร์มเพิ่ม-แก้ไขผู้ใช้ (popup)
+function toggleUserForm(show) { const o = document.getElementById('userFormOverlay'); if (o) o.classList.toggle('open', show); }
 function openAddUser() {
   clearUserForm();
   document.getElementById('u_id').readOnly = false;
@@ -6192,9 +6193,8 @@ function editUser(id) {
   document.getElementById('u_buyEdit').checked = u.buyEdit === true;
   renderUserShopPerms(u.shops || [], u.shopFeats || {});
   document.getElementById('uf-title').textContent = 'แก้ไขผู้ใช้: ' + u.id;
-  usersMsg('กำลังแก้ไข "' + u.id + '" — เว้นรหัสว่างถ้าไม่เปลี่ยน', '');
+  usersMsg('เว้นรหัสว่างถ้าไม่เปลี่ยนรหัสผ่าน', '');
   toggleUserForm(true);
-  document.getElementById('userForm').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
 
 function clearUserForm() {
