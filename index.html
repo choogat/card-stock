@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Cielcard — สต็อกการ์ด PSA</title>
+<title>Cielcard — คลังสินค้า PSA</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   :root {
@@ -743,8 +743,8 @@
       <button class="nav-item" data-view="dashboard" onclick="switchView('dashboard')" style="display:none">📊 แดชบอร์ด</button>
 
       <div class="nav-group" id="navGrpInventory">คลังสินค้า</div>
-      <button class="nav-item active" data-view="stock" onclick="switchView('stock')">📦 สต็อกการ์ด</button>
-      <button class="nav-sub" id="navSoldStock" onclick="switchView('soldstock')" style="display:none">↳ สต็อกการ์ดขายแล้ว</button>
+      <button class="nav-item active" data-view="stock" onclick="switchView('stock')">📦 คลังสินค้า</button>
+      <button class="nav-sub" id="navSoldStock" onclick="switchView('soldstock')" style="display:none">↳ คลังสินค้าขายแล้ว</button>
       <button class="nav-item" data-view="preorder" onclick="switchView('preorder')">📝 พรีออเดอร์</button>
       <button class="nav-item" data-view="sales" onclick="switchView('sales')">🏷️ สินค้าขาย</button>
       <button class="nav-item" data-view="product" onclick="switchView('product')">📋 ข้อมูลสินค้า</button>
@@ -846,7 +846,7 @@
   </div><!-- /viewStock -->
 
   <div id="viewSoldStock" style="display:none">
-    <h2 class="view-title">🗂️ สต็อกการ์ดขายแล้ว</h2>
+    <h2 class="view-title">🗂️ คลังสินค้าขายแล้ว</h2>
     <div class="toolbar">
       <input class="search" id="soldStockSearch" placeholder="ค้นหา เรื่อง / ชื่อ / รุ่น / PSA / cert..." oninput="renderSoldStock()" style="flex:1;min-width:220px">
       <select class="filter" id="soldMonthFilter" onchange="renderSoldStock()">
@@ -987,11 +987,11 @@
         <button class="btn btn-primary" onclick="openProductAdd('card')">+ เพิ่มสินค้า</button>
         <button class="btn btn-primary" onclick="openProductAdd('collect')">+ เพิ่มของสะสม</button>
       </div>
-      <p style="color:var(--muted);font-size:.82rem;margin-top:8px">* เพิ่มที่นี่ = บันทึกเป็นข้อมูลสินค้าอย่างเดียว ไม่เข้าสต็อกการ์ด</p>
+      <p style="color:var(--muted);font-size:.82rem;margin-top:8px">* เพิ่มที่นี่ = บันทึกเป็นข้อมูลสินค้าอย่างเดียว ไม่เข้าคลังสินค้า</p>
     </div>
     <div class="product-section">
       <div class="daily-title">📦 ข้อมูลสินค้าจากสต็อก</div>
-      <p style="color:var(--muted);font-size:.88rem;margin-bottom:10px">แสดงรายละเอียดสินค้าจากสต็อกการ์ด พร้อมราคารับซื้อและราคาขาย</p>
+      <p style="color:var(--muted);font-size:.88rem;margin-bottom:10px">แสดงรายละเอียดสินค้าจากคลังสินค้า พร้อมราคารับซื้อและราคาขาย</p>
       <input class="search" id="productSearch" placeholder="ค้นหา/กรอง เรื่อง / ชื่อ / รุ่น / PSA / cert..." oninput="renderProductSearch()" style="width:100%;margin-bottom:14px">
       <div id="productSearchArea"></div>
     </div>
@@ -1268,7 +1268,7 @@
 
     <div class="uf-sec">เมนูที่เข้าได้ <span class="uf-hint">(แตะเพื่อเลือก)</span></div>
     <div class="perm-grid">
-      <label><input type="checkbox" id="u_tab_stock" value="stock"> 📦 สต็อกการ์ด</label>
+      <label><input type="checkbox" id="u_tab_stock" value="stock"> 📦 คลังสินค้า</label>
       <label><input type="checkbox" id="u_tab_preorder" value="preorder"> 📝 พรีออเดอร์</label>
       <label><input type="checkbox" id="u_tab_sales" value="sales"> 🏷️ สินค้าขาย</label>
       <label><input type="checkbox" id="u_tab_report" value="report"> 📊 รายงานการขาย</label>
@@ -2102,7 +2102,7 @@ function render() {
   const sortBy = document.getElementById('sortBy').value;
   const area = document.getElementById('tableArea');
 
-  // หน้าสต็อกการ์ด: ไม่รวมใบที่ขายแล้ว + ไม่รวม "ข้อมูลสินค้าอย่างเดียว"
+  // หน้าคลังสินค้า: ไม่รวมใบที่ขายแล้ว + ไม่รวม "ข้อมูลสินค้าอย่างเดียว"
   let list = cards.map((c, i) => ({ ...c, _i: i })).filter(c => c.status !== 'sold' && !c.productOnly);
   if (kf === 'set') list = list.filter(isSetCard);
   else if (kf === 'single') list = list.filter(c => !isSetCard(c));
@@ -2351,7 +2351,7 @@ function buildStockRows(list) {
 }
 
 // ---- สลับแถบเมนู ----
-// "soldstock" (สต็อกการ์ดขายแล้ว) เป็นเมนูย่อยของ stock — ใครเข้า stock ได้ก็เข้าได้
+// "soldstock" (คลังสินค้าขายแล้ว) เป็นเมนูย่อยของ stock — ใครเข้า stock ได้ก็เข้าได้
 function canViewTab(v) {
   const allowed = allowedTabs();
   return allowed.includes(v) || (v === 'soldstock' && allowed.includes('stock'));
@@ -2378,7 +2378,7 @@ function switchView(view) {
   // ไฮไลต์เมนูย่อย "ผู้ใช้งาน" ตอนเข้าหน้าจัดการผู้ใช้
   const navUsers = document.getElementById('navUsers');
   if (navUsers) navUsers.classList.toggle('active', view === 'users');
-  // เมนูย่อย "สต็อกการ์ดขายแล้ว" → โผล่เมื่ออยู่ในกลุ่มสต็อก (กดสต็อกการ์ดก่อน)
+  // เมนูย่อย "คลังสินค้าขายแล้ว" → โผล่เมื่ออยู่ในกลุ่มสต็อก (กดคลังสินค้าก่อน)
   const navSold = document.getElementById('navSoldStock');
   if (navSold) {
     const inStockSection = (view === 'stock' || view === 'soldstock');
@@ -2475,7 +2475,7 @@ function buildProductGroups(list) {
 function productNameCellHTML(c, gLang) {
   return `${c.topic ? `<div class="topic">${esc(c.topic)}</div>` : ''}${esc(c.name)}${gLang ? ` <span class="lang-badge">${esc(gLang)}</span>` : ''}${setMetaHTML(c)}${c.set ? `<div class="cardset">รุ่น: ${esc(c.set)}</div>` : ''}${c.detail ? `<div class="detail">${esc(c.detail)}</div>` : ''}`;
 }
-// แถบ "ข้อมูลสินค้า" — ดึงจากสต็อกการ์ดเสมอ แสดง รายละเอียด + ราคารับซื้อ + ราคาขาย + แก้ไข
+// แถบ "ข้อมูลสินค้า" — ดึงจากคลังสินค้าเสมอ แสดง รายละเอียด + ราคารับซื้อ + ราคาขาย + แก้ไข
 function renderProductSearch() {
   const area = document.getElementById('productSearchArea');
   if (!area) return;
@@ -2959,7 +2959,7 @@ function saveSaleEdit() {
   closeSaleEdit();
 }
 
-// ---- เมนูย่อย "สต็อกการ์ดขายแล้ว" — รายการที่ขายแล้วทั้งหมด (อ่านอย่างเดียว) ----
+// ---- เมนูย่อย "คลังสินค้าขายแล้ว" — รายการที่ขายแล้วทั้งหมด (อ่านอย่างเดียว) ----
 // ================= แดชบอร์ด (ภาพรวมธุรกิจ) — เฉพาะแอดมิน/เจ้าของ =================
 let dashRange = { mode: 'month' };
 function isoDaysAgo(n) { const d = new Date(); d.setDate(d.getDate() - n); return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate()); }
@@ -5799,7 +5799,7 @@ function dateStamp() {
 
 function exportJSON() {
   if (!cards.length) { alert('ยังไม่มีข้อมูลให้สำรอง'); return; }
-  download(`สต็อกการ์ด-${dateStamp()}.json`, JSON.stringify(cards, null, 2), 'application/json');
+  download(`คลังสินค้า-${dateStamp()}.json`, JSON.stringify(cards, null, 2), 'application/json');
 }
 
 function exportCSV() {
@@ -5820,7 +5820,7 @@ function exportCSV() {
     return cell(v);
   }).join(','));
   // BOM เพื่อให้ Excel อ่านภาษาไทยถูกต้อง
-  download(`สต็อกการ์ด-${dateStamp()}.csv`, '﻿' + [header, ...rows].join('\r\n'), 'text/csv;charset=utf-8');
+  download(`คลังสินค้า-${dateStamp()}.csv`, '﻿' + [header, ...rows].join('\r\n'), 'text/csv;charset=utf-8');
 }
 
 function importJSON(e) {
