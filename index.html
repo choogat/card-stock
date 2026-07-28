@@ -2868,6 +2868,7 @@ function cancelSale(id) {
   render();
   renderSales();   // ให้ใบที่คืนกลับมาโผล่ในหน้าสินค้าขายแน่นอน
   renderReport();
+  if (isViewVisible('viewSoldStock')) renderSoldStock(); // อัปเดตหน้าสต็อกขายแล้วถ้ากำลังเปิดอยู่
   alert(`ยกเลิกการขาย "${c.name}" แล้ว — ใบนี้กลับไปเป็น "รอขาย" ในหน้าสินค้าขาย`);
 }
 
@@ -2901,6 +2902,7 @@ function saveSaleEdit() {
   save();
   render();
   renderReport();
+  if (isViewVisible('viewSoldStock')) renderSoldStock(); // อัปเดตหน้าสต็อกขายแล้วถ้ากำลังเปิดอยู่
   closeSaleEdit();
 }
 
@@ -3100,7 +3102,9 @@ function renderSoldStock() {
   const groups = new Map();
   for (const c of list) { const d = c.sellDate || ''; (groups.get(d) || groups.set(d, []).get(d)).push(c); }
   const dates = [...groups.keys()].sort((a, b) => b.localeCompare(a));
-  const colspan = canSeeProfit() ? 5 : 4;
+  const canEdit = canEditSales(); // แอดมิน/เจ้าของเครื่องแก้ไขรายการขายได้
+  const today = todayISO();
+  const colspan = 4 + (canSeeProfit() ? 1 : 0) + (canEdit ? 1 : 0);
   let body = '';
   for (const d of dates) {
     const items = groups.get(d).sort((a, b) => (b.sellTime || '').localeCompare(a.sellTime || ''));
@@ -3123,11 +3127,12 @@ function renderSoldStock() {
         <td class="num hide-sm">${money(c.buy)}</td>
         <td class="num">${money(c.sell)}</td>
         ${canSeeProfit() ? `<td class="num"><span class="${p > 0 ? 'profit-pos' : p < 0 ? 'profit-neg' : 'muted'}">${p > 0 ? '+' : ''}${money(p)}</span></td>` : ''}
+        ${canEdit ? `<td class="center" style="white-space:nowrap"><button class="icon-btn" onclick="openSaleEdit('${c.id}')" title="แก้ไขรายการขาย (ย้อนหลังได้)">✏️</button>${(c.sellDate || '') === today ? ` <button class="lock-btn" onclick="cancelSale('${c.id}')" title="ยกเลิกการขาย (เฉพาะที่ขายวันนี้)">🔒</button>` : ''}</td>` : ''}
       </tr>` + (c.type === 'set' && expandedSets.has(c.id) ? setCardsRow(c) : '');
     }
   }
   area.innerHTML = stats + `<table>
-      <thead><tr><th>รูป</th><th>ชื่อการ์ด</th><th class="num hide-sm">รับซื้อ</th><th class="num">ราคาขาย</th>${canSeeProfit() ? '<th class="num">กำไร</th>' : ''}</tr></thead>
+      <thead><tr><th>รูป</th><th>ชื่อการ์ด</th><th class="num hide-sm">รับซื้อ</th><th class="num">ราคาขาย</th>${canSeeProfit() ? '<th class="num">กำไร</th>' : ''}${canEdit ? '<th></th>' : ''}</tr></thead>
       <tbody>${body}</tbody>
     </table>`;
 }
