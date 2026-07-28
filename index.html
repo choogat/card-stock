@@ -227,17 +227,50 @@
   .report-controls label { color: var(--muted); font-size: .9rem; }
   .report-controls input[type=date] { background: var(--card); border: 1px solid var(--border); color: var(--text); padding: 10px 14px; border-radius: 11px; font-size: .95rem; font-family: inherit; }
   .report-controls input[type=date]:focus { outline: none; border-color: var(--accent); }
-  .user-form { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 20px; margin-bottom: 22px; max-width: 560px; }
+  .user-form { background: var(--card); border: 1px solid var(--border); border-radius: 18px; padding: 22px; margin-bottom: 24px; max-width: 620px; box-shadow: 0 1px 3px rgba(20,30,60,.05); }
   .user-form .field input:not([type=checkbox]) { width: 100%; background: var(--bg); border: 1px solid var(--border); color: var(--text); padding: 11px 14px; border-radius: 11px; font-size: .95rem; }
-  .user-form .field input:not([type=checkbox]):focus { outline: none; border-color: var(--accent); }
-  .tab-perms { display: flex; flex-direction: column; gap: 8px; }
-  .tab-perms label { display: flex; align-items: center; gap: 8px; font-size: .92rem; color: var(--text); cursor: pointer; }
-  .tab-perms input { width: 18px; height: 18px; flex: none; margin: 0; padding: 0; accent-color: var(--accent); }
-  .usersMsg { font-size: .85rem; min-height: 1em; margin-bottom: 10px; }
+  .user-form .field input:not([type=checkbox]):focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(47,111,237,.12); }
+  /* หัวข้อฟอร์ม + เส้นคั่นกลุ่ม */
+  .uf-head { display: flex; align-items: center; gap: 10px; margin-bottom: 18px; }
+  .uf-head .uf-ico { width: 40px; height: 40px; border-radius: 11px; background: linear-gradient(135deg,var(--accent),var(--accent2)); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; flex: none; }
+  .uf-head .uf-title { font-weight: 700; font-size: 1.02rem; }
+  .uf-head .uf-sub { color: var(--muted); font-size: .82rem; margin-top: 1px; }
+  /* ชิปเลือกสิทธิ์แถบ — กริดยืดหยุ่น ติ๊กแล้วไฮไลต์ทั้งใบ */
+  .perm-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(158px, 1fr)); gap: 9px; }
+  .perm-grid label { display: flex; align-items: center; gap: 9px; border: 1.5px solid var(--border); border-radius: 12px; padding: 10px 12px; font-size: .9rem; font-weight: 500; color: var(--text); background: var(--bg); cursor: pointer; user-select: none; transition: border-color .12s, background .12s, box-shadow .12s; }
+  .perm-grid label:hover { border-color: var(--accent); }
+  .perm-grid label:has(input:checked) { border-color: var(--accent); background: rgba(47,111,237,.09); box-shadow: inset 0 0 0 1px var(--accent); }
+  .perm-grid input { width: 17px; height: 17px; flex: none; margin: 0; accent-color: var(--accent); cursor: pointer; }
+  /* สวิตช์เปิด/ปิด สำหรับสิทธิ์ดูข้อมูล */
+  .toggle-list { border: 1px solid var(--border); border-radius: 12px; overflow: hidden; background: var(--bg); }
+  .toggle-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 14px; border-top: 1px solid var(--border); }
+  .toggle-row:first-child { border-top: none; }
+  .toggle-row .tr-label { font-size: .9rem; color: var(--text); display: flex; align-items: center; gap: 8px; }
+  .switch { position: relative; width: 44px; height: 25px; flex: none; }
+  .switch input { opacity: 0; width: 0; height: 0; }
+  .switch .slider { position: absolute; inset: 0; background: var(--card2); border: 1px solid var(--border); border-radius: 999px; transition: .15s; cursor: pointer; }
+  .switch .slider::before { content: ''; position: absolute; width: 19px; height: 19px; left: 2px; top: 2px; background: #fff; border-radius: 50%; transition: .15s; box-shadow: 0 1px 3px rgba(0,0,0,.25); }
+  .switch input:checked + .slider { background: var(--accent); border-color: var(--accent); }
+  .switch input:checked + .slider::before { transform: translateX(19px); }
+  .uf-actions { display: flex; gap: 10px; margin-top: 4px; }
+  .usersMsg { font-size: .85rem; min-height: 1em; margin-bottom: 12px; }
   .usersMsg.ok { color: var(--green); } .usersMsg.err { color: var(--danger); }
-  .user-row { display: flex; align-items: center; gap: 12px; background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 12px 16px; margin-bottom: 8px; }
-  .user-row .uid { font-weight: 700; }
-  .user-row .utabs { color: var(--muted); font-size: .82rem; flex: 1; }
+  /* หัวข้อรายชื่อ + การ์ดผู้ใช้ */
+  .users-head { display: flex; align-items: center; gap: 8px; margin: 4px 0 12px; font-weight: 700; font-size: 1rem; }
+  .users-head .uh-count { color: var(--muted); font-weight: 500; font-size: .85rem; background: var(--card2); padding: 2px 10px; border-radius: 999px; }
+  .user-card { display: flex; align-items: center; gap: 13px; background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 13px 15px; margin-bottom: 9px; max-width: 620px; transition: box-shadow .12s, border-color .12s; }
+  .user-card:hover { box-shadow: 0 2px 10px rgba(20,30,60,.08); border-color: #d3d9e6; }
+  .u-avatar { width: 42px; height: 42px; border-radius: 12px; flex: none; display: flex; align-items: center; justify-content: center; color: #fff; font-weight: 700; font-size: 1.1rem; text-transform: uppercase; }
+  .u-info { flex: 1; min-width: 0; }
+  .u-name { font-weight: 700; font-size: .98rem; margin-bottom: 5px; }
+  .u-badges { display: flex; flex-wrap: wrap; gap: 5px; }
+  .u-badge { font-size: .72rem; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: rgba(47,111,237,.12); color: #1d4ed8; white-space: nowrap; }
+  .u-badge.none { background: var(--card2); color: var(--muted); }
+  .u-badge.money { background: rgba(24,165,88,.16); color: #0f7a3d; }
+  .u-badge.off { background: rgba(226,59,78,.12); color: var(--danger); }
+  .u-badge.shop { background: rgba(108,92,231,.14); color: #5a48c9; }
+  .u-badge.extra { background: rgba(192,138,0,.16); color: #92600a; }
+  .u-actions { display: flex; align-items: center; gap: 6px; flex: none; }
   .topic-chip.today { border-color: var(--green); background: rgba(46,204,113,.12); }
   .topic-chip.unsold { border-color: var(--yellow); background: rgba(192,138,0,.1); }
   .topic-chip.unsold .t-dot { color: var(--yellow); }
@@ -857,13 +890,20 @@
     <h2 class="view-title">👥 จัดการผู้ใช้งาน</h2>
     <p style="color:var(--muted);font-size:.9rem;margin-bottom:16px">สร้างผู้ช่วย กำหนด ID/รหัสผ่าน และเลือกแถบที่เข้าได้</p>
     <div class="user-form">
+      <div class="uf-head">
+        <div class="uf-ico">👤</div>
+        <div>
+          <div class="uf-title">เพิ่ม / แก้ไขผู้ช่วย</div>
+          <div class="uf-sub">กำหนด ID · รหัสผ่าน · สิทธิ์ที่เข้าถึงได้</div>
+        </div>
+      </div>
       <div class="grid2">
         <div class="field"><label>ID ผู้ช่วย</label><input id="u_id" placeholder="เช่น staff1"></div>
         <div class="field"><label>รหัสผ่าน</label><input id="u_pass" placeholder="รหัสผ่าน"></div>
       </div>
       <div class="field">
-        <label>สิทธิ์เข้าแถบ</label>
-        <div class="tab-perms">
+        <label>สิทธิ์เข้าแถบ <span style="color:var(--muted);font-weight:400;font-size:.8rem">(แตะเพื่อเลือก)</span></label>
+        <div class="perm-grid">
           <label><input type="checkbox" id="u_tab_stock" value="stock"> 📦 สต็อกการ์ด</label>
           <label><input type="checkbox" id="u_tab_preorder" value="preorder"> 📝 พรีออเดอร์</label>
           <label><input type="checkbox" id="u_tab_sales" value="sales"> 🏷️ สินค้าขาย</label>
@@ -880,15 +920,26 @@
       </div>
       <div class="field">
         <label>สิทธิ์ดูข้อมูล</label>
-        <div class="tab-perms">
-          <label><input type="checkbox" id="u_seeProfit" checked> 💰 ดูกำไรได้</label>
-          <label><input type="checkbox" id="u_gachaEdit"> 🎲 ยอดจุ่ม: แก้ไข/ลบตู้ได้</label>
-          <label><input type="checkbox" id="u_buyEdit"> 🛒 รับซื้อ: แก้ไข/ลบรายการได้</label>
+        <div class="toggle-list">
+          <div class="toggle-row">
+            <span class="tr-label">💰 ดูกำไรได้</span>
+            <label class="switch"><input type="checkbox" id="u_seeProfit" checked><span class="slider"></span></label>
+          </div>
+          <div class="toggle-row">
+            <span class="tr-label">🎲 ยอดจุ่ม: แก้ไข/ลบตู้ได้</span>
+            <label class="switch"><input type="checkbox" id="u_gachaEdit"><span class="slider"></span></label>
+          </div>
+          <div class="toggle-row">
+            <span class="tr-label">🛒 รับซื้อ: แก้ไข/ลบรายการได้</span>
+            <label class="switch"><input type="checkbox" id="u_buyEdit"><span class="slider"></span></label>
+          </div>
         </div>
       </div>
       <div class="usersMsg" id="usersMsg"></div>
-      <button class="btn btn-primary" onclick="saveUser()">บันทึกผู้ใช้</button>
-      <button class="btn btn-ghost" onclick="clearUserForm()">ล้างฟอร์ม</button>
+      <div class="uf-actions">
+        <button class="btn btn-primary" onclick="saveUser()">💾 บันทึกผู้ใช้</button>
+        <button class="btn btn-ghost" onclick="clearUserForm()">ล้างฟอร์ม</button>
+      </div>
     </div>
     <div id="usersList"></div>
     <div class="danger-zone">
@@ -1007,7 +1058,7 @@
     </div>
     <div class="field">
       <label>ฟังก์ชันในร้าน</label>
-      <div class="tab-perms">
+      <div class="perm-grid">
         <label><input type="checkbox" id="shop_feat_sales" checked> 🏷️ สินค้าขาย</label>
         <label><input type="checkbox" id="shop_feat_report" checked> 📊 รายงานการขาย</label>
         <label><input type="checkbox" id="shop_feat_buy" checked> 🛒 รับซื้อสินค้า</label>
@@ -5607,16 +5658,49 @@ async function syncOnStart() {
 let usersCache = [];
 function usersMsg(t, cls) { const e = document.getElementById('usersMsg'); e.textContent = t || ''; e.className = 'usersMsg ' + (cls || ''); }
 const TAB_NAME = { stock: 'สต็อก', preorder: 'พรีออเดอร์', sales: 'สินค้าขาย', report: 'รายงาน', buy: 'รับซื้อสินค้า', product: 'ข้อมูลสินค้า', gacha: 'ยอดจุ่ม', shop: 'ร้านค้า' };
+const TAB_ICON = { stock: '📦', preorder: '📝', sales: '🏷️', report: '📊', buy: '🛒', product: '📋', gacha: '🎲', shop: '🏬' };
+// สีอวาตาร์แบบคงที่ต่อ id (แต่ละคนได้สีเดิมเสมอ) — ไล่จากพาเลตต์เดียวกับธีม
+const AVATAR_COLORS = ['#2f6fed', '#6c5ce7', '#18a558', '#c08a00', '#e23b4e', '#0ea5e9', '#db2777', '#0d9488'];
+function avatarColor(id) {
+  let h = 0; for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
+  return AVATAR_COLORS[h % AVATAR_COLORS.length];
+}
 
 function renderUsersList() {
   const list = document.getElementById('usersList');
-  list.innerHTML = usersCache.length ? usersCache.map(u => `
-    <div class="user-row">
-      <span class="uid">${esc(u.id)}</span>
-      <span class="utabs">${(u.tabs || []).map(t => TAB_NAME[t] || t).join(' · ') || '— ไม่มีสิทธิ์แถบใด'}${u.seeProfit === false ? ' · 🚫กำไร' : ' · 💰กำไร'}${u.gachaEdit === true ? ' · ✏️แก้ยอดจุ่มได้' : ''}${u.buyEdit === true ? ' · ✏️แก้รับซื้อได้' : ''}${(u.shops && u.shops.length) ? ' · 🏪 ' + u.shops.map(sid => { const s = shopById(sid); return s ? esc(s.name) : sid; }).join(', ') : ' · 🏪 ทุกร้าน'}</span>
-      <button class="btn btn-ghost btn-sm" onclick="editUser('${esc(u.id).replace(/'/g, "\\'")}')">แก้ไข</button>
-      <button class="icon-btn del" onclick="deleteUser('${esc(u.id).replace(/'/g, "\\'")}')" title="ลบ">🗑️</button>
-    </div>`).join('') : '<div class="sales-summary">ยังไม่มีผู้ช่วย</div>';
+  if (!usersCache.length) {
+    list.innerHTML = '<div class="users-head">รายชื่อผู้ช่วย</div>'
+      + '<div class="user-card" style="justify-content:center;color:var(--muted)">ยังไม่มีผู้ช่วย — เพิ่มด้านบนได้เลย</div>';
+    return;
+  }
+  const rows = usersCache.map(u => {
+    const idJs = esc(u.id).replace(/'/g, "\\'");
+    const tabs = u.tabs || [];
+    const tabBadges = tabs.length
+      ? tabs.map(t => `<span class="u-badge">${TAB_ICON[t] || ''} ${esc(TAB_NAME[t] || t)}</span>`).join('')
+      : '<span class="u-badge none">ไม่มีสิทธิ์แถบใด</span>';
+    const money = u.seeProfit === false
+      ? '<span class="u-badge off">🚫 กำไร</span>'
+      : '<span class="u-badge money">💰 กำไร</span>';
+    const extras = (u.gachaEdit === true ? '<span class="u-badge extra">✏️ แก้ยอดจุ่ม</span>' : '')
+      + (u.buyEdit === true ? '<span class="u-badge extra">✏️ แก้รับซื้อ</span>' : '');
+    const shop = (u.shops && u.shops.length)
+      ? '<span class="u-badge shop">🏪 ' + u.shops.map(sid => { const s = shopById(sid); return esc(s ? (s.name || 'ร้าน') : sid); }).join(', ') + '</span>'
+      : '<span class="u-badge shop">🏪 ทุกร้าน</span>';
+    const letter = esc((u.id || '?').trim().charAt(0) || '?');
+    return `<div class="user-card">
+      <div class="u-avatar" style="background:${avatarColor(u.id || '?')}">${letter}</div>
+      <div class="u-info">
+        <div class="u-name">${esc(u.id)}</div>
+        <div class="u-badges">${tabBadges}${money}${extras}${shop}</div>
+      </div>
+      <div class="u-actions">
+        <button class="btn btn-ghost btn-sm" onclick="editUser('${idJs}')">แก้ไข</button>
+        <button class="icon-btn del" onclick="deleteUser('${idJs}')" title="ลบ">🗑️</button>
+      </div>
+    </div>`;
+  }).join('');
+  list.innerHTML = `<div class="users-head">รายชื่อผู้ช่วย <span class="uh-count">${usersCache.length} คน</span></div>${rows}`;
 }
 // เช็คบ็อกซ์เลือกร้าน + ฟังก์ชันต่อร้าน ในฟอร์มผู้ใช้
 function renderUserShopPerms(selectedShops, shopFeats) {
