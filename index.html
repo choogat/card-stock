@@ -652,17 +652,17 @@
       <div class="value num" id="statCount">0</div>
       <div class="sub" id="statBreak">สะสม 0 · รอขาย 0 · ขายแล้ว 0</div>
     </div>
-    <div class="stat">
+    <div class="stat" id="cardMedian">
       <div class="label">ยอดรวมราคากลาง</div>
       <div class="value num" id="statMedian">฿0</div>
       <div class="sub" id="statMedianSub">สะสม ฿0 · รอขาย ฿0</div>
     </div>
-    <div class="stat">
+    <div class="stat" id="cardBuy">
       <div class="label">ยอดรวมราคารับซื้อ</div>
       <div class="value num" id="statBuy">฿0</div>
       <div class="sub" id="statBuySub">สะสม ฿0 · รอขาย ฿0</div>
     </div>
-    <div class="stat">
+    <div class="stat" id="cardSell">
       <div class="label">ยอดรวมราคาขาย</div>
       <div class="value num" id="statSell">฿0</div>
       <div class="sub" id="statProfit">กำไรคาดการณ์ ฿0</div>
@@ -924,6 +924,10 @@
           <div class="toggle-row">
             <span class="tr-label">💰 ดูกำไรได้</span>
             <label class="switch"><input type="checkbox" id="u_seeProfit" checked><span class="slider"></span></label>
+          </div>
+          <div class="toggle-row">
+            <span class="tr-label">📊 ดูยอดรวม (ราคากลาง/รับซื้อ/ขาย)</span>
+            <label class="switch"><input type="checkbox" id="u_seeTotals" checked><span class="slider"></span></label>
           </div>
           <div class="toggle-row">
             <span class="tr-label">🎲 ยอดจุ่ม: แก้ไข/ลบตู้ได้</span>
@@ -1525,6 +1529,7 @@ let loginId = localStorage.getItem('app_id') || '';
 let userRole = localStorage.getItem('app_role') || '';
 let userTabs = (() => { try { return JSON.parse(localStorage.getItem('app_tabs')) || []; } catch (e) { return []; } })();
 let userSeeProfit = localStorage.getItem('app_seeprofit') !== '0';
+let userSeeTotals = localStorage.getItem('app_seetotals') !== '0'; // เห็นยอดรวมราคากลาง/รับซื้อ/ขาย (default = เห็น)
 let userGachaEdit = localStorage.getItem('app_gacha_edit') === '1';
 let userBuyEdit = localStorage.getItem('app_buy_edit') === '1';
 let userShops = (() => { try { return JSON.parse(localStorage.getItem('app_shops')) || []; } catch (e) { return []; } })(); // ร้านที่เข้าได้ (ว่าง = ทุกร้าน)
@@ -1533,6 +1538,8 @@ let userShopFeats = (() => { try { return JSON.parse(localStorage.getItem('app_s
 const BOOT_VIEW = localStorage.getItem('app_view');
 const BOOT_SHOPVIEW = localStorage.getItem('app_shopview');
 function canSeeProfit() { return userRole === 'admin' || !passcode || userSeeProfit; }
+// เห็นการ์ดสรุปยอดรวม (ราคากลาง/รับซื้อ/ขาย) ไหม — แอดมิน/เจ้าของเครื่องเห็นเสมอ
+function canSeeTotals() { return userRole === 'admin' || !passcode || userSeeTotals; }
 // แก้ไขยอดจุ่มได้ไหม — แอดมิน/เจ้าของเครื่อง (ไม่ล็อกอิน) ได้เสมอ · ผู้ช่วยที่ตั้ง "ดูอย่างเดียว" = ไม่ได้
 function canEditGacha() { return userRole === 'admin' || !passcode || userGachaEdit; }
 // ยกเลิกติ๊ก "ออกแล้ว" ได้ไหม — เฉพาะแอดมิน/เจ้าของเครื่องเท่านั้น (คนอื่นติ๊กได้ทางเดียว)
@@ -1845,6 +1852,13 @@ function updateStats() {
   // กำไรที่ทำได้จริง = เฉพาะใบที่ขายแล้ว (ไม่นับที่ยกเลิก) (ราคาขาย − ราคารับซื้อ)
   const realized = real.filter(c => c.status === 'sold' && !c.cancelled)
     .reduce((s, c) => s + ((Number(c.sell) || 0) - (Number(c.buy) || 0)), 0);
+
+  // ซ่อนการ์ดสรุปยอดรวม (ราคากลาง/รับซื้อ/ขาย) สำหรับผู้ช่วยที่ไม่มีสิทธิ์ดูยอดรวม
+  const showTotals = canSeeTotals();
+  ['cardMedian', 'cardBuy', 'cardSell'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = showTotals ? '' : 'none';
+  });
 
   document.getElementById('statCount').textContent = count.toLocaleString('th-TH');
   document.getElementById('statBreak').textContent = `สะสม ${nShow} · รอขาย ${nWait} · ขายแล้ว ${nSold}`;
@@ -2245,6 +2259,7 @@ function applyPermissions() {
   document.querySelectorAll('.nav-item[data-view]').forEach(b => {
     b.style.display = allowed.includes(b.dataset.view) ? '' : 'none';
   });
+  updateStats(); // รีเฟรชการซ่อน/โชว์การ์ดสรุปยอดรวมตามสิทธิ์ (เผื่อสิทธิ์เปลี่ยนสด)
   // หน้าล่าสุดเป็นหน้าร้าน → คืนร้าน+ฟังก์ชันเดิมทันที (กันแวบไปหน้าจัดการร้าน)
   if ((localStorage.getItem('app_view') === 'shop' || BOOT_VIEW === 'shop') && restoreShopView()) return;
   // ผู้ใช้ที่ถูกจำกัดร้าน → เปิดร้านแรกที่เข้าได้ให้เลย (เห็นฟังก์ชันในร้านทันที)
@@ -5512,6 +5527,7 @@ async function doLogin() {
   // บันทึกข้อมูลผู้ใช้
   loginId = id; passcode = val; userRole = auth.role || 'assistant'; userTabs = auth.tabs || [];
   userSeeProfit = auth.seeProfit !== false;
+  userSeeTotals = auth.seeTotals !== false;
   userGachaEdit = auth.gachaEdit === true;
   userBuyEdit = auth.buyEdit === true;
   userShops = Array.isArray(auth.shops) ? auth.shops : [];
@@ -5521,6 +5537,7 @@ async function doLogin() {
   localStorage.setItem('app_role', userRole);
   localStorage.setItem('app_tabs', JSON.stringify(userTabs));
   localStorage.setItem('app_seeprofit', userSeeProfit ? '1' : '0');
+  localStorage.setItem('app_seetotals', userSeeTotals ? '1' : '0');
   localStorage.setItem('app_gacha_edit', userGachaEdit ? '1' : '0');
   localStorage.setItem('app_buy_edit', userBuyEdit ? '1' : '0');
   localStorage.setItem('app_shops', JSON.stringify(userShops));
@@ -5560,7 +5577,7 @@ let authRefreshing = false;
 async function refreshAuth() {
   if (!passcode || !loginId || authRefreshing) return;
   authRefreshing = true;
-  const prev = userRole + '|' + JSON.stringify(userTabs) + '|' + userSeeProfit + '|' + userGachaEdit + '|' + userBuyEdit + '|' + JSON.stringify(userShops) + '|' + JSON.stringify(userShopFeats);
+  const prev = userRole + '|' + JSON.stringify(userTabs) + '|' + userSeeProfit + '|' + userSeeTotals + '|' + userGachaEdit + '|' + userBuyEdit + '|' + JSON.stringify(userShops) + '|' + JSON.stringify(userShopFeats);
   try {
     const lr = await fetch(LOGIN_API, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: loginId, password: passcode }) });
     if (lr.status === 401) {
@@ -5572,6 +5589,7 @@ async function refreshAuth() {
       const a = await lr.json();
       userRole = a.role || userRole; userTabs = a.tabs || userTabs;
       userSeeProfit = a.seeProfit !== false;
+      userSeeTotals = a.seeTotals !== false;
       userGachaEdit = a.gachaEdit === true;
       userBuyEdit = a.buyEdit === true;
       userShops = Array.isArray(a.shops) ? a.shops : userShops;
@@ -5579,6 +5597,7 @@ async function refreshAuth() {
       localStorage.setItem('app_role', userRole);
       localStorage.setItem('app_tabs', JSON.stringify(userTabs));
       localStorage.setItem('app_seeprofit', userSeeProfit ? '1' : '0');
+      localStorage.setItem('app_seetotals', userSeeTotals ? '1' : '0');
       localStorage.setItem('app_gacha_edit', userGachaEdit ? '1' : '0');
       localStorage.setItem('app_buy_edit', userBuyEdit ? '1' : '0');
       localStorage.setItem('app_shops', JSON.stringify(userShops));
@@ -5586,7 +5605,7 @@ async function refreshAuth() {
     }
   } catch (e) { return; } finally { authRefreshing = false; }
   // สิทธิ์เปลี่ยน → อัปเดตเมนู/ปุ่มให้ตรง (applyPermissions จะ re-render แท็บปัจจุบันเอง)
-  if ((userRole + '|' + JSON.stringify(userTabs) + '|' + userSeeProfit + '|' + userGachaEdit + '|' + userBuyEdit + '|' + JSON.stringify(userShops) + '|' + JSON.stringify(userShopFeats)) !== prev) applyPermissions();
+  if ((userRole + '|' + JSON.stringify(userTabs) + '|' + userSeeProfit + '|' + userSeeTotals + '|' + userGachaEdit + '|' + userBuyEdit + '|' + JSON.stringify(userShops) + '|' + JSON.stringify(userShopFeats)) !== prev) applyPermissions();
 }
 
 // ---- ซิงก์ตอนเปิดแอป ----
@@ -5605,6 +5624,7 @@ async function syncOnStart() {
       const a = await lr.json();
       userRole = a.role || userRole; userTabs = a.tabs || userTabs;
       userSeeProfit = a.seeProfit !== false;
+      userSeeTotals = a.seeTotals !== false;
       userGachaEdit = a.gachaEdit === true;
       userBuyEdit = a.buyEdit === true;
       userShops = Array.isArray(a.shops) ? a.shops : userShops;
@@ -5612,6 +5632,7 @@ async function syncOnStart() {
       localStorage.setItem('app_role', userRole);
       localStorage.setItem('app_tabs', JSON.stringify(userTabs));
       localStorage.setItem('app_seeprofit', userSeeProfit ? '1' : '0');
+      localStorage.setItem('app_seetotals', userSeeTotals ? '1' : '0');
       localStorage.setItem('app_gacha_edit', userGachaEdit ? '1' : '0');
       localStorage.setItem('app_buy_edit', userBuyEdit ? '1' : '0');
       localStorage.setItem('app_shops', JSON.stringify(userShops));
@@ -5682,6 +5703,7 @@ function renderUsersList() {
     const money = u.seeProfit === false
       ? '<span class="u-badge off">🚫 กำไร</span>'
       : '<span class="u-badge money">💰 กำไร</span>';
+    const totals = u.seeTotals === false ? '<span class="u-badge off">🚫 ยอดรวม</span>' : '';
     const extras = (u.gachaEdit === true ? '<span class="u-badge extra">✏️ แก้ยอดจุ่ม</span>' : '')
       + (u.buyEdit === true ? '<span class="u-badge extra">✏️ แก้รับซื้อ</span>' : '');
     const shop = (u.shops && u.shops.length)
@@ -5692,7 +5714,7 @@ function renderUsersList() {
       <div class="u-avatar" style="background:${avatarColor(u.id || '?')}">${letter}</div>
       <div class="u-info">
         <div class="u-name">${esc(u.id)}</div>
-        <div class="u-badges">${tabBadges}${money}${extras}${shop}</div>
+        <div class="u-badges">${tabBadges}${money}${totals}${extras}${shop}</div>
       </div>
       <div class="u-actions">
         <button class="btn btn-ghost btn-sm" onclick="editUser('${idJs}')">แก้ไข</button>
@@ -5758,6 +5780,7 @@ function editUser(id) {
   document.getElementById('u_pass').placeholder = 'เว้นว่าง = ไม่เปลี่ยนรหัส';
   ALL_TABS.forEach(t => { document.getElementById('u_tab_' + t).checked = (u.tabs || []).includes(t); });
   document.getElementById('u_seeProfit').checked = u.seeProfit !== false;
+  document.getElementById('u_seeTotals').checked = u.seeTotals !== false;
   document.getElementById('u_gachaEdit').checked = u.gachaEdit === true;
   document.getElementById('u_buyEdit').checked = u.buyEdit === true;
   renderUserShopPerms(u.shops || [], u.shopFeats || {});
@@ -5770,6 +5793,7 @@ function clearUserForm() {
   document.getElementById('u_pass').placeholder = 'รหัสผ่าน';
   ALL_TABS.forEach(t => { document.getElementById('u_tab_' + t).checked = false; });
   document.getElementById('u_seeProfit').checked = true;
+  document.getElementById('u_seeTotals').checked = true;
   document.getElementById('u_gachaEdit').checked = false;
   document.getElementById('u_buyEdit').checked = false;
   renderUserShopPerms([], {});
@@ -5781,19 +5805,20 @@ async function saveUser() {
   const pass = document.getElementById('u_pass').value;
   const tabs = ALL_TABS.filter(t => document.getElementById('u_tab_' + t).checked);
   const seeProfit = document.getElementById('u_seeProfit').checked;
+  const seeTotals = document.getElementById('u_seeTotals').checked;
   const gachaEdit = document.getElementById('u_gachaEdit').checked;
   const buyEdit = document.getElementById('u_buyEdit').checked;
   const userShopSel = selectedUserShops();
   const userShopFeatSel = selectedUserShopFeats();
   if (!id) { usersMsg('กรุณาระบุ ID', 'err'); return; }
   try {
-    const r = await fetch(USERS_API, { method: 'POST', headers: authHeaders({ 'Content-Type': 'application/json' }), body: JSON.stringify({ id, password: pass, tabs, seeProfit, gachaEdit, buyEdit, shops: userShopSel, shopFeats: userShopFeatSel }) });
+    const r = await fetch(USERS_API, { method: 'POST', headers: authHeaders({ 'Content-Type': 'application/json' }), body: JSON.stringify({ id, password: pass, tabs, seeProfit, seeTotals, gachaEdit, buyEdit, shops: userShopSel, shopFeats: userShopFeatSel }) });
     const d = await r.json().catch(() => ({}));
     if (!r.ok) { usersMsg(d.error || 'บันทึกไม่สำเร็จ', 'err'); return; }
     usersMsg('✓ บันทึกผู้ใช้แล้ว (ผู้ใช้ใหม่อาจล็อกอินได้หลัง ~15 วินาที)', 'ok');
     // อัปเดตรายการในเครื่องทันที (เซิร์ฟเวอร์มี cache หน่วงเล็กน้อย)
     const ex = usersCache.find(u => u.id === id);
-    if (ex) { ex.tabs = tabs; ex.seeProfit = seeProfit; ex.gachaEdit = gachaEdit; ex.buyEdit = buyEdit; ex.shops = userShopSel; ex.shopFeats = userShopFeatSel; } else { usersCache.push({ id, tabs, seeProfit, gachaEdit, buyEdit, shops: userShopSel, shopFeats: userShopFeatSel }); }
+    if (ex) { ex.tabs = tabs; ex.seeProfit = seeProfit; ex.seeTotals = seeTotals; ex.gachaEdit = gachaEdit; ex.buyEdit = buyEdit; ex.shops = userShopSel; ex.shopFeats = userShopFeatSel; } else { usersCache.push({ id, tabs, seeProfit, seeTotals, gachaEdit, buyEdit, shops: userShopSel, shopFeats: userShopFeatSel }); }
     clearUserForm();
     renderUsersList();
   } catch (e) { usersMsg('เชื่อมต่อไม่ได้', 'err'); }

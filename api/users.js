@@ -20,7 +20,7 @@ export default async function handler(req, res) {
 
     if (req.method === 'GET') {
       const users = await loadUsers(opts);
-      res.status(200).json({ users: users.map(u => ({ id: u.id, tabs: u.tabs || [], seeProfit: u.seeProfit !== false, gachaEdit: u.gachaEdit === true, buyEdit: u.buyEdit === true, shops: Array.isArray(u.shops) ? u.shops : [], shopFeats: (u.shopFeats && typeof u.shopFeats === 'object') ? u.shopFeats : {} })) });
+      res.status(200).json({ users: users.map(u => ({ id: u.id, tabs: u.tabs || [], seeProfit: u.seeProfit !== false, seeTotals: u.seeTotals !== false, gachaEdit: u.gachaEdit === true, buyEdit: u.buyEdit === true, shops: Array.isArray(u.shops) ? u.shops : [], shopFeats: (u.shopFeats && typeof u.shopFeats === 'object') ? u.shopFeats : {} })) });
       return;
     }
 
@@ -32,6 +32,7 @@ export default async function handler(req, res) {
       if (id === ADMIN_ID) { res.status(400).json({ error: 'ใช้ ID นี้ไม่ได้ (สงวนไว้สำหรับแอดมิน)' }); return; }
       const tabs = Array.isArray(body.tabs) ? body.tabs.filter(t => ALL_TABS.includes(t)) : [];
       const seeProfit = body.seeProfit !== false;
+      const seeTotals = body.seeTotals !== false;
       const gachaEdit = body.gachaEdit === true;
       const buyEdit = body.buyEdit === true;
       // ร้านที่เข้าได้ (array ของ shopId) — ว่าง = ทุกร้าน
@@ -49,13 +50,14 @@ export default async function handler(req, res) {
         if (body.password) existing.password = body.password;
         existing.tabs = tabs;
         existing.seeProfit = seeProfit;
+        existing.seeTotals = seeTotals;
         existing.gachaEdit = gachaEdit;
         existing.buyEdit = buyEdit;
         existing.shops = shops;
         existing.shopFeats = shopFeats;
       } else {
         if (!body.password) { res.status(400).json({ error: 'กรุณาตั้งรหัสผ่าน' }); return; }
-        users.push({ id, password: body.password, tabs, seeProfit, gachaEdit, buyEdit, shops, shopFeats });
+        users.push({ id, password: body.password, tabs, seeProfit, seeTotals, gachaEdit, buyEdit, shops, shopFeats });
       }
       await saveUsers(users, opts);
       res.status(200).json({ ok: true });
