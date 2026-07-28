@@ -4919,7 +4919,7 @@ function renderPreorder() {
       ${meta ? `<div class="poc-meta">${meta}</div>` : ''}
       <div class="poc-money">
         <span><span class="poc-lbl">ราคา</span>${money(price)}</span>
-        <span class="poc-dep"><span class="poc-lbl">มัดจำ</span><input class="po-dep" type="number" inputmode="decimal" value="${dep}" onchange="updatePreorderDeposit('${o.id}', this.value)"></span>
+        <span><span class="poc-lbl">มัดจำ</span>${money(dep)}</span>
         <span><span class="poc-lbl">ค้าง</span><span class="poc-due ${rem <= 0 ? 'clear' : 'owed'}">${money(rem)}</span></span>
       </div>
       <div class="po-prog" title="จ่ายมัดจำแล้ว ${pct}%"><i style="width:${pct}%"></i></div>
