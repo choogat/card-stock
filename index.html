@@ -569,7 +569,7 @@
   .po-card.received .po-prog > i { background: #54b878; }
   .poc-foot { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: .8rem; color: var(--muted); }
   .poc-foot b { color: var(--text); font-weight: 600; }
-  .po-card .po-note { font-size: .82rem; color: var(--muted); background: var(--bg); border-radius: 8px; padding: 6px 9px; }
+  .po-card .po-note { font-size: .84rem; color: var(--text); font-weight: 600; background: var(--bg); border-radius: 8px; padding: 6px 9px; }
   .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
   .grid-topic-lang { display: grid; grid-template-columns: 3fr 1fr; gap: 12px; }
   .grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
@@ -771,6 +771,9 @@
         <option value="wait">รอส่งของ</option>
         <option value="received">รับสินค้าแล้ว</option>
         <option value="cancel">ยกเลิก</option>
+      </select>
+      <select class="filter" id="poSourceFilter" onchange="renderPreorder()">
+        <option value="">ทุกร้าน</option>
       </select>
       <select class="filter" id="poSortSel" onchange="renderPreorder()">
         <option value="">เรียง: ค่าเริ่มต้น</option>
@@ -4602,10 +4605,25 @@ function renderPreorder() {
   const sUW = document.getElementById('poStatDueWait'); if (sUW) sUW.textContent = money(dueWait);
   const sWC = document.getElementById('poStatWaitCount'); if (sWC) sWC.textContent = 'เฉพาะรอส่งของ ' + waiting.length + ' รายการ';
 
+  // เติมตัวเลือก "ร้าน" (สั่งจาก) จากข้อมูล — คงค่าที่เลือกไว้ถ้ายังมีร้านนั้น
+  const srcSel = document.getElementById('poSourceFilter');
+  if (srcSel) {
+    const sources = [...new Set(preorders.map(o => (o.source || '').trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'th'));
+    const sig = sources.join('|');
+    if (srcSel.dataset.sig !== sig) {
+      const cur = srcSel.value;
+      srcSel.innerHTML = '<option value="">ทุกร้าน</option>' + sources.map(s => `<option value="${esc(s)}">${esc(s)}</option>`).join('');
+      if (sources.includes(cur)) srcSel.value = cur;
+      srcSel.dataset.sig = sig;
+    }
+  }
+
   const q = (document.getElementById('poSearch')?.value || '').trim().toLowerCase();
   const sf = document.getElementById('poStatusFilter')?.value || '';
+  const srcf = srcSel ? srcSel.value : '';
   let list = preorders.map((o, i) => ({ o, i }));
   if (sf) list = list.filter(x => (x.o.status || 'wait') === sf);
+  if (srcf) list = list.filter(x => (x.o.source || '').trim() === srcf);
   if (q) {
     const terms = q.split(/\s+/).filter(Boolean);
     list = list.filter(x => {
