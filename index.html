@@ -725,6 +725,8 @@
   .fin-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 40px; }
   .fin-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 7px 0; border-bottom: 1px dashed var(--border); font-size: .88rem; }
   .fin-row.total { border-bottom: none; border-top: 2px solid var(--border); margin-top: 3px; padding-top: 11px; font-weight: 700; font-size: .98rem; }
+  tr.ev-total td { border-top: 2px solid var(--border); font-weight: 700; }
+  #srRangeBar .rlabel { color: var(--muted); font-size: .85rem; white-space: nowrap; }
   .fin-row .fr-val { font-weight: 700; font-variant-numeric: tabular-nums; }
   .fin-row .fr-val.pos { color: var(--green); } .fin-row .fr-val.neg { color: var(--danger); }
   .dash-2col { display: grid; grid-template-columns: 1.7fr 1fr; gap: 18px; align-items: start; }
@@ -1105,6 +1107,26 @@
     <h2 class="view-title" id="shopPhTitle">🚧 เมนู</h2>
     <div class="empty"><div class="big">🚧</div>หัวข้อนี้กำลังจะเพิ่มรายละเอียด — ส่งรายละเอียดที่ต้องการของหัวข้อนี้มาได้เลยครับ เดี๋ยวทำให้ใช้งานได้จริง</div>
   </div><!-- /viewShopPlaceholder -->
+
+  <div id="viewShopReport" style="display:none">
+    <h2 class="view-title">รายงานยอดขาย <span style="color:var(--muted);font-weight:400;font-size:.62em;display:block;margin-top:2px">สรุปยอดตามช่วงเวลา ร้านคู่ค้า และประเภทสินค้า</span></h2>
+    <div class="dash-range" id="srRangeBar">
+      <span class="rlabel">ช่วงวันที่</span>
+      <input type="date" id="srFrom" onchange="onShopRepCustom()">
+      <span class="rsep">ถึง</span>
+      <input type="date" id="srTo" onchange="onShopRepCustom()">
+      <button class="rbtn active" data-range="month" onclick="setShopRepRange('month')">เดือนนี้</button>
+      <button class="rbtn" data-range="lastmonth" onclick="setShopRepRange('lastmonth')">เดือนที่แล้ว</button>
+      <button class="rbtn" data-range="year" onclick="setShopRepRange('year')">ปีนี้</button>
+      <span class="rsep">ช่องทาง</span>
+      <button class="rbtn active" data-ch="all" onclick="setShopRepChannel('all')">ทั้งหมด</button>
+      <button class="rbtn" data-ch="cash" onclick="setShopRepChannel('cash')">💵 เงินสด</button>
+      <button class="rbtn" data-ch="transfer" onclick="setShopRepChannel('transfer')">💳 เงินโอน</button>
+      <span class="rspacer"></span>
+      <button class="btn btn-ghost btn-sm" onclick="window.print()">🖨️ พิมพ์รายงาน</button>
+    </div>
+    <div id="shopReportArea"></div>
+  </div><!-- /viewShopReport -->
 
   <div id="viewSettings" style="display:none">
     <h2 class="view-title">⚙️ ตั้งค่า</h2>
@@ -2446,6 +2468,7 @@ function switchView(view) {
   document.getElementById('viewShop').style.display = view === 'shop' ? '' : 'none';
   document.getElementById('viewShopHome').style.display = 'none'; // หน้าสรุปร้าน เปิดผ่าน openShopHome เท่านั้น
   document.getElementById('viewShopPlaceholder').style.display = 'none';
+  document.getElementById('viewShopReport').style.display = 'none';
   document.getElementById('viewSettings').style.display = view === 'settings' ? '' : 'none';
   document.getElementById('viewUsers').style.display = view === 'users' ? '' : 'none';
   // ไฮไลต์เมนูย่อย "ผู้ใช้งาน" ตอนเข้าหน้าจัดการผู้ใช้
@@ -3051,6 +3074,13 @@ function periodOf(range, fromId, toId) {
   if (range.mode === 'today') return [today, today];
   if (range.mode === '7d') return [isoDaysAgo(6), today];
   if (range.mode === 'month') return [today.slice(0, 7) + '-01', today];
+  if (range.mode === 'year') return [today.slice(0, 4) + '-01-01', today];
+  if (range.mode === 'lastmonth') {
+    const d = new Date(); d.setDate(1); d.setMonth(d.getMonth() - 1);
+    const y = d.getFullYear(), mo = d.getMonth();
+    const last = new Date(y, mo + 1, 0);
+    return [y + '-' + pad2(mo + 1) + '-01', last.getFullYear() + '-' + pad2(last.getMonth() + 1) + '-' + pad2(last.getDate())];
+  }
   const f = (document.getElementById(fromId).value) || today;
   const t = (document.getElementById(toId).value) || today;
   return f <= t ? [f, t] : [t, f];
@@ -3058,7 +3088,7 @@ function periodOf(range, fromId, toId) {
 function dashPeriod() { return periodOf(dashRange, 'dashFrom', 'dashTo'); }
 function setRangeGeneric(range, mode, barId, fromId, toId, rerender) {
   range.mode = mode;
-  document.querySelectorAll('#' + barId + ' .rbtn').forEach(b => b.classList.toggle('active', b.dataset.range === mode));
+  document.querySelectorAll('#' + barId + ' .rbtn[data-range]').forEach(b => b.classList.toggle('active', b.dataset.range === mode));
   if (mode === 'custom') {
     const today = todayStr(), fi = document.getElementById(fromId), ti = document.getElementById(toId);
     if (!fi.value) fi.value = today.slice(0, 7) + '-01';
@@ -4379,7 +4409,7 @@ const shopsStore = makeSyncStore({
 });
 let viewShopId = null;   // ร้านที่กำลังเปิดดูอยู่ (null = เมนูภาพรวมด้านบน)
 let expandedShop = null; // ร้านที่กางเมนูย่อยอยู่ใน sidebar
-const ALL_VIEW_IDS = ['viewDashboard', 'viewStock', 'viewSoldStock', 'viewPreorder', 'viewSales', 'viewReport', 'viewBuy', 'viewProduct', 'viewGacha', 'viewShop', 'viewShopHome', 'viewShopPlaceholder', 'viewSettings', 'viewUsers'];
+const ALL_VIEW_IDS = ['viewDashboard', 'viewStock', 'viewSoldStock', 'viewPreorder', 'viewSales', 'viewReport', 'viewBuy', 'viewProduct', 'viewGacha', 'viewShop', 'viewShopHome', 'viewShopPlaceholder', 'viewShopReport', 'viewSettings', 'viewUsers'];
 const SHOP_FEATURES = [
   { key: 'sales', label: 'สินค้าขาย', view: 'viewSales' },
   { key: 'report', label: 'รายงานการขาย', view: 'viewReport' },
@@ -4403,7 +4433,7 @@ const SHOP_PLACEHOLDERS = [
 const SHOP_MENU = [
   { group: 'ภาพรวม', items: [
     { ic: '📊', label: 'แดชบอร์ด', home: true },
-    { ic: '📈', label: 'รายงานยอดขาย', feat: 'report' },
+    { ic: '📈', label: 'รายงานยอดขาย', rep: true },
   ] },
   { group: 'การขาย', items: [
     { ic: '🧾', label: 'บิลขายสินค้า', feat: 'sales' },
@@ -4453,6 +4483,7 @@ function renderShopSidebar() {
     for (const it of g.items) {
       let act = false, onclick = '';
       if (it.home) { act = (viewShopId === sid && !curShopFeature); onclick = `openShopHome('${sid}')`; }
+      else if (it.rep) { act = (viewShopId === sid && curShopFeature === 'report2'); onclick = `openShopReport()`; }
       else if (it.feat) { act = (viewShopId === sid && curShopFeature === it.feat); onclick = `switchShopView('${sid}','${it.feat}')`; }
       else { act = (viewShopId === sid && curShopFeature === it.ph); onclick = `openShopPlaceholder('${sid}','${it.ph}')`; }
       const soon = it.ph ? ' <span class="san-soon">🚧</span>' : '';
@@ -4657,6 +4688,128 @@ function renderShopHomeStats(sid) {
   if (fi) fi.value = from; if (ti) ti.value = to;
   const m = dashMetrics(from, to, sid);
   el.innerHTML = dashStatCardsHTML(m) + dashFinancialHTML(m) + dashChartsHTML(m);
+}
+
+// ================= หน้ารายงานยอดขาย (บัญชีร้าน) — ตามแบบ =================
+let shopRepRange = { mode: 'month' };
+let shopRepChannel = 'all';
+function shopRepPeriod() { return periodOf(shopRepRange, 'srFrom', 'srTo'); }
+function setShopRepRange(mode) { setRangeGeneric(shopRepRange, mode, 'srRangeBar', 'srFrom', 'srTo', renderShopReport); }
+function onShopRepCustom() { shopRepRange.mode = 'custom'; document.querySelectorAll('#srRangeBar .rbtn[data-range]').forEach(b => b.classList.remove('active')); renderShopReport(); }
+function setShopRepChannel(ch) { shopRepChannel = ch; document.querySelectorAll('#srRangeBar .rbtn[data-ch]').forEach(b => b.classList.toggle('active', b.dataset.ch === ch)); renderShopReport(); }
+function openShopReport() {
+  const sid = viewShopId || (userShops && userShops[0]);
+  if (!sid) { switchView('shop'); return; }
+  viewShopId = sid; expandedShop = sid; curShopFeature = 'report2';
+  hideAllMainViews();
+  document.getElementById('viewShopReport').style.display = '';
+  document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
+  updateShopBanner(); renderShopNav(); stopGachaPoll(); renderShopReport();
+  localStorage.setItem('app_view', 'shop');
+  localStorage.setItem('app_shopview', JSON.stringify({ shop: sid, feat: '' }));
+}
+function renderShopReport() {
+  const el = document.getElementById('shopReportArea');
+  if (!el) return;
+  const sid = viewShopId || (userShops && userShops[0]);
+  const [from, to] = shopRepPeriod();
+  document.querySelectorAll('#srRangeBar .rbtn[data-range]').forEach(b => b.classList.toggle('active', b.dataset.range === shopRepRange.mode));
+  const fi = document.getElementById('srFrom'), ti = document.getElementById('srTo');
+  if (fi) fi.value = from; if (ti) ti.value = to;
+
+  const inRange = d => d && d >= from && d <= to;
+  const soldSid = c => (c.soldShopId != null && c.soldShopId !== '') ? c.soldShopId : c.shopId;
+  let sold = cards.filter(c => c.status === 'sold' && !c.cancelled && !c.productOnly && inRange(c.sellDate) && (!sid || soldSid(c) === sid));
+  if (shopRepChannel !== 'all') sold = sold.filter(c => (c.payment || 'cash') === shopRepChannel);
+
+  const net = sold.reduce((s, c) => s + (Number(c.sell) || 0), 0);
+  const disc = sold.reduce((s, c) => s + (Number(c.discount) || 0), 0);
+  const gross = net + disc;
+  const cost = sold.reduce((s, c) => s + (Number(c.buy) || 0), 0);
+  const profit = net - cost;
+  const cash = sold.filter(c => (c.payment || 'cash') === 'cash').reduce((s, c) => s + (Number(c.sell) || 0), 0);
+  const transfer = sold.filter(c => c.payment === 'transfer').reduce((s, c) => s + (Number(c.sell) || 0), 0);
+
+  // การ์ดสรุป 4 ใบ
+  const cardsHtml = `<div class="dash-grid dg-4">
+    <div class="dash-card c-green"><div class="dc-head"><div class="dc-ic">📊</div><div class="dc-label">ยอดขายรวม</div></div><div class="dc-value">${money(gross)}</div><div class="dc-sub">${sold.length} บิล</div></div>
+    <div class="dash-card c-yellow"><div class="dc-head"><div class="dc-ic">🏷️</div><div class="dc-label">ยอดหักเปอร์เซ็นต์</div></div><div class="dc-value">${money(disc)}</div><div class="dc-sub">—</div></div>
+    <div class="dash-card c-green"><div class="dc-head"><div class="dc-ic">✅</div><div class="dc-label">ยอดสุทธิ</div></div><div class="dc-value">${money(net)}</div><div class="dc-sub">หลังหักทุกอย่าง</div></div>
+    <div class="dash-card c-blue"><div class="dc-head"><div class="dc-ic">📈</div><div class="dc-label">กำไร</div></div><div class="dc-value ${profit >= 0 ? 'pos' : 'neg'}">${money(profit)}</div><div class="dc-sub">ต้นทุน ${money(cost)}</div></div>
+  </div>`;
+
+  // ช่องทางรับเงิน
+  const channels = `<div class="dash-panel"><div class="dp-head">ช่องทางรับเงิน<span class="dp-unit">ทั้งช่วง (ทุกบิล)</span></div>
+    <div class="fin-row"><span>💵 เงินสด</span><span class="fr-val pos">${money(cash)}</span></div>
+    <div class="fin-row"><span>💳 เงินโอน</span><span class="fr-val">${money(transfer)}</span></div>
+    <div class="fin-row total"><span>รวมสุทธิ</span><span class="fr-val pos">${money(cash + transfer)}</span></div>
+  </div>`;
+
+  // สรุปตามร้านคู่ค้า
+  const byShop = new Map();
+  for (const c of sold) { const k = soldSid(c) || '__none__'; const g = byShop.get(k) || { bills: 0, sum: 0 }; g.bills++; g.sum += Number(c.sell) || 0; byShop.set(k, g); }
+  const shopRows = [...byShop.entries()].sort((a, b) => b[1].sum - a[1].sum);
+  const partnerBody = shopRows.length
+    ? `<table><thead><tr><th>ร้าน</th><th class="num">บิล</th><th class="num">ยอดสุทธิ</th></tr></thead><tbody>${shopRows.map(([k, g]) => {
+        const s = k === '__all__' ? { name: 'ทุกร้าน' } : shopById(k); const nm = s ? (s.name || 'ร้าน') : 'ส่วนกลาง';
+        return `<tr><td>${esc(nm)}</td><td class="num">${g.bills}</td><td class="num">${money(g.sum)}</td></tr>`;
+      }).join('')}</tbody></table>`
+    : '<div class="empty" style="padding:34px"><div class="big">📄</div>ไม่มีข้อมูลในช่วงนี้</div>';
+  const partner = `<div class="dash-panel"><div class="dp-head">สรุปตามร้านคู่ค้า<button class="btn-mini" style="margin-left:auto" onclick="exportShopRepCSV('partner')">⬇ CSV</button></div>${partnerBody}</div>`;
+
+  // สัดส่วนตามประเภท
+  const donutPanel = `<div class="dash-panel"><div class="dp-head">สัดส่วนตามประเภท</div>${dashDonut(sold)}</div>`;
+
+  // Event ขายจุ่ม (ตู้จุ่มของร้าน เริ่มในช่วง)
+  const boxes = (typeof gachaBoxes !== 'undefined' && Array.isArray(gachaBoxes)) ? gachaBoxes.filter(b => (!sid || b.shopId === sid || !b.shopId) && (!b.date || inRange(b.date))) : [];
+  let evBody, tDrawn = 0, tMoney = 0, tFull = 0;
+  if (boxes.length) {
+    const rows = boxes.map(b => {
+      const prizes = Array.isArray(b.prizes) ? b.prizes : [];
+      const total = Number(b.slots) || prizes.length;
+      const drawn = prizes.filter(p => p.drawn).length;
+      const price = Number(b.price) || 0;
+      const money2 = drawn * price, full = total * price;
+      tDrawn += drawn; tMoney += money2; tFull += full;
+      return `<tr><td class="name">${esc(b.name || 'ตู้จุ่ม')}${b.date ? `<div class="detail">${esc(fmtDate(b.date))}</div>` : ''}</td><td>${b.owner ? esc(b.owner) : '<span class="muted">—</span>'}</td><td class="num">${money(price)}</td><td class="num">${drawn}/${total} จุ่ม</td><td class="num">${money(money2)}</td><td class="num muted">${money(full)}</td></tr>`;
+    }).join('');
+    evBody = `<table><thead><tr><th>EVENT</th><th>เจ้าของจุ่ม</th><th class="num">ราคาต่อจุ่ม</th><th class="num">ขายได้</th><th class="num">เงินที่ได้</th><th class="num">ถ้าขายหมด</th></tr></thead>
+      <tbody>${rows}<tr class="ev-total"><td><b>รวม ${boxes.length} Event</b></td><td></td><td></td><td class="num"><b>${tDrawn} จุ่ม</b></td><td class="num"><b>${money(tMoney)}</b></td><td class="num"><b>${money(tFull)}</b></td></tr></tbody></table>`;
+  } else {
+    evBody = '<div class="empty" style="padding:30px"><div class="big">🎲</div>ไม่มี Event ขายจุ่มในช่วงนี้</div>';
+  }
+  const events = `<div class="dash-panel"><div class="dp-head">🎲 Event ขายจุ่ม<span class="dp-unit">เริ่มภายในช่วงที่เลือก</span></div>${evBody}</div>`;
+
+  // สรุปตามประเภทสินค้า
+  const byCat = new Map();
+  for (const c of sold) { const k = (c.topic && c.topic.trim()) || 'ไม่ระบุ'; const g = byCat.get(k) || { qty: 0, sum: 0 }; g.qty++; g.sum += Number(c.sell) || 0; byCat.set(k, g); }
+  const catRows = [...byCat.entries()].sort((a, b) => b[1].sum - a[1].sum);
+  const catBody = catRows.length
+    ? `<table><thead><tr><th>ประเภท</th><th class="num">จำนวน</th><th class="num">ยอดสุทธิ</th></tr></thead><tbody>${catRows.map(([k, g]) => `<tr><td>${esc(k)}</td><td class="num">${g.qty}</td><td class="num">${money(g.sum)}</td></tr>`).join('')}</tbody></table>`
+    : '<div class="empty" style="padding:34px"><div class="big">🏷️</div>ไม่มีข้อมูลในช่วงนี้</div>';
+  const category = `<div class="dash-panel"><div class="dp-head">สรุปตามประเภทสินค้า<button class="btn-mini" style="margin-left:auto" onclick="exportShopRepCSV('cat')">⬇ CSV</button></div>${catBody}</div>`;
+
+  el.innerHTML = cardsHtml + channels + `<div class="dash-2col">${partner}${donutPanel}</div>` + events + category;
+}
+// export CSV ของหน้ารายงาน
+function exportShopRepCSV(kind) {
+  const sid = viewShopId || (userShops && userShops[0]);
+  const [from, to] = shopRepPeriod();
+  const inRange = d => d && d >= from && d <= to;
+  const soldSid = c => (c.soldShopId != null && c.soldShopId !== '') ? c.soldShopId : c.shopId;
+  let sold = cards.filter(c => c.status === 'sold' && !c.cancelled && !c.productOnly && inRange(c.sellDate) && (!sid || soldSid(c) === sid));
+  if (shopRepChannel !== 'all') sold = sold.filter(c => (c.payment || 'cash') === shopRepChannel);
+  const cell = v => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"';
+  let head, rows;
+  if (kind === 'partner') {
+    const g = new Map(); for (const c of sold) { const k = soldSid(c) || ''; const o = g.get(k) || { bills: 0, sum: 0 }; o.bills++; o.sum += Number(c.sell) || 0; g.set(k, o); }
+    head = ['ร้าน', 'บิล', 'ยอดสุทธิ']; rows = [...g.entries()].map(([k, o]) => { const s = shopById(k); return [s ? s.name : 'ส่วนกลาง', o.bills, o.sum]; });
+  } else {
+    const g = new Map(); for (const c of sold) { const k = (c.topic && c.topic.trim()) || 'ไม่ระบุ'; const o = g.get(k) || { qty: 0, sum: 0 }; o.qty++; o.sum += Number(c.sell) || 0; g.set(k, o); }
+    head = ['ประเภท', 'จำนวน', 'ยอดสุทธิ']; rows = [...g.entries()].map(([k, o]) => [k, o.qty, o.sum]);
+  }
+  const csv = '﻿' + [head, ...rows].map(r => r.map(cell).join(',')).join('\r\n');
+  download(`รายงานยอดขาย-${kind}-${dateStamp()}.csv`, csv, 'text/csv;charset=utf-8');
 }
 
 // ---- ฟอร์มสร้าง/แก้ไขร้านค้า ----
