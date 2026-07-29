@@ -76,6 +76,8 @@
   .tb-conn { font-size: .76rem; color: var(--green); background: rgba(36,201,138,.14); padding: 4px 11px; border-radius: 999px; font-weight: 600; white-space: nowrap; }
   .tb-icon { width: 34px; height: 34px; border-radius: 9px; background: var(--card2); border: 1px solid var(--border); color: var(--text); cursor: pointer; font-size: 1rem; }
   .tb-icon:hover { border-color: var(--accent); }
+  /* บัญชีร้าน: หัวข้อหน้าอยู่บน topbar แล้ว → ซ่อน h2 ในเนื้อหา (กันหัวข้อซ้ำ) */
+  body.shop-ui .view-title { display: none; }
   .nav { display: flex; flex-direction: column; gap: 5px; }
   .sidebar .brand { font-size: 1.15rem; font-weight: 700; padding: 6px 8px 14px; }
   .nav-group { font-size: .68rem; font-weight: 700; letter-spacing: .6px; color: var(--muted); text-transform: uppercase; padding: 2px 14px 3px; margin-top: 11px; opacity: .7; }
@@ -738,7 +740,7 @@
   #srRangeBar .rlabel { color: var(--muted); font-size: .85rem; white-space: nowrap; }
   .fin-row .fr-val { font-weight: 700; font-variant-numeric: tabular-nums; }
   .fin-row .fr-val.pos { color: var(--green); } .fin-row .fr-val.neg { color: var(--danger); }
-  .dash-2col { display: grid; grid-template-columns: 1.5fr 1fr; gap: 18px; align-items: stretch; }
+  .dash-2col { display: grid; grid-template-columns: 1.5fr 1fr; gap: 18px; align-items: stretch; margin-bottom: 18px; }
   .dash-2col > .dash-panel { display: flex; flex-direction: column; margin-bottom: 0; }
   .dash-2col > .dash-panel > .empty, .dash-2col > .dash-panel > .donut-wrap { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; margin: 0; }
   /* กราฟแท่ง (CSS ล้วน) */
@@ -2533,6 +2535,7 @@ function applyShopTheme() {
   const isShop = isShopAccount();
   const light = localStorage.getItem('shop_theme') === 'light';
   document.body.classList.toggle('dark-shop', isShop && !light);
+  document.body.classList.toggle('shop-ui', isShop); // ซ่อนหัวข้อ h2 ซ้ำ (มีหัวข้อบน topbar แล้ว)
   const tb = document.getElementById('shopTopbar');
   if (tb) tb.style.display = isShop ? '' : 'none';
   const ti = document.getElementById('themeToggleBtn');
