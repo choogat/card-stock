@@ -1048,6 +1048,11 @@
     <p style="color:var(--muted);font-size:.84rem;margin-top:6px">เลือกฟังก์ชันของร้านจากเมนูด้านซ้าย — สินค้าขาย · รายงานการขาย · รับซื้อสินค้า · จุ่มสินค้า</p>
   </div><!-- /viewShopHome -->
 
+  <div id="viewShopPlaceholder" style="display:none">
+    <h2 class="view-title" id="shopPhTitle">🚧 เมนู</h2>
+    <div class="empty"><div class="big">🚧</div>หัวข้อนี้กำลังจะเพิ่มรายละเอียด — ส่งรายละเอียดที่ต้องการของหัวข้อนี้มาได้เลยครับ เดี๋ยวทำให้ใช้งานได้จริง</div>
+  </div><!-- /viewShopPlaceholder -->
+
   <div id="viewSettings" style="display:none">
     <h2 class="view-title">⚙️ ตั้งค่า</h2>
     <p style="color:var(--muted);font-size:.88rem;margin-bottom:16px">เลือกหัวข้อจากเมนูย่อยด้านซ้าย หรือปุ่มด้านล่าง</p>
@@ -2387,6 +2392,7 @@ function switchView(view) {
   document.getElementById('viewGacha').style.display = view === 'gacha' ? '' : 'none';
   document.getElementById('viewShop').style.display = view === 'shop' ? '' : 'none';
   document.getElementById('viewShopHome').style.display = 'none'; // หน้าสรุปร้าน เปิดผ่าน openShopHome เท่านั้น
+  document.getElementById('viewShopPlaceholder').style.display = 'none';
   document.getElementById('viewSettings').style.display = view === 'settings' ? '' : 'none';
   document.getElementById('viewUsers').style.display = view === 'users' ? '' : 'none';
   // ไฮไลต์เมนูย่อย "ผู้ใช้งาน" ตอนเข้าหน้าจัดการผู้ใช้
@@ -4305,13 +4311,28 @@ const shopsStore = makeSyncStore({
 });
 let viewShopId = null;   // ร้านที่กำลังเปิดดูอยู่ (null = เมนูภาพรวมด้านบน)
 let expandedShop = null; // ร้านที่กางเมนูย่อยอยู่ใน sidebar
-const ALL_VIEW_IDS = ['viewDashboard', 'viewStock', 'viewSoldStock', 'viewPreorder', 'viewSales', 'viewReport', 'viewBuy', 'viewProduct', 'viewGacha', 'viewShop', 'viewShopHome', 'viewSettings', 'viewUsers'];
+const ALL_VIEW_IDS = ['viewDashboard', 'viewStock', 'viewSoldStock', 'viewPreorder', 'viewSales', 'viewReport', 'viewBuy', 'viewProduct', 'viewGacha', 'viewShop', 'viewShopHome', 'viewShopPlaceholder', 'viewSettings', 'viewUsers'];
 const SHOP_FEATURES = [
   { key: 'sales', label: 'สินค้าขาย', view: 'viewSales' },
   { key: 'report', label: 'รายงานการขาย', view: 'viewReport' },
   { key: 'buy', label: 'รับซื้อสินค้า', view: 'viewBuy' },
   { key: 'gacha', label: 'จุ่มสินค้า', view: 'viewGacha' },
 ];
+// เมนูหัวข้อ (โครง) ที่จะเพิ่มรายละเอียดทีหลัง — ตามรูปอ้างอิง (ยกเว้นบริการเช่าตู้)
+// โชว์เฉพาะแอดมิน/เจ้าของเครื่อง กดแล้วเปิดหน้า placeholder รอรายละเอียด
+const SHOP_PLACEHOLDERS = [
+  { key: 'expense', label: 'รายจ่ายร้าน' },
+  { key: 'dailyclose', label: 'ปิดยอดรายวัน' },
+  { key: 'saleshistory', label: 'ประวัติการขายสินค้า' },
+  { key: 'products', label: 'สินค้า' },
+  { key: 'stockbyshop', label: 'สต็อกแยกร้าน' },
+  { key: 'categories', label: 'ประเภทสินค้า' },
+  { key: 'stockmovement', label: 'ความเคลื่อนไหวสต็อก' },
+];
+function shopFeatLabel(key) {
+  const f = SHOP_FEATURES.find(x => x.key === key) || SHOP_PLACEHOLDERS.find(x => x.key === key);
+  return f ? f.label : '';
+}
 // อยู่ในขอบเขตร้านที่เลือกไหม (null = ดูรวมทุกร้าน → ผ่านหมด)
 // shopId === '__all__' = ตั้งให้โชว์ในทุกร้าน — ใช้กับแถบ "สินค้าขาย"
 function inShopScope(c) {
@@ -4371,9 +4392,30 @@ function renderShopNav() {
         const act = (viewShopId === s.id && curShopFeature === f.key);
         html += `<button class="nav-sub2${act ? ' active' : ''}" onclick="switchShopView('${s.id}','${f.key}')">↳ ${f.label}</button>`;
       }
+      // เมนูหัวข้อ (placeholder) — เฉพาะแอดมิน/เจ้าของเครื่อง
+      if (userRole === 'admin' || !passcode) {
+        for (const p of SHOP_PLACEHOLDERS) {
+          const act = (viewShopId === s.id && curShopFeature === p.key);
+          html += `<button class="nav-sub2${act ? ' active' : ''}" onclick="openShopPlaceholder('${s.id}','${p.key}')">↳ ${p.label} <span style="opacity:.5;font-size:.72em">🚧</span></button>`;
+        }
+      }
     }
   }
   el.innerHTML = html;
+}
+// เปิดหน้าหัวข้อที่ยังไม่มีรายละเอียด (placeholder)
+function openShopPlaceholder(shopId, key) {
+  if (!canViewTab('shop') || !userCanSeeShop(shopId)) { switchView('shop'); return; }
+  const s = shopById(shopId); if (!s) { switchView('shop'); return; }
+  viewShopId = shopId; expandedShop = shopId; curShopFeature = key;
+  hideAllMainViews();
+  document.getElementById('viewShopPlaceholder').style.display = '';
+  document.getElementById('shopPhTitle').textContent = '🚧 ' + shopFeatLabel(key) + ' — ' + (s.name || 'ร้าน');
+  document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
+  const shopBtn = document.querySelector('.nav-item[data-view="shop"]'); if (shopBtn) shopBtn.classList.add('active');
+  updateShopBanner(); renderShopNav(); stopGachaPoll();
+  localStorage.setItem('app_view', 'shop');
+  localStorage.setItem('app_shopview', JSON.stringify({ shop: shopId, feat: '' }));
 }
 let curShopFeature = null;
 // กดชื่อร้าน: กางเมนูย่อย + เปิดหน้าสรุปร้าน · กดซ้ำที่ร้านที่กางอยู่ = ยุบเมนูย่อย
@@ -4389,9 +4431,9 @@ function updateShopBanner() {
   if (!b) return;
   if (viewShopId && curShopFeature) {
     const s = shopById(viewShopId);
-    const f = SHOP_FEATURES.find(x => x.key === curShopFeature);
+    const lbl = shopFeatLabel(curShopFeature);
     b.style.display = '';
-    b.innerHTML = `🏪 <b>${esc(s ? s.name : '')}</b> · ${f ? f.label : ''}` +
+    b.innerHTML = `🏪 <b>${esc(s ? s.name : '')}</b> · ${lbl}` +
       `${s && (s.owner || s.phone || s.location) ? `<span class="shop-meta"> — ${[s.owner, s.phone, s.location].filter(Boolean).map(esc).join(' · ')}</span>` : ''}`;
   } else { b.style.display = 'none'; b.innerHTML = ''; }
 }
