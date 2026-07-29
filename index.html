@@ -20,6 +20,23 @@
     --danger: #e23b4e;
     --border: #e2e6ee;
   }
+  /* ธีมมืด (teal/navy) — เฉพาะบัญชีร้านที่ล็อกอินเข้ามา (ตามรูปอ้างอิง) */
+  body.dark-shop {
+    --bg: #0b1220;
+    --card: #131d2e;
+    --card2: #1c2942;
+    --text: #e9eef7;
+    --muted: #8b97ab;
+    --gray: #8b97ab;
+    --green: #24c98a;
+    --yellow: #e6a23a;
+    --danger: #f2717f;
+    --accent: #18bfd4;
+    --accent2: #0f9fb5;
+    --border: #263650;
+    background: radial-gradient(1100px 560px at 12% -12%, #14243f 0%, #0b1524 46%, #070d18 100%) fixed;
+  }
+  body.dark-shop .sidebar::-webkit-scrollbar-thumb { background: #2c3d5a; }
   body {
     font-family: "Segoe UI", "Sarabun", Tahoma, sans-serif;
     background: linear-gradient(160deg, #f5f7fc 0%, #eaeef6 100%);
@@ -2431,7 +2448,13 @@ function allowedTabs() {
 }
 
 // ซ่อน/แสดงเมนูตามสิทธิ์ + ย้ายไปแถบที่เข้าได้
+// ธีมมืดเฉพาะบัญชีร้าน (พนักงานที่ผูกกับร้าน) — แอดมิน/เจ้าของเครื่อง = ธีมสว่างปกติ
+function applyShopTheme() {
+  const isShop = !!passcode && userRole !== 'admin' && userShops && userShops.length > 0;
+  document.body.classList.toggle('dark-shop', isShop);
+}
 function applyPermissions() {
+  applyShopTheme();
   const allowed = allowedTabs();
   document.querySelectorAll('.nav-item[data-view]').forEach(b => {
     b.style.display = allowed.includes(b.dataset.view) ? '' : 'none';
