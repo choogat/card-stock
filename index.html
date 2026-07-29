@@ -83,6 +83,27 @@
   .nav-sub2:hover { background: var(--card2); color: var(--text); }
   .nav-sub2.active { background: linear-gradient(135deg, var(--accent), var(--accent2)); color: #fff; }
   #shopNav { display: flex; flex-direction: column; gap: 4px; }
+  /* แถบเมนูบัญชีร้าน — จัดกลุ่ม + ไอคอน + ปุ่ม active teal (ตามแบบ) */
+  .shop-acc-nav { display: flex; flex-direction: column; gap: 2px; }
+  .san-group { font-size: .66rem; font-weight: 700; letter-spacing: .5px; color: var(--muted); text-transform: uppercase; padding: 2px 12px 3px; margin-top: 15px; opacity: .55; }
+  .san-group:first-child { margin-top: 2px; }
+  .san-item { display: flex; align-items: center; gap: 11px; text-align: left; background: transparent; border: none; color: var(--muted); padding: 8px 11px; border-radius: 10px; cursor: pointer; font-size: .89rem; font-weight: 500; font-family: inherit; width: 100%; transition: background .12s, color .12s; }
+  .san-item:hover { background: var(--card2); color: var(--text); }
+  .san-item.active { background: linear-gradient(135deg, var(--accent), var(--accent2)); color: #04121a; font-weight: 700; box-shadow: 0 5px 16px rgba(24,191,212,.28); }
+  .san-ic { width: 26px; height: 26px; border-radius: 7px; display: flex; align-items: center; justify-content: center; font-size: .92rem; background: var(--card2); flex: none; }
+  .san-item.active .san-ic { background: rgba(255,255,255,.22); }
+  .san-item .san-soon { margin-left: auto; font-size: .6rem; opacity: .5; }
+  .brand-shop { display: flex; align-items: center; gap: 10px; padding: 2px 4px 12px; }
+  .brand-shop .bs-logo { width: 40px; height: 40px; border-radius: 11px; background: linear-gradient(135deg, var(--accent), var(--accent2)); display: flex; align-items: center; justify-content: center; font-size: 1.25rem; flex: none; color: #04121a; }
+  .brand-shop .bs-name { font-weight: 800; font-size: 1rem; line-height: 1.15; }
+  .brand-shop .bs-sub { font-size: .7rem; color: var(--muted); margin-top: 1px; }
+  .foot-user { display: flex; align-items: center; gap: 10px; width: 100%; background: var(--card2); border: 1px solid var(--border); border-radius: 12px; padding: 8px 10px; }
+  .foot-user .fu-avatar { width: 34px; height: 34px; border-radius: 9px; background: linear-gradient(135deg, var(--accent), var(--accent2)); color: #04121a; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: .78rem; flex: none; text-transform: uppercase; }
+  .foot-user .fu-info { flex: 1; min-width: 0; }
+  .foot-user .fu-name { font-weight: 700; font-size: .85rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .foot-user .fu-role { font-size: .7rem; color: var(--muted); }
+  .foot-user .fu-power { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 1.15rem; padding: 2px 4px; flex: none; }
+  .foot-user .fu-power:hover { color: var(--danger); }
   .shop-banner {
     background: linear-gradient(135deg, rgba(47,111,237,.12), rgba(108,92,231,.12));
     border: 1px solid var(--border); border-radius: 12px; padding: 10px 16px; margin-bottom: 16px;
@@ -673,11 +694,12 @@
   .dash-range .rsep { color: var(--muted); font-size: .85rem; }
   .dash-range .rspacer { flex: 1; }
   .dash-range .rlabel { color: var(--muted); font-size: .85rem; white-space: nowrap; }
-  .dash-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(196px, 1fr)); gap: 11px; margin-bottom: 18px; }
-  .dash-card { position: relative; overflow: hidden; background: var(--card); border: 1px solid var(--border); border-radius: 13px; padding: 12px 14px; border-top: 3px solid var(--accent); box-shadow: 0 1px 3px rgba(20,30,60,.05); }
+  .dash-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(224px, 1fr)); gap: 13px; margin-bottom: 18px; }
+  .dash-card { position: relative; overflow: hidden; background: var(--card); border: 1px solid var(--border); border-radius: 13px; padding: 14px 16px; border-top: 3px solid var(--accent); box-shadow: 0 1px 3px rgba(20,30,60,.05); }
   .dash-card.c-green { border-top-color: var(--green); } .dash-card.c-green .dc-ic { background: rgba(24,165,88,.14); }
   .dash-card.c-purple { border-top-color: var(--accent2); } .dash-card.c-purple .dc-ic { background: rgba(108,92,231,.14); }
   .dash-card.c-yellow { border-top-color: var(--yellow); } .dash-card.c-yellow .dc-ic { background: rgba(192,138,0,.16); }
+  .dash-card.c-red { border-top-color: var(--danger); } .dash-card.c-red .dc-ic { background: rgba(226,59,78,.14); }
   .dash-card.c-blue .dc-ic { background: rgba(47,111,237,.14); }
   .dc-head { display: flex; align-items: center; gap: 8px; margin-bottom: 7px; }
   .dc-ic { width: 30px; height: 30px; border-radius: 9px; background: rgba(47,111,237,.14); display: flex; align-items: center; justify-content: center; font-size: .95rem; flex: none; }
@@ -757,8 +779,9 @@
 <body>
 <div class="layout">
   <aside class="sidebar">
-    <div class="brand">🃏 CielLand <span class="pill">PSA</span></div>
-    <nav class="nav">
+    <div class="brand" id="brandBox">🃏 CielLand <span class="pill">PSA</span></div>
+    <nav class="nav shop-acc-nav" id="shopAccountNav" style="display:none"></nav>
+    <nav class="nav" id="adminNav">
       <div class="nav-group" id="navGrpOverview">ภาพรวม</div>
       <button class="nav-item" data-view="dashboard" onclick="switchView('dashboard')" style="display:none">📊 แดชบอร์ด</button>
 
@@ -783,6 +806,7 @@
       <button class="nav-sub" id="navUsers" onclick="switchView('users')" style="display:none">👥 ผู้ใช้งาน</button>
     </nav>
     <div class="sidebar-foot">
+      <div id="footUser"></div>
       <span class="sync" id="syncStatus"></span>
       <button class="btn btn-ghost btn-sm" id="authBtn" onclick="openLogin()">เข้าสู่ระบบ</button>
     </div>
@@ -2455,6 +2479,7 @@ function applyShopTheme() {
 }
 function applyPermissions() {
   applyShopTheme();
+  renderShopSidebar();
   const allowed = allowedTabs();
   document.querySelectorAll('.nav-item[data-view]').forEach(b => {
     b.style.display = allowed.includes(b.dataset.view) ? '' : 'none';
@@ -3081,9 +3106,12 @@ function dashMetrics(from, to, sid) {
   const today = todayStr();
   const soldRange = real.filter(c => c.status === 'sold' && !c.cancelled && inRange(c.sellDate) && okSold(c));
   const salesTotal = soldRange.reduce((s, c) => s + (Number(c.sell) || 0), 0);
+  const discountTotal = soldRange.reduce((s, c) => s + (Number(c.discount) || 0), 0);
   const costOfSold = soldRange.reduce((s, c) => s + (Number(c.buy) || 0), 0);
   const grossProfit = salesTotal - costOfSold;
   const margin = salesTotal > 0 ? Math.round(grossProfit / salesTotal * 100) : 0;
+  const kinds = new Set(cards.filter(c => c.status !== 'sold' && !c.productOnly && okStock(c)).map(c => (c.topic || '').trim()).filter(Boolean)).size;
+  const gachaCount = (typeof gachaBoxes !== 'undefined' && Array.isArray(gachaBoxes)) ? gachaBoxes.filter(b => !sid || b.shopId === sid).length : 0;
   const soldToday = real.filter(c => c.status === 'sold' && !c.cancelled && c.sellDate === today && okSold(c));
   const todaySales = soldToday.reduce((s, c) => s + (Number(c.sell) || 0), 0);
   const cashIn = soldRange.filter(c => c.payment === 'cash').reduce((s, c) => s + (Number(c.sell) || 0), 0);
@@ -3094,18 +3122,20 @@ function dashMetrics(from, to, sid) {
   const stockCost = inStock.reduce((s, c) => s + (Number(c.buy) || 0), 0);
   const stockValue = inStock.reduce((s, c) => s + (Number(c.sell) || Number(c.median) || 0), 0);
   const nShow = inStock.filter(c => c.status === 'show').length, nWait = inStock.filter(c => c.status === 'wait').length;
-  return { from, to, soldRange, salesTotal, costOfSold, grossProfit, margin, soldToday, todaySales, cashIn, transferIn, buyRange, buySpent, inStock, stockCost, stockValue, nShow, nWait };
+  return { from, to, soldRange, salesTotal, discountTotal, costOfSold, grossProfit, margin, kinds, gachaCount, soldToday, todaySales, cashIn, transferIn, buyRange, buySpent, inStock, stockCost, stockValue, nShow, nWait };
 }
 // การ์ดสรุป — ซ่อนตัวที่อ่อนไหว (กำไร/ต้นทุน/รับซื้อ) ถ้าไม่มีสิทธิ์ดูกำไร
 function dashStatCardsHTML(m) {
   const sp = canSeeProfit();
   const scards = [
-    { ic: '💰', cls: 'c-green', label: 'ยอดขาย (ช่วงที่เลือก)', val: money(m.salesTotal), sub: m.soldRange.length + ' ใบ' },
-    sp && { ic: '📈', cls: 'c-blue', label: 'กำไร (ช่วงที่เลือก)', val: money(m.grossProfit), valCls: m.grossProfit >= 0 ? 'pos' : 'neg', sub: 'อัตรากำไร ' + m.margin + '%' },
-    { ic: '🧾', cls: 'c-purple', label: 'ยอดขายวันนี้', val: money(m.todaySales), sub: m.soldToday.length + ' ใบ' },
-    { ic: '🏦', cls: 'c-yellow', label: sp ? 'มูลค่าคลังสินค้า (ทุน)' : 'มูลค่าคลังสินค้า', val: money(sp ? m.stockCost : m.stockValue), sub: sp ? ('ราคาขายรวม ' + money(m.stockValue)) : (m.inStock.length + ' ใบ') },
-    { ic: '📦', cls: 'c-blue', label: 'สินค้าในคลัง', val: m.inStock.length.toLocaleString('th-TH') + ' ใบ', sub: 'สะสม ' + m.nShow + ' · รอขาย ' + m.nWait },
-    sp && { ic: '🛒', cls: 'c-green', label: 'รับซื้อ (ช่วงที่เลือก)', val: money(m.buySpent), sub: m.buyRange.length + ' รายการ' },
+    { ic: '💰', cls: 'c-green', label: 'ยอดขายสุทธิ (ช่วงที่เลือก)', val: money(m.salesTotal), sub: m.soldRange.length + ' บิล' },
+    sp && { ic: '🏷️', cls: 'c-yellow', label: 'ยอดหักเปอร์เซ็นต์ (ช่วงที่เลือก)', val: money(m.discountTotal), sub: 'จากยอดรวม ' + money(m.salesTotal + m.discountTotal) },
+    sp && { ic: '📈', cls: 'c-blue', label: 'กำไร (ช่วงที่เลือก, หลังหัก %)', val: money(m.grossProfit), valCls: m.grossProfit >= 0 ? 'pos' : 'neg', sub: m.salesTotal > 0 ? ('อัตรากำไร ' + m.margin + '%') : '—' },
+    { ic: '🧾', cls: 'c-blue', label: 'ยอดขายวันนี้', val: money(m.todaySales), sub: m.soldToday.length + ' บิล' },
+    { ic: '🏦', cls: 'c-purple', label: sp ? 'มูลค่าสต็อก (ทุน)' : 'มูลค่าสต็อก', val: money(sp ? m.stockCost : m.stockValue), sub: 'ราคาขายรวม ' + money(m.stockValue) },
+    { ic: '⚠️', cls: 'c-red', label: 'สินค้าใกล้หมด/หมด', val: '0 รายการ', sub: 'จากทั้งหมด ' + m.kinds + ' รายการ' },
+    { ic: '🃏', cls: 'c-green', label: 'สินค้าประเภทการ์ด', val: m.kinds + ' รายการ', sub: m.inStock.length + ' ชิ้นในสต็อก' },
+    { ic: '🎲', cls: 'c-blue', label: 'Event ขายจุ่ม', val: money(0), sub: m.gachaCount + ' กล่องเปิดขาย' },
   ].filter(Boolean);
   return '<div class="dash-grid">' + scards.map(c => `<div class="dash-card ${c.cls || ''}">
     <div class="dc-head"><div class="dc-ic">${c.ic}</div><div class="dc-label">${c.label}</div></div>
@@ -3115,26 +3145,28 @@ function dashStatCardsHTML(m) {
 }
 function dashFinancialHTML(m) {
   if (!canSeeProfit()) return ''; // ไม่มีสิทธิ์ดูกำไร → ไม่โชว์สรุปการเงิน
+  const expense = 0;                 // รายจ่ายร้าน — ยังไม่มีระบบบันทึกรายจ่าย
+  const netProfit = m.grossProfit - expense;
   return `<div class="dash-panel">
-    <div class="dp-head">💵 สรุปการเงิน (ช่วงที่เลือก)</div>
+    <div class="dp-head">💰 สรุปการเงิน (ช่วงที่เลือก)</div>
     <div class="fin-cols">
       <div>
-        <div class="fin-row"><span>ยอดขายรวม</span><span class="fr-val">${money(m.salesTotal)}</span></div>
-        <div class="fin-row"><span>ต้นทุนสินค้าที่ขาย</span><span class="fr-val neg">-${money(m.costOfSold)}</span></div>
-        <div class="fin-row total"><span>กำไรขั้นต้น</span><span class="fr-val ${m.grossProfit >= 0 ? 'pos' : 'neg'}">${money(m.grossProfit)}</span></div>
+        <div class="fin-row"><span>กำไรขั้นต้น (จากการขายสินค้า)</span><span class="fr-val">${money(m.grossProfit)}</span></div>
+        <div class="fin-row"><span>รายจ่ายร้าน</span><span class="fr-val neg">-${money(expense)}</span></div>
+        <div class="fin-row total"><span>กำไรสุทธิ (หลังหักรายจ่าย)</span><span class="fr-val ${netProfit >= 0 ? 'pos' : 'neg'}">${money(netProfit)}</span></div>
       </div>
       <div>
         <div class="fin-row"><span>รับเงินสด (จากการขาย)</span><span class="fr-val">${money(m.cashIn)}</span></div>
         <div class="fin-row"><span>รับเงินโอน (จากการขาย)</span><span class="fr-val">${money(m.transferIn)}</span></div>
-        <div class="fin-row"><span>เงินจ่ายรับซื้อสินค้า</span><span class="fr-val neg">-${money(m.buySpent)}</span></div>
+        <div class="fin-row"><span>เงินที่จ่ายรับซื้อสินค้า</span><span class="fr-val neg">-${money(m.buySpent)}</span></div>
       </div>
     </div>
   </div>`;
 }
 function dashChartsHTML(m) {
   return `<div class="dash-2col">
-    <div class="dash-panel"><div class="dp-head">ยอดขายรายวัน (ช่วงที่เลือก)<span class="dp-unit">หน่วย: บาท</span></div>${dashBarChart(m.soldRange, m.from, m.to)}</div>
-    <div class="dash-panel"><div class="dp-head">สัดส่วนยอดขายตามเรื่อง</div>${dashDonut(m.soldRange)}</div>
+    <div class="dash-panel"><div class="dp-head">ยอดขายสุทธิรายวัน (ช่วงที่เลือก)<span class="dp-unit">หน่วย: บาท</span></div>${dashBarChart(m.soldRange, m.from, m.to)}</div>
+    <div class="dash-panel"><div class="dp-head">สัดส่วนตามประเภท</div>${dashDonut(m.soldRange)}</div>
   </div>`;
 }
 // แดชบอร์ดแอดมิน = "สรุป" อย่างเดียว (การ์ดสรุป + สรุปการเงิน · ไม่มีกราฟ)
@@ -4346,12 +4378,83 @@ const SHOP_FEATURES = [
 const SHOP_PLACEHOLDERS = [
   { key: 'expense', label: 'รายจ่ายร้าน' },
   { key: 'dailyclose', label: 'ปิดยอดรายวัน' },
+  { key: 'partners', label: 'ร้านคู่ค้า' },
   { key: 'saleshistory', label: 'ประวัติการขายสินค้า' },
+  { key: 'rental', label: 'บริการเช่าตู้' },
   { key: 'products', label: 'สินค้า' },
   { key: 'stockbyshop', label: 'สต็อกแยกร้าน' },
   { key: 'categories', label: 'ประเภทสินค้า' },
   { key: 'stockmovement', label: 'ความเคลื่อนไหวสต็อก' },
 ];
+// โครงเมนูบัญชีร้าน (ตามแบบ) — feat=ฟังก์ชันจริง · ph=หัวข้อรอรายละเอียด · home=แดชบอร์ดร้าน
+const SHOP_MENU = [
+  { group: 'ภาพรวม', items: [
+    { ic: '📊', label: 'แดชบอร์ด', home: true },
+    { ic: '📈', label: 'รายงานยอดขาย', feat: 'report' },
+  ] },
+  { group: 'การขาย', items: [
+    { ic: '🧾', label: 'บิลขายสินค้า', feat: 'sales' },
+    { ic: '🛒', label: 'รับซื้อ', feat: 'buy' },
+    { ic: '💸', label: 'รายจ่ายร้าน', ph: 'expense' },
+    { ic: '📅', label: 'ปิดยอดรายวัน', ph: 'dailyclose' },
+    { ic: '🎲', label: 'Event ขายจุ่ม', feat: 'gacha' },
+    { ic: '🤝', label: 'ร้านคู่ค้า', ph: 'partners' },
+    { ic: '📜', label: 'ประวัติการขายสินค้า', ph: 'saleshistory' },
+  ] },
+  { group: 'บริการเสริม', items: [
+    { ic: '🎰', label: 'บริการเช่าตู้', ph: 'rental' },
+  ] },
+  { group: 'คลังสินค้า', items: [
+    { ic: '📦', label: 'สินค้า', ph: 'products' },
+    { ic: '🏬', label: 'สต็อกแยกร้าน', ph: 'stockbyshop' },
+    { ic: '🏷️', label: 'ประเภทสินค้า', ph: 'categories' },
+    { ic: '🔄', label: 'ความเคลื่อนไหวสต็อก', ph: 'stockmovement' },
+  ] },
+];
+function isShopAccount() { return !!passcode && userRole !== 'admin' && userShops && userShops.length > 0; }
+// แถบเมนูบัญชีร้าน — จัดกลุ่ม + ไอคอน + แบรนด์ร้าน + ผู้ใช้ท้าย (ตามแบบ)
+function renderShopSidebar() {
+  const shopNavEl = document.getElementById('shopAccountNav');
+  const adminNavEl = document.getElementById('adminNav');
+  const brand = document.getElementById('brandBox');
+  const footUser = document.getElementById('footUser');
+  const authBtn = document.getElementById('authBtn');
+  if (!shopNavEl) return;
+  const on = isShopAccount();
+  if (adminNavEl) adminNavEl.style.display = on ? 'none' : '';
+  shopNavEl.style.display = on ? '' : 'none';
+  if (!on) {
+    if (brand) brand.innerHTML = '🃏 CielLand <span class="pill">PSA</span>';
+    if (footUser) footUser.innerHTML = '';
+    if (authBtn) authBtn.style.display = '';
+    return;
+  }
+  const sid = userShops[0];
+  const s = shopById(sid);
+  const shopName = s ? (s.name || 'ร้านค้า') : 'ร้านค้า';
+  if (brand) brand.innerHTML = `<div class="brand-shop"><div class="bs-logo">🏪</div><div><div class="bs-name">${esc(shopName)}</div><div class="bs-sub">ระบบสต็อก & การขาย</div></div></div>`;
+  // เมนู
+  let html = '';
+  for (const g of SHOP_MENU) {
+    html += `<div class="san-group">${esc(g.group)}</div>`;
+    for (const it of g.items) {
+      let act = false, onclick = '';
+      if (it.home) { act = (viewShopId === sid && !curShopFeature); onclick = `openShopHome('${sid}')`; }
+      else if (it.feat) { act = (viewShopId === sid && curShopFeature === it.feat); onclick = `switchShopView('${sid}','${it.feat}')`; }
+      else { act = (viewShopId === sid && curShopFeature === it.ph); onclick = `openShopPlaceholder('${sid}','${it.ph}')`; }
+      const soon = it.ph ? ' <span class="san-soon">🚧</span>' : '';
+      html += `<button class="san-item${act ? ' active' : ''}" onclick="${onclick}"><span class="san-ic">${it.ic}</span> ${esc(it.label)}${soon}</button>`;
+    }
+  }
+  html += '<div class="san-group">ระบบ</div>';
+  shopNavEl.innerHTML = html;
+  // ผู้ใช้ท้าย
+  if (footUser) {
+    const nm = loginId || 'ผู้ใช้';
+    footUser.innerHTML = `<div class="foot-user"><div class="fu-avatar">${esc(nm.slice(0, 2))}</div><div class="fu-info"><div class="fu-name">${esc(nm)}</div><div class="fu-role">พนักงาน</div></div><button class="fu-power" onclick="logout()" title="ออกจากระบบ">⏻</button></div>`;
+  }
+  if (authBtn) authBtn.style.display = 'none';
+}
 function shopFeatLabel(key) {
   const f = SHOP_FEATURES.find(x => x.key === key) || SHOP_PLACEHOLDERS.find(x => x.key === key);
   return f ? f.label : '';
@@ -4426,6 +4529,7 @@ function renderShopNav() {
     }
   }
   el.innerHTML = html;
+  renderShopSidebar(); // อัปเดตแถบเมนูบัญชีร้าน (ไฮไลต์เมนูที่เลือก) ทุกครั้งที่เปลี่ยนหน้า
 }
 // เปิดหน้าหัวข้อที่ยังไม่มีรายละเอียด (placeholder)
 function openShopPlaceholder(shopId, key) {
