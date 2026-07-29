@@ -776,7 +776,7 @@
 
   <div id="viewDashboard" style="display:none">
     <h2 class="view-title">📊 แดชบอร์ด <span style="color:var(--muted);font-weight:400;font-size:.7em">ภาพรวมธุรกิจ</span></h2>
-    <div class="dash-range">
+    <div class="dash-range" id="dashRangeBar">
       <button class="rbtn" data-range="today" onclick="setDashRange('today')">วันนี้</button>
       <button class="rbtn" data-range="7d" onclick="setDashRange('7d')">7 วัน</button>
       <button class="rbtn active" data-range="month" onclick="setDashRange('month')">เดือนนี้</button>
@@ -1032,9 +1032,20 @@
   </div><!-- /viewShop -->
 
   <div id="viewShopHome" style="display:none">
-    <h2 class="view-title" id="shopHomeTitle">🏪 ร้านค้า</h2>
-    <div class="stats" id="shopHomeStats"></div>
-    <p style="color:var(--muted);font-size:.86rem">เลือกฟังก์ชันของร้านจากเมนูด้านซ้าย — สินค้าขาย · รายงานการขาย · รับซื้อสินค้า · จุ่มสินค้า</p>
+    <h2 class="view-title" id="shopHomeTitle">🏪 ร้านค้า <span style="color:var(--muted);font-weight:400;font-size:.7em">หลังบ้านร้าน</span></h2>
+    <div class="dash-range" id="shopDashRangeBar">
+      <button class="rbtn" data-range="today" onclick="setShopDashRange('today')">วันนี้</button>
+      <button class="rbtn" data-range="7d" onclick="setShopDashRange('7d')">7 วัน</button>
+      <button class="rbtn active" data-range="month" onclick="setShopDashRange('month')">เดือนนี้</button>
+      <button class="rbtn" data-range="custom" onclick="setShopDashRange('custom')">กำหนดเอง</button>
+      <input type="date" id="shopDashFrom" onchange="onShopDashCustom()">
+      <span class="rsep">ถึง</span>
+      <input type="date" id="shopDashTo" onchange="onShopDashCustom()">
+      <span class="rspacer"></span>
+      <span class="rlabel" id="shopDashRangeLabel"></span>
+    </div>
+    <div id="shopHomeDash"></div>
+    <p style="color:var(--muted);font-size:.84rem;margin-top:6px">เลือกฟังก์ชันของร้านจากเมนูด้านซ้าย — สินค้าขาย · รายงานการขาย · รับซื้อสินค้า · จุ่มสินค้า</p>
   </div><!-- /viewShopHome -->
 
   <div id="viewSettings" style="display:none">
@@ -2968,30 +2979,29 @@ let dashRange = { mode: 'month' };
 function isoDaysAgo(n) { const d = new Date(); d.setDate(d.getDate() - n); return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate()); }
 function isoNext(s) { const [y, m, d] = s.split('-').map(Number); const dt = new Date(y, m - 1, d); dt.setDate(dt.getDate() + 1); return dt.getFullYear() + '-' + pad2(dt.getMonth() + 1) + '-' + pad2(dt.getDate()); }
 function shortMoney(n) { n = Number(n) || 0; if (n >= 1e6) return (n / 1e6).toFixed(n >= 1e7 ? 0 : 1) + 'M'; if (n >= 1e3) return Math.round(n / 1e3) + 'k'; return String(Math.round(n)); }
-function dashPeriod() {
+// ช่วงวันที่จาก range + id ของช่อง date (ใช้ร่วมทั้งแดชบอร์ดแอดมินและร้าน)
+function periodOf(range, fromId, toId) {
   const today = todayStr();
-  if (dashRange.mode === 'today') return [today, today];
-  if (dashRange.mode === '7d') return [isoDaysAgo(6), today];
-  if (dashRange.mode === 'month') return [today.slice(0, 7) + '-01', today];
-  const f = document.getElementById('dashFrom').value || today;
-  const t = document.getElementById('dashTo').value || today;
+  if (range.mode === 'today') return [today, today];
+  if (range.mode === '7d') return [isoDaysAgo(6), today];
+  if (range.mode === 'month') return [today.slice(0, 7) + '-01', today];
+  const f = (document.getElementById(fromId).value) || today;
+  const t = (document.getElementById(toId).value) || today;
   return f <= t ? [f, t] : [t, f];
 }
-function setDashRange(mode) {
-  dashRange.mode = mode;
-  document.querySelectorAll('.dash-range .rbtn').forEach(b => b.classList.toggle('active', b.dataset.range === mode));
+function dashPeriod() { return periodOf(dashRange, 'dashFrom', 'dashTo'); }
+function setRangeGeneric(range, mode, barId, fromId, toId, rerender) {
+  range.mode = mode;
+  document.querySelectorAll('#' + barId + ' .rbtn').forEach(b => b.classList.toggle('active', b.dataset.range === mode));
   if (mode === 'custom') {
-    const today = todayStr(), fi = document.getElementById('dashFrom'), ti = document.getElementById('dashTo');
+    const today = todayStr(), fi = document.getElementById(fromId), ti = document.getElementById(toId);
     if (!fi.value) fi.value = today.slice(0, 7) + '-01';
     if (!ti.value) ti.value = today;
   }
-  renderDashboard();
+  rerender();
 }
-function onDashCustom() {
-  dashRange.mode = 'custom';
-  document.querySelectorAll('.dash-range .rbtn').forEach(b => b.classList.toggle('active', b.dataset.range === 'custom'));
-  renderDashboard();
-}
+function setDashRange(mode) { setRangeGeneric(dashRange, mode, 'dashRangeBar', 'dashFrom', 'dashTo', renderDashboard); }
+function onDashCustom() { dashRange.mode = 'custom'; document.querySelectorAll('#dashRangeBar .rbtn').forEach(b => b.classList.toggle('active', b.dataset.range === 'custom')); renderDashboard(); }
 // กราฟแท่งยอดขายรายวัน (CSS ล้วน)
 function dashBarChart(items, from, to) {
   const days = []; let d = from;
@@ -3032,68 +3042,82 @@ function dashDonut(items) {
     <div class="donut-legend">${legend}</div>
   </div>`;
 }
+// คำนวณตัวเลขแดชบอร์ด — sid=null คือรวมทั้งธุรกิจ (แอดมิน) · มี sid = เฉพาะร้านนั้น
+function dashMetrics(from, to, sid) {
+  const inRange = d => d && d >= from && d <= to;
+  const soldSid = c => (c.soldShopId != null && c.soldShopId !== '') ? c.soldShopId : c.shopId;
+  const okSold = c => !sid || soldSid(c) === sid;   // ขายแล้ว → ดูจากร้านที่ขายจริง
+  const okStock = c => !sid || c.shopId === sid;    // คงคลัง/รับซื้อ → ดูจากร้านที่ผูกไว้
+  const real = cards.filter(c => !c.productOnly);
+  const today = todayStr();
+  const soldRange = real.filter(c => c.status === 'sold' && !c.cancelled && inRange(c.sellDate) && okSold(c));
+  const salesTotal = soldRange.reduce((s, c) => s + (Number(c.sell) || 0), 0);
+  const costOfSold = soldRange.reduce((s, c) => s + (Number(c.buy) || 0), 0);
+  const grossProfit = salesTotal - costOfSold;
+  const margin = salesTotal > 0 ? Math.round(grossProfit / salesTotal * 100) : 0;
+  const soldToday = real.filter(c => c.status === 'sold' && !c.cancelled && c.sellDate === today && okSold(c));
+  const todaySales = soldToday.reduce((s, c) => s + (Number(c.sell) || 0), 0);
+  const cashIn = soldRange.filter(c => c.payment === 'cash').reduce((s, c) => s + (Number(c.sell) || 0), 0);
+  const transferIn = soldRange.filter(c => c.payment === 'transfer').reduce((s, c) => s + (Number(c.sell) || 0), 0);
+  const buyRange = real.filter(c => c.viaBuy && inRange(c.buyDate) && okStock(c));
+  const buySpent = buyRange.reduce((s, c) => s + (Number(c.buy) || 0), 0);
+  const inStock = real.filter(c => c.status !== 'sold' && okStock(c));
+  const stockCost = inStock.reduce((s, c) => s + (Number(c.buy) || 0), 0);
+  const stockValue = inStock.reduce((s, c) => s + (Number(c.sell) || Number(c.median) || 0), 0);
+  const nShow = inStock.filter(c => c.status === 'show').length, nWait = inStock.filter(c => c.status === 'wait').length;
+  return { from, to, soldRange, salesTotal, costOfSold, grossProfit, margin, soldToday, todaySales, cashIn, transferIn, buyRange, buySpent, inStock, stockCost, stockValue, nShow, nWait };
+}
+// การ์ดสรุป — ซ่อนตัวที่อ่อนไหว (กำไร/ต้นทุน/รับซื้อ) ถ้าไม่มีสิทธิ์ดูกำไร
+function dashStatCardsHTML(m) {
+  const sp = canSeeProfit();
+  const scards = [
+    { ic: '💰', cls: 'c-green', label: 'ยอดขาย (ช่วงที่เลือก)', val: money(m.salesTotal), sub: m.soldRange.length + ' ใบ' },
+    sp && { ic: '📈', cls: 'c-blue', label: 'กำไร (ช่วงที่เลือก)', val: money(m.grossProfit), valCls: m.grossProfit >= 0 ? 'pos' : 'neg', sub: 'อัตรากำไร ' + m.margin + '%' },
+    { ic: '🧾', cls: 'c-purple', label: 'ยอดขายวันนี้', val: money(m.todaySales), sub: m.soldToday.length + ' ใบ' },
+    { ic: '🏦', cls: 'c-yellow', label: sp ? 'มูลค่าคลังสินค้า (ทุน)' : 'มูลค่าคลังสินค้า', val: money(sp ? m.stockCost : m.stockValue), sub: sp ? ('ราคาขายรวม ' + money(m.stockValue)) : (m.inStock.length + ' ใบ') },
+    { ic: '📦', cls: 'c-blue', label: 'สินค้าในคลัง', val: m.inStock.length.toLocaleString('th-TH') + ' ใบ', sub: 'สะสม ' + m.nShow + ' · รอขาย ' + m.nWait },
+    sp && { ic: '🛒', cls: 'c-green', label: 'รับซื้อ (ช่วงที่เลือก)', val: money(m.buySpent), sub: m.buyRange.length + ' รายการ' },
+  ].filter(Boolean);
+  return '<div class="dash-grid">' + scards.map(c => `<div class="dash-card ${c.cls || ''}">
+    <div class="dc-head"><div class="dc-ic">${c.ic}</div><div class="dc-label">${c.label}</div></div>
+    <div class="dc-value ${c.valCls || ''}">${c.val}</div>
+    <div class="dc-sub">${c.sub}</div>
+  </div>`).join('') + '</div>';
+}
+function dashFinancialHTML(m) {
+  if (!canSeeProfit()) return ''; // ไม่มีสิทธิ์ดูกำไร → ไม่โชว์สรุปการเงิน
+  return `<div class="dash-panel">
+    <div class="dp-head">💵 สรุปการเงิน (ช่วงที่เลือก)</div>
+    <div class="fin-cols">
+      <div>
+        <div class="fin-row"><span>ยอดขายรวม</span><span class="fr-val">${money(m.salesTotal)}</span></div>
+        <div class="fin-row"><span>ต้นทุนสินค้าที่ขาย</span><span class="fr-val neg">-${money(m.costOfSold)}</span></div>
+        <div class="fin-row total"><span>กำไรขั้นต้น</span><span class="fr-val ${m.grossProfit >= 0 ? 'pos' : 'neg'}">${money(m.grossProfit)}</span></div>
+      </div>
+      <div>
+        <div class="fin-row"><span>รับเงินสด (จากการขาย)</span><span class="fr-val">${money(m.cashIn)}</span></div>
+        <div class="fin-row"><span>รับเงินโอน (จากการขาย)</span><span class="fr-val">${money(m.transferIn)}</span></div>
+        <div class="fin-row"><span>เงินจ่ายรับซื้อสินค้า</span><span class="fr-val neg">-${money(m.buySpent)}</span></div>
+      </div>
+    </div>
+  </div>`;
+}
+function dashChartsHTML(m) {
+  return `<div class="dash-2col">
+    <div class="dash-panel"><div class="dp-head">ยอดขายรายวัน (ช่วงที่เลือก)<span class="dp-unit">หน่วย: บาท</span></div>${dashBarChart(m.soldRange, m.from, m.to)}</div>
+    <div class="dash-panel"><div class="dp-head">สัดส่วนยอดขายตามเรื่อง</div>${dashDonut(m.soldRange)}</div>
+  </div>`;
+}
+// แดชบอร์ดแอดมิน = "สรุป" อย่างเดียว (การ์ดสรุป + สรุปการเงิน · ไม่มีกราฟ)
 function renderDashboard() {
   const area = document.getElementById('dashArea');
   if (!area) return;
   const [from, to] = dashPeriod();
   const lbl = document.getElementById('dashRangeLabel');
   if (lbl) lbl.textContent = '📅 ' + fmtDate(from) + ' – ' + fmtDate(to);
-  const inRange = d => d && d >= from && d <= to;
-  const real = cards.filter(c => !c.productOnly);
-
-  const soldRange = real.filter(c => c.status === 'sold' && !c.cancelled && inRange(c.sellDate));
-  const salesTotal = soldRange.reduce((s, c) => s + (Number(c.sell) || 0), 0);
-  const costOfSold = soldRange.reduce((s, c) => s + (Number(c.buy) || 0), 0);
-  const grossProfit = salesTotal - costOfSold;
-  const margin = salesTotal > 0 ? Math.round(grossProfit / salesTotal * 100) : 0;
-  const today = todayStr();
-  const soldToday = real.filter(c => c.status === 'sold' && !c.cancelled && c.sellDate === today);
-  const todaySales = soldToday.reduce((s, c) => s + (Number(c.sell) || 0), 0);
-  const cashIn = soldRange.filter(c => c.payment === 'cash').reduce((s, c) => s + (Number(c.sell) || 0), 0);
-  const transferIn = soldRange.filter(c => c.payment === 'transfer').reduce((s, c) => s + (Number(c.sell) || 0), 0);
-  const buyRange = real.filter(c => c.viaBuy && inRange(c.buyDate));
-  const buySpent = buyRange.reduce((s, c) => s + (Number(c.buy) || 0), 0);
-  const inStock = real.filter(c => c.status !== 'sold');
-  const stockCost = inStock.reduce((s, c) => s + (Number(c.buy) || 0), 0);
-  const stockValue = inStock.reduce((s, c) => s + (Number(c.sell) || Number(c.median) || 0), 0);
-  const nShow = inStock.filter(c => c.status === 'show').length, nWait = inStock.filter(c => c.status === 'wait').length;
-
-  const scards = [
-    { ic: '💰', cls: 'c-green', label: 'ยอดขาย (ช่วงที่เลือก)', val: money(salesTotal), sub: soldRange.length + ' ใบ' },
-    { ic: '📈', cls: 'c-blue', label: 'กำไร (ช่วงที่เลือก)', val: money(grossProfit), valCls: grossProfit >= 0 ? 'pos' : 'neg', sub: 'อัตรากำไร ' + margin + '%' },
-    { ic: '🧾', cls: 'c-purple', label: 'ยอดขายวันนี้', val: money(todaySales), sub: soldToday.length + ' ใบ' },
-    { ic: '🏦', cls: 'c-yellow', label: 'มูลค่าสต็อก (ทุน)', val: money(stockCost), sub: 'ราคาขายรวม ' + money(stockValue) },
-    { ic: '📦', cls: 'c-blue', label: 'การ์ดในสต็อก', val: inStock.length.toLocaleString('th-TH') + ' ใบ', sub: 'สะสม ' + nShow + ' · รอขาย ' + nWait },
-    { ic: '🛒', cls: 'c-green', label: 'รับซื้อ (ช่วงที่เลือก)', val: money(buySpent), sub: buyRange.length + ' รายการ' },
-  ];
-  const grid = '<div class="dash-grid">' + scards.map(c => `<div class="dash-card ${c.cls || ''}">
-    <div class="dc-head"><div class="dc-ic">${c.ic}</div><div class="dc-label">${c.label}</div></div>
-    <div class="dc-value ${c.valCls || ''}">${c.val}</div>
-    <div class="dc-sub">${c.sub}</div>
-  </div>`).join('') + '</div>';
-
-  const fin = `<div class="dash-panel">
-    <div class="dp-head">💵 สรุปการเงิน (ช่วงที่เลือก)</div>
-    <div class="fin-cols">
-      <div>
-        <div class="fin-row"><span>ยอดขายรวม</span><span class="fr-val">${money(salesTotal)}</span></div>
-        <div class="fin-row"><span>ต้นทุนสินค้าที่ขาย</span><span class="fr-val neg">-${money(costOfSold)}</span></div>
-        <div class="fin-row total"><span>กำไรขั้นต้น</span><span class="fr-val ${grossProfit >= 0 ? 'pos' : 'neg'}">${money(grossProfit)}</span></div>
-      </div>
-      <div>
-        <div class="fin-row"><span>รับเงินสด (จากการขาย)</span><span class="fr-val">${money(cashIn)}</span></div>
-        <div class="fin-row"><span>รับเงินโอน (จากการขาย)</span><span class="fr-val">${money(transferIn)}</span></div>
-        <div class="fin-row"><span>เงินจ่ายรับซื้อสินค้า</span><span class="fr-val neg">-${money(buySpent)}</span></div>
-      </div>
-    </div>
-  </div>`;
-
-  const charts = `<div class="dash-2col">
-    <div class="dash-panel"><div class="dp-head">ยอดขายรายวัน (ช่วงที่เลือก)<span class="dp-unit">หน่วย: บาท</span></div>${dashBarChart(soldRange, from, to)}</div>
-    <div class="dash-panel"><div class="dp-head">สัดส่วนยอดขายตามเรื่อง</div>${dashDonut(soldRange)}</div>
-  </div>`;
-
-  area.innerHTML = grid + fin + charts;
+  document.querySelectorAll('#dashRangeBar .rbtn').forEach(b => b.classList.toggle('active', b.dataset.range === dashRange.mode));
+  const m = dashMetrics(from, to, null);
+  area.innerHTML = dashStatCardsHTML(m) + dashFinancialHTML(m);
 }
 
 const THAI_MONTHS = ['', 'มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน', 'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'];
@@ -4434,29 +4458,20 @@ function cardInShopDash(c, sid) {
   }
   return c.shopId === sid;
 }
+// ---- แดชบอร์ดหลังบ้านของร้าน (เต็ม: การ์ดสรุป + สรุปการเงิน + กราฟ) เฉพาะข้อมูลร้านนั้น ----
+let shopDashRange = { mode: 'month' };
+function shopDashPeriod() { return periodOf(shopDashRange, 'shopDashFrom', 'shopDashTo'); }
+function setShopDashRange(mode) { setRangeGeneric(shopDashRange, mode, 'shopDashRangeBar', 'shopDashFrom', 'shopDashTo', () => renderShopHomeStats(viewShopId)); }
+function onShopDashCustom() { shopDashRange.mode = 'custom'; document.querySelectorAll('#shopDashRangeBar .rbtn').forEach(b => b.classList.toggle('active', b.dataset.range === 'custom')); renderShopHomeStats(viewShopId); }
 function renderShopHomeStats(sid) {
-  const el = document.getElementById('shopHomeStats');
-  if (!el) return;
-  const real = cards.filter(c => cardInShopDash(c, sid));
-  const count = real.length;
-  const nShow = real.filter(c => c.status === 'show').length;
-  const nWait = real.filter(c => c.status === 'wait').length;
-  const nSold = real.filter(c => c.status === 'sold' && !c.cancelled).length;
-  const inStock = real.filter(c => c.status !== 'sold');
-  const totalSell = inStock.reduce((s, c) => s + (Number(c.sell) || 0), 0);
-  const realized = real.filter(c => c.status === 'sold' && !c.cancelled)
-    .reduce((s, c) => s + ((Number(c.sell) || 0) - (Number(c.buy) || 0)), 0);
-  el.innerHTML = `
-    <div class="stat">
-      <div class="label">จำนวนการ์ดทั้งหมด</div>
-      <div class="value num">${count.toLocaleString('th-TH')}</div>
-      <div class="sub">สะสม ${nShow} · รอขาย ${nWait} · ขายแล้ว ${nSold}</div>
-    </div>
-    <div class="stat">
-      <div class="label">ยอดรวมราคาขาย</div>
-      <div class="value num">${money(totalSell)}</div>
-      ${canSeeProfit() ? `<div class="sub ${realized > 0 ? 'profit-pos' : realized < 0 ? 'profit-neg' : ''}">กำไรที่ขายได้จริง ${money(realized)}</div>` : '<div class="sub">เฉพาะของในร้านนี้</div>'}
-    </div>`;
+  const el = document.getElementById('shopHomeDash');
+  if (!el || !sid) return;
+  const [from, to] = shopDashPeriod();
+  const lbl = document.getElementById('shopDashRangeLabel');
+  if (lbl) lbl.textContent = '📅 ' + fmtDate(from) + ' – ' + fmtDate(to);
+  document.querySelectorAll('#shopDashRangeBar .rbtn').forEach(b => b.classList.toggle('active', b.dataset.range === shopDashRange.mode));
+  const m = dashMetrics(from, to, sid);
+  el.innerHTML = dashStatCardsHTML(m) + dashFinancialHTML(m) + dashChartsHTML(m);
 }
 
 // ---- ฟอร์มสร้าง/แก้ไขร้านค้า ----
