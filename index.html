@@ -244,13 +244,13 @@
   tr.gb-prow.drawn td { color: var(--muted); opacity: .55; }
   tr.gb-prow.drawn td.gb-check { opacity: 1; }
   tr.gb-prow.drawn td.num { text-decoration: line-through; }
-  .gp-row { display: flex; gap: 7px; align-items: center; margin-bottom: 8px; flex-wrap: wrap; }
-  .gp-row .gp-num { flex: 0 1 64px; min-width: 50px; text-align: center; font-weight: 700; color: var(--accent2); }
-  .gp-row input { background: var(--bg); border: 1px solid var(--border); color: var(--text); padding: 9px 12px; border-radius: 10px; font-size: .92rem; font-family: inherit; }
+  .gp-row { display: flex; gap: 6px; align-items: center; margin-bottom: 8px; flex-wrap: nowrap; }
+  .gp-row .gp-num { flex: 0 1 52px; min-width: 40px; text-align: center; font-weight: 700; color: var(--accent2); }
+  .gp-row input { background: var(--bg); border: 1px solid var(--border); color: var(--text); padding: 9px 10px; border-radius: 10px; font-size: .92rem; font-family: inherit; min-width: 0; }
   .gp-row input:focus { outline: none; border-color: var(--accent); }
-  .gp-row .gp-cert { flex: 0 1 92px; min-width: 70px; }
-  .gp-row .gp-name { flex: 1 1 140px; min-width: 0; }
-  .gp-row .gp-qty { flex: 0 1 110px; min-width: 90px; }
+  .gp-row .gp-cert { flex: 0 1 84px; min-width: 56px; }
+  .gp-row .gp-name { flex: 1 1 120px; min-width: 0; }
+  .gp-row .gp-qty { flex: 0 1 96px; min-width: 72px; }
   .gp-row .gp-psa { background: rgba(108,92,231,.15); border: 1px solid var(--accent2); color: var(--accent2); border-radius: 9px; width: 38px; height: 38px; cursor: pointer; font-size: 1rem; flex: none; }
   .gp-row .gp-psa:hover { background: var(--accent2); color: #fff; }
   .gp-row .gp-psa:disabled { opacity: .5; cursor: default; }
