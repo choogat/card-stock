@@ -454,9 +454,15 @@
     background: var(--card); border: 1px solid var(--border); color: var(--text);
     padding: 12px 14px; border-radius: 12px; font-size: .9rem;
   }
+  .filters-row {
+    display: flex; gap: 10px; margin-bottom: 18px; align-items: stretch; flex-wrap: nowrap;
+    overflow-x: auto; padding-bottom: 2px;
+  }
+  .filters-row select.filter { flex: 0 0 auto; }
+  .filters-row .price-filter { flex: 0 0 auto; margin-left: auto; }
   .price-filter {
     display: flex; align-items: center; gap: 6px;
-    background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 6px 12px;
+    background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 0 12px;
   }
   .price-filter .pf-label { color: var(--muted); font-size: .82rem; font-weight: 600; }
   .price-filter .pf-dash { color: var(--muted); }
@@ -918,6 +924,9 @@
     <button class="btn btn-primary" onclick="openForm('collect')">+ เพิ่มของสะสม</button>
     <button class="btn btn-ghost" onclick="openPSASearch()">🔍 ค้นหาการ์ด PSA</button>
     <input class="search" id="search" placeholder="ค้นหา เรื่อง / ชื่อ / รุ่น / PSA..." oninput="render()">
+  </div>
+
+  <div class="filters-row">
     <select class="filter" id="topicFilter" onchange="render()">
       <option value="">ทุกเรื่อง</option>
     </select>
