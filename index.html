@@ -59,12 +59,22 @@
   body.locked .layout { display: none; }
   body.locked #loginOverlay { align-items: center; }
   .sidebar {
-    width: 230px; flex-shrink: 0; position: sticky; top: 24px;
-    max-height: calc(100vh - 48px); overflow: hidden; overscroll-behavior: contain;
+    width: 230px; flex-shrink: 0; position: sticky; top: 20px;
+    height: calc(100vh - 40px); overflow: hidden; overscroll-behavior: contain;
     background: var(--card); border: 1px solid var(--border); border-radius: 18px; padding: 18px 14px;
     display: flex; flex-direction: column; gap: 8px;
   }
   .sidebar .brand, .sidebar #brandBox, .sidebar-foot { flex: none; }
+  /* แถบบนสุด (ทุกหน้า) — เชื่อมต่ออยู่ + สลับธีม + ขายสินค้า */
+  .topbar { position: sticky; top: 8px; z-index: 20; display: flex; align-items: center; gap: 14px; background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 10px 16px; margin-bottom: 18px; box-shadow: 0 2px 10px rgba(0,0,0,.12); }
+  .topbar .tb-burger { background: none; border: none; color: var(--muted); font-size: 1.2rem; cursor: pointer; padding: 2px 6px; flex: none; }
+  .topbar .tb-titles { flex: 1; min-width: 0; }
+  .topbar .tb-title { font-weight: 800; font-size: 1.05rem; line-height: 1.15; }
+  .topbar .tb-sub { font-size: .72rem; color: var(--muted); }
+  .topbar .tb-right { display: flex; align-items: center; gap: 9px; flex: none; }
+  .tb-conn { font-size: .76rem; color: var(--green); background: rgba(36,201,138,.14); padding: 4px 11px; border-radius: 999px; font-weight: 600; white-space: nowrap; }
+  .tb-icon { width: 34px; height: 34px; border-radius: 9px; background: var(--card2); border: 1px solid var(--border); color: var(--text); cursor: pointer; font-size: 1rem; }
+  .tb-icon:hover { border-color: var(--accent); }
   .nav { flex: 1 1 auto; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 5px; }
   .nav::-webkit-scrollbar { width: 7px; }
   .nav::-webkit-scrollbar-thumb { background: var(--border); border-radius: 999px; }
@@ -827,6 +837,15 @@
   </aside>
 
   <main class="main">
+  <header class="topbar" id="shopTopbar" style="display:none">
+    <button class="tb-burger" onclick="document.querySelector('.sidebar').scrollIntoView({behavior:'smooth'})" title="เมนู">☰</button>
+    <div class="tb-titles"><div class="tb-title" id="tbTitle">แดชบอร์ด</div><div class="tb-sub" id="tbSub">ภาพรวมธุรกิจ</div></div>
+    <div class="tb-right">
+      <span class="tb-conn">🟢 เชื่อมต่ออยู่</span>
+      <button class="tb-icon" id="themeToggleBtn" onclick="toggleShopTheme()" title="สลับธีม สว่าง/มืด">🌙</button>
+      <button class="btn btn-primary btn-sm" onclick="shopSellAction()">+ ขายสินค้า</button>
+    </div>
+  </header>
   <div id="shopBanner" class="shop-banner" style="display:none"></div>
 
   <div id="viewDashboard" style="display:none">
@@ -2508,9 +2527,32 @@ function allowedTabs() {
 
 // ซ่อน/แสดงเมนูตามสิทธิ์ + ย้ายไปแถบที่เข้าได้
 // ธีมมืดเฉพาะบัญชีร้าน (พนักงานที่ผูกกับร้าน) — แอดมิน/เจ้าของเครื่อง = ธีมสว่างปกติ
+// มีปุ่มสลับธีม (สว่าง/มืด) บนแถบบน — จำค่าที่เลือกไว้
 function applyShopTheme() {
-  const isShop = !!passcode && userRole !== 'admin' && userShops && userShops.length > 0;
-  document.body.classList.toggle('dark-shop', isShop);
+  const isShop = isShopAccount();
+  const light = localStorage.getItem('shop_theme') === 'light';
+  document.body.classList.toggle('dark-shop', isShop && !light);
+  const tb = document.getElementById('shopTopbar');
+  if (tb) tb.style.display = isShop ? '' : 'none';
+  const ti = document.getElementById('themeToggleBtn');
+  if (ti) ti.textContent = (isShop && !light) ? '🌙' : '☀️';
+}
+function toggleShopTheme() {
+  localStorage.setItem('shop_theme', localStorage.getItem('shop_theme') === 'light' ? 'dark' : 'light');
+  applyShopTheme();
+}
+function shopSellAction() {
+  const sid = viewShopId || (userShops && userShops[0]);
+  if (sid) switchShopView(sid, 'sales');
+}
+// อัปเดตหัวข้อบนแถบบนตามหน้าที่เปิดอยู่
+function updateTopbarTitle() {
+  const t = document.getElementById('tbTitle'), s = document.getElementById('tbSub');
+  if (!t) return;
+  let title = 'แดชบอร์ด', sub = 'ภาพรวมธุรกิจ';
+  if (curShopFeature === 'report2') { title = 'รายงานยอดขาย'; sub = 'สรุปยอดตามช่วงเวลา ร้านคู่ค้า และประเภทสินค้า'; }
+  else if (curShopFeature) { title = shopFeatLabel(curShopFeature) || 'เมนู'; sub = ''; }
+  t.textContent = title; s.textContent = sub;
 }
 function applyPermissions() {
   applyShopTheme();
@@ -4498,6 +4540,7 @@ function renderShopSidebar() {
     footUser.innerHTML = `<div class="foot-user"><div class="fu-avatar">${esc(nm.slice(0, 2))}</div><div class="fu-info"><div class="fu-name">${esc(nm)}</div><div class="fu-role">พนักงาน</div></div><button class="fu-power" onclick="logout()" title="ออกจากระบบ">⏻</button></div>`;
   }
   if (authBtn) authBtn.style.display = 'none';
+  updateTopbarTitle();
 }
 function shopFeatLabel(key) {
   const f = SHOP_FEATURES.find(x => x.key === key) || SHOP_PLACEHOLDERS.find(x => x.key === key);
@@ -4601,6 +4644,7 @@ function hideAllMainViews() {
 function updateShopBanner() {
   const b = document.getElementById('shopBanner');
   if (!b) return;
+  if (isShopAccount()) { b.style.display = 'none'; b.innerHTML = ''; return; } // บัญชีร้านใช้แถบบน (topbar) แทน
   if (viewShopId && curShopFeature) {
     const s = shopById(viewShopId);
     const lbl = shopFeatLabel(curShopFeature);
