@@ -3789,7 +3789,8 @@ function toggleForSale(id) {
     render();
   } else {
     c.status = 'show'; // เอาออกจากขาย
-    delete c.gachaBoxId; delete c.gachaNo; // ยกเลิกผูกกับตู้จุ่ม (รางวัลในตู้ต้องลบเองที่หน้ายอดจุ่ม)
+    if (c.gachaBoxId) removeCardFromGacha(c); // ยกเลิก → ดึงรางวัลออกจากตู้จุ่มให้ด้วย
+    delete c.gachaBoxId; delete c.gachaNo;
     saleSelection.delete(id);
     updateSaleBar();
     save();
@@ -3874,6 +3875,19 @@ function toggleGachaDest() {
   panel.style.display = show ? 'block' : 'none';
   if (show) { const n = document.getElementById('saleGachaNo'); if (n) setTimeout(() => n.focus(), 40); }
 }
+// ดึงรางวัลของการ์ดใบนี้ออกจากตู้จุ่ม (ใช้ตอนติ๊ก "ยกเลิก" การขาย)
+function removeCardFromGacha(c) {
+  if (!c || !c.gachaBoxId || typeof gachaBoxes === 'undefined' || !Array.isArray(gachaBoxes)) return;
+  const b = gachaBoxes.find(x => x.id === c.gachaBoxId);
+  if (!b || !Array.isArray(b.prizes)) return;
+  const before = b.prizes.length;
+  b.prizes = b.prizes.filter(p => {
+    if (!p) return false;
+    if (p.cardId) return p.cardId !== c.id;                       // ผูก cardId ไว้ → ตัดตรงใบ
+    return !(String(p.no) === String(c.gachaNo) && (p.name || '') === (c.name || '')); // รางวัลเก่าไม่มี cardId → เทียบเลข+ชื่อ
+  });
+  if (b.prizes.length !== before) { saveGacha(); if (isViewVisible('viewGacha')) renderGacha(); }
+}
 // ยืนยัน "ใส่ในตู้จุ่ม" — เพิ่มการ์ดที่ติ๊กไว้เป็นรางวัลในตู้ (สร้างตู้ใหม่ให้ถ้าเลือก ➕)
 function confirmGachaDest() {
   const ids = [...saleSelection];
@@ -3896,20 +3910,33 @@ function confirmGachaDest() {
   ids.forEach(id => {
     const c = cards.find(x => x.id === id);
     if (!c || c.status !== 'show') return;
-    box.prizes.push({
+    const prize = {
       no: String(seq),
       cert: (c.cert || '').toString().replace(/\D/g, ''),
       name: c.name || '',
       image: c.image || '',
       value: Number(c.median) || Number(c.buy) || 0,
       drawn: false,
-    });
+      cardId: c.id,
+    };
+    // เลขลำดับนี้มีอยู่แล้ว → ทับเลขเดิม (ปลดการ์ดใบเก่าที่เคยอยู่ช่องนี้กลับเป็นสต็อก)
+    const exIdx = box.prizes.findIndex(p => p && String(p.no) === String(seq));
+    if (exIdx >= 0) {
+      const old = box.prizes[exIdx];
+      if (old && old.cardId && old.cardId !== c.id) {
+        const oc = cards.find(x => x.id === old.cardId);
+        if (oc && oc.gachaBoxId === box.id) { oc.status = 'show'; delete oc.gachaBoxId; delete oc.gachaNo; }
+      }
+      box.prizes[exIdx] = prize;
+    } else {
+      box.prizes.push(prize);
+    }
     seq++;
     // ทำเครื่องหมายว่าใบนี้ถูกส่งเข้าตู้จุ่มแล้ว (ออกจากสต็อกขายปกติ)
     c.status = 'wait';
     c.shopId = box.shopId || '';
     c.gachaBoxId = box.id;
-    c.gachaNo = box.prizes[box.prizes.length - 1].no;
+    c.gachaNo = prize.no;
     added++;
   });
   if (!added) { alert('ไม่มีใบที่เพิ่มได้'); return; }
