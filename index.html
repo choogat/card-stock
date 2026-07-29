@@ -454,6 +454,21 @@
     background: var(--card); border: 1px solid var(--border); color: var(--text);
     padding: 12px 14px; border-radius: 12px; font-size: .9rem;
   }
+  .price-filter {
+    display: flex; align-items: center; gap: 6px;
+    background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 6px 12px;
+  }
+  .price-filter .pf-label { color: var(--muted); font-size: .82rem; font-weight: 600; }
+  .price-filter .pf-dash { color: var(--muted); }
+  .price-filter .pf-input {
+    width: 66px; background: transparent; border: none; color: var(--text);
+    font-size: .88rem; text-align: right; padding: 4px 2px;
+  }
+  .price-filter .pf-input:focus { outline: none; }
+  .price-filter:focus-within { border-color: var(--accent); }
+  .price-filter .pf-input::-webkit-outer-spin-button,
+  .price-filter .pf-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+  .price-filter .pf-input { -moz-appearance: textfield; }
 
   table { width: 100%; border-collapse: separate; border-spacing: 0 6px; }
   th { text-align: left; color: var(--muted); font-size: .72rem; font-weight: 600; padding: 2px 12px 6px; text-transform: uppercase; letter-spacing: .4px; white-space: nowrap; }
@@ -925,6 +940,12 @@
       <option value="profit_desc">กำไร มาก→น้อย</option>
       <option value="buyDate_desc">วันที่ซื้อ ล่าสุด</option>
     </select>
+    <div class="price-filter">
+      <span class="pf-label">ราคา</span>
+      <input class="pf-input" id="priceMin" type="number" min="0" inputmode="numeric" placeholder="น้อย" oninput="render()">
+      <span class="pf-dash">–</span>
+      <input class="pf-input" id="priceMax" type="number" min="0" inputmode="numeric" placeholder="มาก" oninput="render()">
+    </div>
   </div>
 
   <div id="tableArea"></div>
@@ -2221,6 +2242,10 @@ function render() {
   const tf = document.getElementById('topicFilter').value;
   const kf = document.getElementById('typeFilter').value; // ชนิด: '' ทั้งหมด / 'set' เซต / 'single' ใบเดี่ยว
   const sortBy = document.getElementById('sortBy').value;
+  const pMinRaw = document.getElementById('priceMin').value;
+  const pMaxRaw = document.getElementById('priceMax').value;
+  const pMin = pMinRaw !== '' ? Number(pMinRaw) : null; // กรองราคากลาง: อย่างน้อย
+  const pMax = pMaxRaw !== '' ? Number(pMaxRaw) : null; // กรองราคากลาง: อย่างมาก
   const area = document.getElementById('tableArea');
 
   // หน้าคลังสินค้า: ไม่รวมใบที่ขายแล้ว + ไม่รวม "ข้อมูลสินค้าอย่างเดียว"
@@ -2229,6 +2254,8 @@ function render() {
   else if (kf === 'single') list = list.filter(c => !isSetCard(c));
   if (sf) list = list.filter(c => c.status === sf);
   if (tf) list = list.filter(c => (c.topic || '') === tf);
+  if (pMin != null && !isNaN(pMin)) list = list.filter(c => (Number(c.median) || 0) >= pMin);
+  if (pMax != null && !isNaN(pMax)) list = list.filter(c => (Number(c.median) || 0) <= pMax);
   if (q) {
     const terms = q.split(/\s+/).filter(Boolean);
     list = list.filter(c => {
