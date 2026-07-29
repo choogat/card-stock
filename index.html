@@ -50,15 +50,16 @@
   body.locked .layout { display: none; }
   body.locked #loginOverlay { align-items: center; }
   .sidebar {
-    width: 215px; flex-shrink: 0; position: sticky; top: 24px;
-    max-height: calc(100vh - 48px); overflow-y: auto; overscroll-behavior: contain;
+    width: 230px; flex-shrink: 0; position: sticky; top: 24px;
+    max-height: calc(100vh - 48px); overflow: hidden; overscroll-behavior: contain;
     background: var(--card); border: 1px solid var(--border); border-radius: 18px; padding: 18px 14px;
     display: flex; flex-direction: column; gap: 8px;
   }
-  .sidebar::-webkit-scrollbar { width: 7px; }
-  .sidebar::-webkit-scrollbar-thumb { background: var(--border); border-radius: 999px; }
+  .sidebar .brand, .sidebar #brandBox, .sidebar-foot { flex: none; }
+  .nav { flex: 1 1 auto; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 5px; }
+  .nav::-webkit-scrollbar { width: 7px; }
+  .nav::-webkit-scrollbar-thumb { background: var(--border); border-radius: 999px; }
   .sidebar .brand { font-size: 1.15rem; font-weight: 700; padding: 6px 8px 14px; }
-  .nav { display: flex; flex-direction: column; gap: 5px; }
   .nav-group { font-size: .68rem; font-weight: 700; letter-spacing: .6px; color: var(--muted); text-transform: uppercase; padding: 2px 14px 3px; margin-top: 11px; opacity: .7; }
   .nav-group:first-child { margin-top: 0; }
   .nav-item {
@@ -87,10 +88,10 @@
   .shop-acc-nav { display: flex; flex-direction: column; gap: 2px; }
   .san-group { font-size: .66rem; font-weight: 700; letter-spacing: .5px; color: var(--muted); text-transform: uppercase; padding: 2px 12px 3px; margin-top: 15px; opacity: .55; }
   .san-group:first-child { margin-top: 2px; }
-  .san-item { display: flex; align-items: center; gap: 11px; text-align: left; background: transparent; border: none; color: var(--muted); padding: 8px 11px; border-radius: 10px; cursor: pointer; font-size: .89rem; font-weight: 500; font-family: inherit; width: 100%; transition: background .12s, color .12s; }
+  .san-item { display: flex; align-items: center; gap: 9px; text-align: left; background: transparent; border: none; color: var(--muted); padding: 8px 9px; border-radius: 10px; cursor: pointer; font-size: .82rem; font-weight: 500; font-family: inherit; width: 100%; white-space: nowrap; overflow: hidden; transition: background .12s, color .12s; }
   .san-item:hover { background: var(--card2); color: var(--text); }
   .san-item.active { background: linear-gradient(135deg, var(--accent), var(--accent2)); color: #04121a; font-weight: 700; box-shadow: 0 5px 16px rgba(24,191,212,.28); }
-  .san-ic { width: 26px; height: 26px; border-radius: 7px; display: flex; align-items: center; justify-content: center; font-size: .92rem; background: var(--card2); flex: none; }
+  .san-ic { width: 23px; height: 23px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: .82rem; background: var(--card2); flex: none; }
   .san-item.active .san-ic { background: rgba(255,255,255,.22); }
   .san-item .san-soon { margin-left: auto; font-size: .6rem; opacity: .5; }
   .brand-shop { display: flex; align-items: center; gap: 10px; padding: 2px 4px 12px; }
@@ -3126,17 +3127,16 @@ function dashMetrics(from, to, sid) {
 }
 // การ์ดสรุป — ซ่อนตัวที่อ่อนไหว (กำไร/ต้นทุน/รับซื้อ) ถ้าไม่มีสิทธิ์ดูกำไร
 function dashStatCardsHTML(m) {
-  const sp = canSeeProfit();
   const scards = [
     { ic: '💰', cls: 'c-green', label: 'ยอดขายสุทธิ (ช่วงที่เลือก)', val: money(m.salesTotal), sub: m.soldRange.length + ' บิล' },
-    sp && { ic: '🏷️', cls: 'c-yellow', label: 'ยอดหักเปอร์เซ็นต์ (ช่วงที่เลือก)', val: money(m.discountTotal), sub: 'จากยอดรวม ' + money(m.salesTotal + m.discountTotal) },
-    sp && { ic: '📈', cls: 'c-blue', label: 'กำไร (ช่วงที่เลือก, หลังหัก %)', val: money(m.grossProfit), valCls: m.grossProfit >= 0 ? 'pos' : 'neg', sub: m.salesTotal > 0 ? ('อัตรากำไร ' + m.margin + '%') : '—' },
+    { ic: '🏷️', cls: 'c-yellow', label: 'ยอดหักเปอร์เซ็นต์ (ช่วงที่เลือก)', val: money(m.discountTotal), sub: 'จากยอดรวม ' + money(m.salesTotal + m.discountTotal) },
+    { ic: '📈', cls: 'c-blue', label: 'กำไร (ช่วงที่เลือก, หลังหัก %)', val: money(m.grossProfit), valCls: m.grossProfit >= 0 ? 'pos' : 'neg', sub: m.salesTotal > 0 ? ('อัตรากำไร ' + m.margin + '%') : '—' },
     { ic: '🧾', cls: 'c-blue', label: 'ยอดขายวันนี้', val: money(m.todaySales), sub: m.soldToday.length + ' บิล' },
-    { ic: '🏦', cls: 'c-purple', label: sp ? 'มูลค่าสต็อก (ทุน)' : 'มูลค่าสต็อก', val: money(sp ? m.stockCost : m.stockValue), sub: 'ราคาขายรวม ' + money(m.stockValue) },
+    { ic: '🏦', cls: 'c-purple', label: 'มูลค่าสต็อก (ทุน)', val: money(m.stockCost), sub: 'ราคาขายรวม ' + money(m.stockValue) },
     { ic: '⚠️', cls: 'c-red', label: 'สินค้าใกล้หมด/หมด', val: '0 รายการ', sub: 'จากทั้งหมด ' + m.kinds + ' รายการ' },
     { ic: '🃏', cls: 'c-green', label: 'สินค้าประเภทการ์ด', val: m.kinds + ' รายการ', sub: m.inStock.length + ' ชิ้นในสต็อก' },
     { ic: '🎲', cls: 'c-blue', label: 'Event ขายจุ่ม', val: money(0), sub: m.gachaCount + ' กล่องเปิดขาย' },
-  ].filter(Boolean);
+  ];
   return '<div class="dash-grid">' + scards.map(c => `<div class="dash-card ${c.cls || ''}">
     <div class="dc-head"><div class="dc-ic">${c.ic}</div><div class="dc-label">${c.label}</div></div>
     <div class="dc-value ${c.valCls || ''}">${c.val}</div>
@@ -3144,7 +3144,6 @@ function dashStatCardsHTML(m) {
   </div>`).join('') + '</div>';
 }
 function dashFinancialHTML(m) {
-  if (!canSeeProfit()) return ''; // ไม่มีสิทธิ์ดูกำไร → ไม่โชว์สรุปการเงิน
   const expense = 0;                 // รายจ่ายร้าน — ยังไม่มีระบบบันทึกรายจ่าย
   const netProfit = m.grossProfit - expense;
   return `<div class="dash-panel">
@@ -3177,6 +3176,9 @@ function renderDashboard() {
   const lbl = document.getElementById('dashRangeLabel');
   if (lbl) lbl.textContent = '📅 ' + fmtDate(from) + ' – ' + fmtDate(to);
   document.querySelectorAll('#dashRangeBar .rbtn').forEach(b => b.classList.toggle('active', b.dataset.range === dashRange.mode));
+  // โชว์ช่วงจริงในช่องวันที่เสมอ (เดือนนี้ = วันที่ 1 ถึงวันนี้)
+  const fi = document.getElementById('dashFrom'), ti = document.getElementById('dashTo');
+  if (fi) fi.value = from; if (ti) ti.value = to;
   const m = dashMetrics(from, to, null);
   area.innerHTML = dashStatCardsHTML(m) + dashFinancialHTML(m);
 }
@@ -4640,6 +4642,8 @@ function renderShopHomeStats(sid) {
   const lbl = document.getElementById('shopDashRangeLabel');
   if (lbl) lbl.textContent = '📅 ' + fmtDate(from) + ' – ' + fmtDate(to);
   document.querySelectorAll('#shopDashRangeBar .rbtn').forEach(b => b.classList.toggle('active', b.dataset.range === shopDashRange.mode));
+  const fi = document.getElementById('shopDashFrom'), ti = document.getElementById('shopDashTo');
+  if (fi) fi.value = from; if (ti) ti.value = to;
   const m = dashMetrics(from, to, sid);
   el.innerHTML = dashStatCardsHTML(m) + dashFinancialHTML(m) + dashChartsHTML(m);
 }
