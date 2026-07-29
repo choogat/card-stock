@@ -402,15 +402,15 @@
   .loginMsg.ok { color: var(--green); }
   .pill { font-size: .7rem; background: var(--accent2); padding: 3px 9px; border-radius: 999px; vertical-align: middle; margin-left: 6px; font-weight: 600; }
 
-  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 28px; }
+  .stats { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 13px; margin-bottom: 20px; }
   .stat {
-    background: var(--card); border: 1px solid var(--border); border-radius: 16px;
-    padding: 20px 22px; position: relative; overflow: hidden;
+    background: var(--card); border: 1px solid var(--border); border-radius: 14px;
+    padding: 14px 16px; position: relative; overflow: hidden;
   }
-  .stat::after { content:""; position:absolute; right:-30px; top:-30px; width:90px; height:90px; border-radius:50%; background: var(--accent); opacity:.08; }
-  .stat .label { color: var(--muted); font-size: .85rem; margin-bottom: 8px; }
-  .stat .value { font-size: 1.9rem; font-weight: 700; }
-  .stat .sub { color: var(--muted); font-size: .78rem; margin-top: 4px; }
+  .stat::after { content:""; position:absolute; right:-30px; top:-30px; width:80px; height:80px; border-radius:50%; background: var(--accent); opacity:.08; }
+  .stat .label { color: var(--muted); font-size: .8rem; margin-bottom: 6px; }
+  .stat .value { font-size: 1.5rem; font-weight: 800; letter-spacing: -.3px; }
+  .stat .sub { color: var(--muted); font-size: .75rem; margin-top: 3px; }
 
   .topic-breakdown { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 22px; }
   .topic-chip {
