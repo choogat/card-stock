@@ -4587,7 +4587,7 @@ function openShopPlaceholder(shopId, key) {
   const shopBtn = document.querySelector('.nav-item[data-view="shop"]'); if (shopBtn) shopBtn.classList.add('active');
   updateShopBanner(); renderShopNav(); stopGachaPoll();
   localStorage.setItem('app_view', 'shop');
-  localStorage.setItem('app_shopview', JSON.stringify({ shop: shopId, feat: '' }));
+  localStorage.setItem('app_shopview', JSON.stringify({ shop: shopId, feat: 'ph:' + key }));
 }
 let curShopFeature = null;
 // กดชื่อร้าน: กางเมนูย่อย + เปิดหน้าสรุปร้าน · กดซ้ำที่ร้านที่กางอยู่ = ยุบเมนูย่อย
@@ -4660,7 +4660,10 @@ function restoreShopView() {
   if (localStorage.getItem('app_view') !== 'shop' && BOOT_VIEW !== 'shop') return false;
   let sv = null; try { sv = JSON.parse(localStorage.getItem('app_shopview') || BOOT_SHOPVIEW || 'null'); } catch (e) {}
   if (!sv || !sv.shop || !shopById(sv.shop) || !userCanSeeShop(sv.shop)) return false;
-  if (sv.feat) switchShopView(sv.shop, sv.feat); else openShopHome(sv.shop);
+  if (sv.feat === 'report2') openShopReport();
+  else if (sv.feat && sv.feat.slice(0, 3) === 'ph:') openShopPlaceholder(sv.shop, sv.feat.slice(3));
+  else if (sv.feat) switchShopView(sv.shop, sv.feat);
+  else openShopHome(sv.shop);
   return true;
 }
 // การ์ดใบนี้นับเป็นของร้าน sid ไหม (ขายแล้วดูจาก soldShopId · อื่นๆ ดูจาก shopId)
@@ -4706,7 +4709,7 @@ function openShopReport() {
   document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
   updateShopBanner(); renderShopNav(); stopGachaPoll(); renderShopReport();
   localStorage.setItem('app_view', 'shop');
-  localStorage.setItem('app_shopview', JSON.stringify({ shop: sid, feat: '' }));
+  localStorage.setItem('app_shopview', JSON.stringify({ shop: sid, feat: 'report2' }));
 }
 function renderShopReport() {
   const el = document.getElementById('shopReportArea');
