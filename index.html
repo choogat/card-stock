@@ -37,6 +37,15 @@
     background: radial-gradient(1100px 560px at 12% -12%, #14243f 0%, #0b1524 46%, #070d18 100%) fixed;
   }
   body.dark-shop .sidebar::-webkit-scrollbar-thumb { background: #2c3d5a; }
+  /* ตารางทุกหน้าให้เข้าธีมมืด: hover สว่างขึ้น (ไม่มืดลง) + แถวสถานะไม่เป็นสีสว่างค้าง */
+  body.dark-shop tbody tr:hover td { filter: brightness(1.1); }
+  body.dark-shop tr.group-head:hover td { filter: brightness(1.12); }
+  body.dark-shop .po-table tr.po-row-received td { background: var(--card2); color: var(--muted); }
+  body.dark-shop .po-table tr.po-row-due td { background: rgba(230,178,58,.2); color: var(--text); }
+  body.dark-shop .lang-badge { background: var(--card2); }
+  /* กล่องสรุป/หัวข้อ/ค้นหา ในหน้าตาราง — เข้าธีมมืดเรียบร้อย */
+  body.dark-shop .search, body.dark-shop .filter, body.dark-shop input[type=date], body.dark-shop select { background: var(--card2); color: var(--text); border-color: var(--border); }
+  body.dark-shop .search::placeholder { color: var(--muted); }
   body {
     font-family: "Segoe UI", "Sarabun", Tahoma, sans-serif;
     background: linear-gradient(160deg, #f5f7fc 0%, #eaeef6 100%);
