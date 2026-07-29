@@ -133,6 +133,15 @@
   .shop-banner .shop-meta { color: var(--muted); font-size: .85rem; }
   .sale-shop-list { display: flex; flex-direction: column; gap: 8px; max-height: 320px; overflow-y: auto; }
   .sale-shop-opt { width: 100%; text-align: left; }
+  .sale-or { text-align: center; color: var(--muted); font-size: .8rem; margin: 12px 0 8px; }
+  .sale-gacha-panel { margin-top: 10px; padding: 12px; background: var(--card2); border: 1px solid var(--border); border-radius: 12px; }
+  .sale-gacha-panel .sg-label { display: block; color: var(--muted); font-size: .8rem; font-weight: 600; margin: 0 0 5px; }
+  .sale-gacha-panel .sg-label ~ .sg-label { margin-top: 12px; }
+  .sale-gacha-panel select, .sale-gacha-panel input {
+    width: 100%; background: var(--bg); border: 1px solid var(--border); color: var(--text);
+    padding: 10px 12px; border-radius: 10px; font-size: .92rem; font-family: inherit;
+  }
+  .sale-gacha-panel select:focus, .sale-gacha-panel input:focus { outline: none; border-color: var(--accent); }
   /* แถบลอยตอนเลือกการ์ดหลายใบเพื่อส่งไปขาย */
   .sale-select-bar {
     position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%) translateY(140%);
@@ -1336,12 +1345,21 @@
   </div>
 </div>
 
-<!-- สต็อก: เลือกร้านตอนติ๊ก "สินค้าขาย" -->
+<!-- สต็อก: เลือกร้าน/ตู้จุ่ม ตอนติ๊ก "สินค้าขาย" -->
 <div class="overlay" id="saleShopOverlay">
-  <div class="modal" style="max-width:360px">
-    <h2>🏷️ ส่งไปขายที่ร้านไหน</h2>
+  <div class="modal" style="max-width:380px">
+    <h2>🏷️ ส่งไปขาย / ใส่ตู้จุ่ม</h2>
     <p id="saleShopName" style="color:var(--muted);font-size:.9rem;margin-bottom:14px"></p>
     <div id="saleShopOptions" class="sale-shop-list"></div>
+    <div class="sale-or">— หรือ —</div>
+    <button class="btn btn-ghost sale-shop-opt" id="saleGachaToggle" onclick="toggleGachaDest()">🎰 ยอดจุ่ม (ใส่ในตู้จุ่ม)</button>
+    <div id="saleGachaPanel" class="sale-gacha-panel" style="display:none">
+      <label class="sg-label">เลือกตู้จุ่ม</label>
+      <select id="saleGachaBox" onchange="onSaleGachaBoxChange()"></select>
+      <label class="sg-label">ลำดับเริ่มต้น</label>
+      <input id="saleGachaNo" type="number" min="1" inputmode="numeric" placeholder="เช่น 1">
+      <button class="btn btn-primary" style="width:100%;margin-top:12px" onclick="confirmGachaDest()">🎰 เพิ่มเข้าตู้จุ่ม</button>
+    </div>
     <div class="modal-actions">
       <button class="btn btn-ghost" onclick="closeSaleShop()">ยกเลิก</button>
     </div>
@@ -1351,7 +1369,7 @@
 <!-- แถบลอย: เลือกการ์ดหลายใบไปขาย แล้วค่อยเลือกร้านทีเดียว -->
 <div class="sale-select-bar" id="saleSelectBar">
   <span class="ssb-count" id="saleSelectCount">เลือกไว้ 0 ใบ</span>
-  <button class="btn btn-primary btn-sm" onclick="openSaleShopBatch()">🏷️ เลือกร้าน</button>
+  <button class="btn btn-primary btn-sm" onclick="openSaleShopBatch()">🏷️ เลือกปลายทาง</button>
   <button class="btn btn-ghost btn-sm" onclick="clearSaleSelection()">ล้าง</button>
 </div>
 
@@ -2410,6 +2428,10 @@ function gradeTag(c) {
 // ชื่อร้านค้าสำหรับคอลัมน์ "ร้านค้า" ในตารางสต็อก — สะสม = '-', รอขาย/ขายแล้ว = ชื่อร้านที่ส่งไปขาย
 function stockShopName(c) {
   if (c.status === 'show') return '-';
+  if (c.gachaBoxId) {
+    const b = (typeof gachaBoxes !== 'undefined' && Array.isArray(gachaBoxes)) ? gachaBoxes.find(x => x.id === c.gachaBoxId) : null;
+    return '🎰 ' + (b ? (b.name || 'ตู้จุ่ม') : 'ตู้จุ่ม');
+  }
   const sid = c.shopId;
   if (sid === '__all__') return 'ทุกร้าน';
   if (sid) { const s = shopById(sid); return s ? (s.name || 'ร้านไม่มีชื่อ') : 'ส่วนกลาง'; }
@@ -3439,7 +3461,7 @@ function renderSales() {
   const area = document.getElementById('salesTableArea');
   if (!area) return;
   const q = (document.getElementById('salesSearch').value || '').trim().toLowerCase();
-  let list = cards.filter(c => c.status === 'wait' && !c.productOnly && inShopScope(c));
+  let list = cards.filter(c => c.status === 'wait' && !c.productOnly && !c.gachaBoxId && inShopScope(c));
   // กรองตามหน่วยที่คลิกจากชิป "รอขาย" → เหลือเฉพาะของที่รอขายของหน่วยนั้น
   if (salesUnitFilter) {
     list = list.filter(c => c.status === 'wait' && stockUnitOf(c) === salesUnitFilter);
@@ -3758,14 +3780,16 @@ function toggleForSale(id) {
   if (!c) return;
   if (c.status === 'sold') { render(); return; } // ขายแล้ว = ล็อก
   if (c.status === 'show') {
-    // ไม่มีร้านค้า → ส่งไปขายส่วนกลางได้เลย (ไม่ต้องเลือกร้าน)
-    if (!shops.length) { moveToSale(id, c.shopId || ''); return; }
-    // มีร้านค้า → สะสมไว้ก่อน ค่อยกด "เลือกร้าน" ทีเดียวให้กับทุกใบที่เลือก
+    // ไม่มีร้านค้า และไม่มีตู้จุ่ม → ส่งไปขายส่วนกลางได้เลย (ไม่ต้องเปิด popup)
+    const hasGacha = (typeof gachaBoxes !== 'undefined' && Array.isArray(gachaBoxes) && gachaBoxes.length > 0);
+    if (!shops.length && !hasGacha) { moveToSale(id, c.shopId || ''); return; }
+    // มีร้านค้า/ตู้จุ่ม → สะสมไว้ก่อน ค่อยกดเลือกปลายทาง (ร้าน หรือ ตู้จุ่ม) ทีเดียว
     if (saleSelection.has(id)) saleSelection.delete(id); else saleSelection.add(id);
     updateSaleBar();
     render();
   } else {
     c.status = 'show'; // เอาออกจากขาย
+    delete c.gachaBoxId; delete c.gachaNo; // ยกเลิกผูกกับตู้จุ่ม (รางวัลในตู้ต้องลบเองที่หน้ายอดจุ่ม)
     saleSelection.delete(id);
     updateSaleBar();
     save();
@@ -3798,17 +3822,106 @@ function moveToSale(id, shopId) {
   }
   c.shopId = shopId;
   c.status = 'wait';
+  delete c.gachaBoxId; delete c.gachaNo; // ปลายทางเป็นร้าน → ไม่ใช่ตู้จุ่ม
   save();
   render();
 }
-// เลือกร้านสำหรับการ์ดทุกใบที่ติ๊กไว้ (กดจากแถบลอย)
+// เลือกร้าน/ตู้จุ่ม สำหรับการ์ดทุกใบที่ติ๊กไว้ (กดจากแถบลอย)
 function openSaleShopBatch() {
   if (!saleSelection.size) return;
-  document.getElementById('saleShopName').textContent = `ส่ง ${saleSelection.size} ใบ ไปขาย`;
-  let html = `<button class="btn btn-ghost sale-shop-opt" onclick="pickSaleShop('__all__')">🏬 ร้านค้าทั้งหมด</button>`;
-  html += shops.map(s => `<button class="btn btn-ghost sale-shop-opt" onclick="pickSaleShop('${s.id}')">🏪 ${esc(s.name || 'ร้านไม่มีชื่อ')}</button>`).join('');
+  document.getElementById('saleShopName').textContent = `เลือกปลายทางของ ${saleSelection.size} ใบ`;
+  let html;
+  if (shops.length) {
+    html = `<button class="btn btn-ghost sale-shop-opt" onclick="pickSaleShop('__all__')">🏬 ร้านค้าทั้งหมด</button>`;
+    html += shops.map(s => `<button class="btn btn-ghost sale-shop-opt" onclick="pickSaleShop('${s.id}')">🏪 ${esc(s.name || 'ร้านไม่มีชื่อ')}</button>`).join('');
+  } else {
+    html = `<button class="btn btn-ghost sale-shop-opt" onclick="pickSaleShop('')">🏬 ส่งไปขายปกติ (ส่วนกลาง)</button>`;
+  }
   document.getElementById('saleShopOptions').innerHTML = html;
+  // เตรียมส่วน "ยอดจุ่ม" (เริ่มพับไว้)
+  populateSaleGachaBoxes();
+  const panel = document.getElementById('saleGachaPanel');
+  if (panel) panel.style.display = 'none';
   document.getElementById('saleShopOverlay').classList.add('open');
+}
+// ตู้จุ่มที่เลือกได้ (แอดมิน = ทุกตู้ · เปิดร้านอยู่ = เฉพาะตู้ร้านนั้น/ตู้กลาง) — คืน {b, i} โดย i = index จริง
+function saleGachaScopedBoxes() {
+  const arr = (typeof gachaBoxes !== 'undefined' && Array.isArray(gachaBoxes)) ? gachaBoxes : [];
+  return arr.map((b, i) => ({ b, i })).filter(({ b }) => !viewShopId || b.shopId === viewShopId || !b.shopId);
+}
+function populateSaleGachaBoxes() {
+  const sel = document.getElementById('saleGachaBox');
+  if (!sel) return;
+  const boxes = saleGachaScopedBoxes();
+  let html = boxes.map(({ b, i }) => `<option value="${i}">${esc(b.name || 'ตู้จุ่ม')}${b.date ? ' · ' + esc(b.date) : ''} (${(b.prizes || []).length} รางวัล)</option>`).join('');
+  html += `<option value="__new__">➕ สร้างตู้จุ่มใหม่</option>`;
+  sel.innerHTML = html;
+  onSaleGachaBoxChange();
+}
+// เปลี่ยนตู้ → เดาเลขลำดับถัดไปให้อัตโนมัติ
+function onSaleGachaBoxChange() {
+  const sel = document.getElementById('saleGachaBox');
+  const noEl = document.getElementById('saleGachaNo');
+  if (!sel || !noEl) return;
+  if (sel.value === '__new__') { noEl.value = 1; return; }
+  const b = gachaBoxes[Number(sel.value)];
+  noEl.value = b ? ((b.prizes || []).length + 1) : 1;
+}
+function toggleGachaDest() {
+  const panel = document.getElementById('saleGachaPanel');
+  if (!panel) return;
+  const show = panel.style.display === 'none';
+  panel.style.display = show ? 'block' : 'none';
+  if (show) { const n = document.getElementById('saleGachaNo'); if (n) setTimeout(() => n.focus(), 40); }
+}
+// ยืนยัน "ใส่ในตู้จุ่ม" — เพิ่มการ์ดที่ติ๊กไว้เป็นรางวัลในตู้ (สร้างตู้ใหม่ให้ถ้าเลือก ➕)
+function confirmGachaDest() {
+  const ids = [...saleSelection];
+  if (!ids.length) { closeSaleShop(); return; }
+  const sel = document.getElementById('saleGachaBox');
+  let box;
+  if (!sel || sel.value === '__new__') {
+    const name = (prompt('ตั้งชื่อตู้จุ่มใหม่', 'ตู้จุ่ม ' + todayStr()) || '').trim();
+    if (!name) return;
+    box = { id: uid(), name, date: todayStr(), slots: 0, price: 0, note: '', shopId: viewShopId || '', prizes: [] };
+    gachaBoxes.push(box);
+  } else {
+    box = gachaBoxes[Number(sel.value)];
+    if (!box) { alert('ไม่พบตู้จุ่มที่เลือก'); return; }
+  }
+  if (!Array.isArray(box.prizes)) box.prizes = [];
+  let seq = parseInt(document.getElementById('saleGachaNo').value, 10);
+  if (!seq || seq < 1) seq = box.prizes.length + 1;
+  let added = 0;
+  ids.forEach(id => {
+    const c = cards.find(x => x.id === id);
+    if (!c || c.status !== 'show') return;
+    box.prizes.push({
+      no: String(seq),
+      cert: (c.cert || '').toString().replace(/\D/g, ''),
+      name: c.name || '',
+      image: c.image || '',
+      value: Number(c.median) || Number(c.buy) || 0,
+      drawn: false,
+    });
+    seq++;
+    // ทำเครื่องหมายว่าใบนี้ถูกส่งเข้าตู้จุ่มแล้ว (ออกจากสต็อกขายปกติ)
+    c.status = 'wait';
+    c.shopId = box.shopId || '';
+    c.gachaBoxId = box.id;
+    c.gachaNo = box.prizes[box.prizes.length - 1].no;
+    added++;
+  });
+  if (!added) { alert('ไม่มีใบที่เพิ่มได้'); return; }
+  box.slots = Math.max(Number(box.slots) || 0, box.prizes.length); // ขยายจำนวนช่องให้พอกับรางวัล
+  saleSelection.clear();
+  updateSaleBar();
+  saveGacha();
+  save();
+  closeSaleShop();
+  render();
+  if (isViewVisible('viewGacha')) renderGacha();
+  alert(`เพิ่ม ${added} ใบ เข้าตู้จุ่ม "${box.name}" แล้ว — ไปดูได้ที่หน้ายอดจุ่ม`);
 }
 // เลือกร้านแล้ว → กระจายให้การ์ดทุกใบที่เลือกไว้
 function pickSaleShop(shopId) {
@@ -3826,6 +3939,7 @@ function pickSaleShop(shopId) {
     } else {
       c.shopId = shopId;
       c.status = 'wait';
+      delete c.gachaBoxId; delete c.gachaNo; // ปลายทางเป็นร้าน → ล้างการผูกตู้จุ่มเดิม
       changed = true;
     }
   });
