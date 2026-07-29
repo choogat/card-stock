@@ -743,6 +743,11 @@
   .dash-2col { display: grid; grid-template-columns: 1.5fr 1fr; gap: 18px; align-items: stretch; margin-bottom: 18px; }
   .dash-2col > .dash-panel { display: flex; flex-direction: column; margin-bottom: 0; }
   .dash-2col > .dash-panel > .empty, .dash-2col > .dash-panel > .donut-wrap { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; margin: 0; }
+  .dash-2x2 { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-bottom: 18px; align-items: stretch; }
+  .dash-2x2 > .dash-panel { display: flex; flex-direction: column; margin-bottom: 0; min-height: 210px; }
+  .dash-2x2 > .dash-panel > .empty { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; margin: 0; }
+  .empty .sub-hint { color: var(--muted); font-size: .8rem; margin-top: 6px; font-weight: 400; }
+  @media (max-width: 820px) { .dash-2x2 { grid-template-columns: 1fr; } }
   /* กราฟแท่ง (CSS ล้วน) */
   .bar-chart { display: flex; align-items: flex-end; gap: 3px; height: 165px; padding-top: 8px; }
   .bar-col { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 5px; height: 100%; }
@@ -3255,6 +3260,31 @@ function dashChartsHTML(m) {
     <div class="dash-panel"><div class="dp-head">สัดส่วนตามประเภท</div>${dashDonut(m.soldRange)}</div>
   </div>`;
 }
+// 4 ช่องเพิ่มในแดชบอร์ด: ร้านคู่ค้า · สินค้าขายดี · ช่องทางรับเงิน · ตามพนักงาน
+function dashExtraPanelsHTML(m) {
+  const sold = m.soldRange;
+  const grpTable = (keyFn, nameFn, emptyIc, emptyMsg, showQty) => {
+    const map = new Map();
+    for (const c of sold) { const k = keyFn(c); const g = map.get(k) || { n: 0, sum: 0 }; g.n++; g.sum += Number(c.sell) || 0; map.set(k, g); }
+    const rows = [...map.entries()].sort((a, b) => b[1].sum - a[1].sum).slice(0, 8);
+    if (!rows.length) return `<div class="empty" style="padding:26px"><div class="big">${emptyIc}</div>${emptyMsg}</div>`;
+    return `<table><tbody>${rows.map(([k, g]) => `<tr><td>${esc(nameFn(k))}</td>${showQty ? `<td class="num muted">${g.n}</td>` : ''}<td class="num">${money(g.sum)}</td></tr>`).join('')}</tbody></table>`;
+  };
+  const partner = grpTable(c => (c.soldShopId != null && c.soldShopId !== '') ? c.soldShopId : (c.shopId || ''), k => { const s = shopById(k); return s ? (s.name || 'ร้าน') : 'ส่วนกลาง'; }, '🤝', 'ยังไม่มียอดขายในช่วงนี้<div class="sub-hint">กด "+ ขายสินค้า" เพื่อเริ่มบันทึก</div>', false);
+  const best = grpTable(c => (c.name || '').trim() || 'ไม่ระบุ', k => k, '📦', 'ยังไม่มีข้อมูลการขายในช่วงนี้', true);
+  const seller = grpTable(c => (c.seller || '').trim() || 'ไม่ระบุ', k => k, '👥', 'ยังไม่มียอดขายในช่วงนี้', true);
+  const cash = sold.filter(c => (c.payment || 'cash') === 'cash').reduce((s, c) => s + (Number(c.sell) || 0), 0);
+  const transfer = sold.filter(c => c.payment === 'transfer').reduce((s, c) => s + (Number(c.sell) || 0), 0);
+  const channel = sold.length
+    ? `<div style="padding-top:2px"><div class="fin-row"><span>💵 เงินสด</span><span class="fr-val pos">${money(cash)}</span></div><div class="fin-row"><span>💳 เงินโอน</span><span class="fr-val">${money(transfer)}</span></div><div class="fin-row total"><span>รวม</span><span class="fr-val pos">${money(cash + transfer)}</span></div></div>`
+    : '<div class="empty" style="padding:26px"><div class="big">💳</div>ยังไม่มียอดขายในช่วงนี้</div>';
+  return `<div class="dash-2x2">
+    <div class="dash-panel"><div class="dp-head">ยอดขายตามร้านคู่ค้า (ช่วงที่เลือก)</div>${partner}</div>
+    <div class="dash-panel"><div class="dp-head">สินค้าขายดี (ช่วงที่เลือก)</div>${best}</div>
+    <div class="dash-panel"><div class="dp-head">ช่องทางรับเงิน (ช่วงที่เลือก)</div>${channel}</div>
+    <div class="dash-panel"><div class="dp-head">ยอดขายตามพนักงาน (ช่วงที่เลือก)</div>${seller}</div>
+  </div>`;
+}
 // แดชบอร์ดแอดมิน = "สรุป" อย่างเดียว (การ์ดสรุป + สรุปการเงิน · ไม่มีกราฟ)
 function renderDashboard() {
   const area = document.getElementById('dashArea');
@@ -4474,6 +4504,8 @@ const SHOP_PLACEHOLDERS = [
   { key: 'stockbyshop', label: 'สต็อกแยกร้าน' },
   { key: 'categories', label: 'ประเภทสินค้า' },
   { key: 'stockmovement', label: 'ความเคลื่อนไหวสต็อก' },
+  { key: 'usagehistory', label: 'ประวัติการใช้งาน' },
+  { key: 'settingsusers', label: 'ตั้งค่า & ผู้ใช้' },
 ];
 // โครงเมนูบัญชีร้าน (ตามแบบ) — feat=ฟังก์ชันจริง · ph=หัวข้อรอรายละเอียด · home=แดชบอร์ดร้าน
 const SHOP_MENU = [
@@ -4498,6 +4530,10 @@ const SHOP_MENU = [
     { ic: '🏬', label: 'สต็อกแยกร้าน', ph: 'stockbyshop' },
     { ic: '🏷️', label: 'ประเภทสินค้า', ph: 'categories' },
     { ic: '🔄', label: 'ความเคลื่อนไหวสต็อก', ph: 'stockmovement' },
+  ] },
+  { group: 'ระบบ', items: [
+    { ic: '🕐', label: 'ประวัติการใช้งาน', ph: 'usagehistory' },
+    { ic: '⚙️', label: 'ตั้งค่า & ผู้ใช้', ph: 'settingsusers' },
   ] },
 ];
 function isShopAccount() { return !!passcode && userRole !== 'admin' && userShops && userShops.length > 0; }
@@ -4536,7 +4572,6 @@ function renderShopSidebar() {
       html += `<button class="san-item${act ? ' active' : ''}" onclick="${onclick}"><span class="san-ic">${it.ic}</span> ${esc(it.label)}${soon}</button>`;
     }
   }
-  html += '<div class="san-group">ระบบ</div>';
   shopNavEl.innerHTML = html;
   // ผู้ใช้ท้าย
   if (footUser) {
@@ -4738,7 +4773,7 @@ function renderShopHomeStats(sid) {
   const fi = document.getElementById('shopDashFrom'), ti = document.getElementById('shopDashTo');
   if (fi) fi.value = from; if (ti) ti.value = to;
   const m = dashMetrics(from, to, sid);
-  el.innerHTML = dashStatCardsHTML(m) + dashFinancialHTML(m) + dashChartsHTML(m);
+  el.innerHTML = dashStatCardsHTML(m) + dashFinancialHTML(m) + dashChartsHTML(m) + dashExtraPanelsHTML(m);
 }
 
 // ================= หน้ารายงานยอดขาย (บัญชีร้าน) — ตามแบบ =================
