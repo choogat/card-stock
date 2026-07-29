@@ -55,7 +55,7 @@
   }
   .wrap { max-width: 1000px; margin: 0 auto; }
 
-  .layout { width: 100%; max-width: 100%; margin: 0; display: flex; gap: 26px; align-items: flex-start; }
+  .layout { width: 100%; max-width: 1580px; margin: 0 auto; display: flex; gap: 26px; align-items: flex-start; }
   body.locked .layout { display: none; }
   body.locked #loginOverlay { align-items: center; }
   .sidebar {
@@ -704,7 +704,9 @@
   .dash-range .rsep { color: var(--muted); font-size: .85rem; }
   .dash-range .rspacer { flex: 1; }
   .dash-range .rlabel { color: var(--muted); font-size: .85rem; white-space: nowrap; }
-  .dash-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(224px, 1fr)); gap: 13px; margin-bottom: 18px; }
+  .dash-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 13px; margin-bottom: 18px; }
+  @media (max-width: 1120px) { .dash-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  @media (max-width: 560px) { .dash-grid { grid-template-columns: 1fr; } }
   .dash-card { position: relative; overflow: hidden; background: var(--card); border: 1px solid var(--border); border-radius: 13px; padding: 14px 16px; border-top: 3px solid var(--accent); box-shadow: 0 1px 3px rgba(20,30,60,.05); }
   .dash-card.c-green { border-top-color: var(--green); } .dash-card.c-green .dc-ic { background: rgba(24,165,88,.14); }
   .dash-card.c-purple { border-top-color: var(--accent2); } .dash-card.c-purple .dc-ic { background: rgba(108,92,231,.14); }
