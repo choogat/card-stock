@@ -4392,8 +4392,9 @@ function renderShopNav() {
         const act = (viewShopId === s.id && curShopFeature === f.key);
         html += `<button class="nav-sub2${act ? ' active' : ''}" onclick="switchShopView('${s.id}','${f.key}')">↳ ${f.label}</button>`;
       }
-      // เมนูหัวข้อ (placeholder) — เฉพาะแอดมิน/เจ้าของเครื่อง
-      if (userRole === 'admin' || !passcode) {
+      // เมนูหัวข้อ (placeholder) — โชว์เฉพาะ "บัญชีร้าน" (พนักงานที่ถูกผูกกับร้าน)
+      // ไม่โชว์ในหน้าแอดมิน/เจ้าของเครื่อง (กันรกฝั่งแอดมิน)
+      if (passcode && userRole !== 'admin' && userShops && userShops.length) {
         for (const p of SHOP_PLACEHOLDERS) {
           const act = (viewShopId === s.id && curShopFeature === p.key);
           html += `<button class="nav-sub2${act ? ' active' : ''}" onclick="openShopPlaceholder('${s.id}','${p.key}')">↳ ${p.label} <span style="opacity:.5;font-size:.72em">🚧</span></button>`;
