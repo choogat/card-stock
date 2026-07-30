@@ -2545,6 +2545,8 @@ function canViewTab(v) {
 }
 function switchView(view) {
   if (!canViewTab(view)) view = allowedTabs()[0] || 'stock';
+  // จำว่าหน้ายอดจุ่มโชว์อยู่ก่อนหรือไม่ — ถ้า re-apply วิวเดิมซ้ำ (เช่น applyPermissions) อย่ารีเซ็ตแท็บสถานะ
+  const wasGacha = document.getElementById('viewGacha').style.display !== 'none';
   if (typeof saleSelection !== 'undefined' && saleSelection.size) { saleSelection.clear(); updateSaleBar(); }
   viewShopId = null; curShopFeature = null; // ออกจากบริบทร้าน → กลับมาดูภาพรวม
   updateShopBanner();
@@ -2582,7 +2584,7 @@ function switchView(view) {
   if (view === 'soldstock') renderSoldStock();
   if (view === 'buy') { closeBuyPopup(); renderBuyList(); }
   if (view === 'product') { const ps = document.getElementById('productSearch'); if (ps) ps.value = ''; renderProductSearch(); }
-  if (view === 'gacha') { setGachaStatus('active'); refreshGacha(); startGachaPoll(); } else { stopGachaPoll(); }
+  if (view === 'gacha') { setGachaStatus(wasGacha ? gachaStatus : 'active'); refreshGacha(); startGachaPoll(); } else { stopGachaPoll(); }
   if (view === 'shop') renderShopManage();
   if (view === 'users') renderUsers();
   renderShopNav();
@@ -4890,6 +4892,8 @@ function switchShopView(shopId, feature) {
   let f = SHOP_FEATURES.find(x => x.key === feature && allow(x.key));
   if (!f) f = SHOP_FEATURES.find(x => allow(x.key)); // ฟังก์ชันแรกที่ร้านเปิด + ผู้ใช้มีสิทธิ์
   if (!f) { switchView('shop'); return; } // ไม่มีฟังก์ชันที่เข้าได้
+  // จำว่าหน้ายอดจุ่มโชว์อยู่ก่อนหรือไม่ — ถ้า re-apply ซ้ำขณะอยู่ยอดจุ่มแล้ว อย่ารีเซ็ตแท็บสถานะ
+  const wasGacha = document.getElementById('viewGacha').style.display !== 'none';
   viewShopId = shopId;
   expandedShop = shopId;
   curShopFeature = f.key;
@@ -4903,7 +4907,7 @@ function switchShopView(shopId, feature) {
   if (f.key === 'sales') renderSales();
   else if (f.key === 'report') renderReport();
   else if (f.key === 'buy') { closeBuyPopup(); renderBuyList(); }
-  else if (f.key === 'gacha') { setGachaStatus('active'); refreshGacha(); startGachaPoll(); }
+  else if (f.key === 'gacha') { setGachaStatus(wasGacha ? gachaStatus : 'active'); refreshGacha(); startGachaPoll(); }
   localStorage.setItem('app_view', 'shop');
   localStorage.setItem('app_shopview', JSON.stringify({ shop: shopId, feat: f.key }));
 }
