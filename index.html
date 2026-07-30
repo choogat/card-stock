@@ -2584,7 +2584,7 @@ function switchView(view) {
   if (view === 'soldstock') renderSoldStock();
   if (view === 'buy') { closeBuyPopup(); renderBuyList(); }
   if (view === 'product') { const ps = document.getElementById('productSearch'); if (ps) ps.value = ''; renderProductSearch(); }
-  if (view === 'gacha') { setGachaStatus(wasGacha ? gachaStatus : 'active'); refreshGacha(); startGachaPoll(); } else { stopGachaPoll(); }
+  if (view === 'gacha') { setGachaStatus((wasGacha || gachaBooting) ? gachaStatus : 'active'); refreshGacha(); startGachaPoll(); } else { stopGachaPoll(); }
   if (view === 'shop') renderShopManage();
   if (view === 'users') renderUsers();
   renderShopNav();
@@ -4907,7 +4907,7 @@ function switchShopView(shopId, feature) {
   if (f.key === 'sales') renderSales();
   else if (f.key === 'report') renderReport();
   else if (f.key === 'buy') { closeBuyPopup(); renderBuyList(); }
-  else if (f.key === 'gacha') { setGachaStatus(wasGacha ? gachaStatus : 'active'); refreshGacha(); startGachaPoll(); }
+  else if (f.key === 'gacha') { setGachaStatus((wasGacha || gachaBooting) ? gachaStatus : 'active'); refreshGacha(); startGachaPoll(); }
   localStorage.setItem('app_view', 'shop');
   localStorage.setItem('app_shopview', JSON.stringify({ shop: shopId, feat: f.key }));
 }
@@ -5672,11 +5672,14 @@ function setGachaMode(m) {
   renderGacha();
 }
 // ---- สถานะงานของตู้จุ่ม: ใช้งานอยู่ (ยังไม่จบงาน) / จบงานแล้ว ----
-// ตู้ที่ยังไม่กด "จบงาน" = ใช้งานอยู่ (โชว์ทุกวันรวมกัน เผื่อจุ่มใช้หลายวัน) · เข้าหน้าใหม่ตั้งต้นที่ "ใช้งานอยู่" เสมอ
-let gachaStatus = 'active'; // 'active' = ใช้งานอยู่ · 'done' = จบงานแล้ว
+// ตู้ที่ยังไม่กด "จบงาน" = ใช้งานอยู่ (โชว์ทุกวันรวมกัน เผื่อจุ่มใช้หลายวัน)
+// จำแท็บล่าสุดไว้ (F5 แล้วคงแท็บเดิม) — แต่ถ้ากดเมนูอื่นแล้วกลับเข้ามาใหม่ จะรีเซ็ตเป็น "ใช้งานอยู่"
+let gachaStatus = (localStorage.getItem('app_gacha_status') === 'done') ? 'done' : 'active';
+let gachaBooting = true; // ระหว่างบูต/รีเฟรช F5 = คงแท็บเดิม ไม่รีเซ็ต (ปลดเป็น false หลังคืนหน้าล่าสุดเสร็จ)
 function gachaIsDone(b) { return !!(b && b.done); }
 function setGachaStatus(s) {
   gachaStatus = s;
+  try { localStorage.setItem('app_gacha_status', s); } catch (e) {} // จำไว้ให้ F5 แล้วคงแท็บเดิม
   const map = { active: 'gsActive', done: 'gsDone' };
   Object.keys(map).forEach(k => {
     const el = document.getElementById(map[k]); if (!el) return;
@@ -7036,6 +7039,7 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeLogin
 
 render();
 applyPermissions(); // ตั้งเมนู/แถบตามสิทธิ์ + คงแถบ/ร้านล่าสุดหลัง F5 (รวมคืนหน้าร้านจากแคชทันที)
+gachaBooting = false; // คืนหน้าล่าสุด (F5) เสร็จแล้ว — จากนี้กดเมนูอื่นกลับเข้ายอดจุ่ม = รีเซ็ตเป็น "ใช้งานอยู่"
 updateAuthGate();   // ยังไม่ล็อกอิน → ล็อกหน้าจอ เหลือแต่หน้าล็อกอิน
 syncOnStart();
 
