@@ -945,6 +945,7 @@
       <option value="">ทั้งหมด</option>
       <option value="set">📦 เซต</option>
       <option value="single">🃏 ใบเดี่ยว</option>
+      <option value="collect">🎁 ของสะสม</option>
     </select>
     <select class="filter" id="statusFilter" onchange="render()">
       <option value="">ทุกสถานะ</option>
@@ -2277,7 +2278,7 @@ function render() {
   const q = document.getElementById('search').value.trim().toLowerCase();
   const sf = document.getElementById('statusFilter').value;
   const tf = document.getElementById('topicFilter').value;
-  const kf = document.getElementById('typeFilter').value; // ชนิด: '' ทั้งหมด / 'set' เซต / 'single' ใบเดี่ยว
+  const kf = document.getElementById('typeFilter').value; // ชนิด: '' ทั้งหมด / 'set' เซต / 'single' ใบเดี่ยว / 'collect' ของสะสม
   const sortBy = document.getElementById('sortBy').value;
   const pMinRaw = document.getElementById('priceMin').value;
   const pMaxRaw = document.getElementById('priceMax').value;
@@ -2288,7 +2289,8 @@ function render() {
   // หน้าคลังสินค้า: ไม่รวมใบที่ขายแล้ว + ไม่รวม "ข้อมูลสินค้าอย่างเดียว"
   let list = cards.map((c, i) => ({ ...c, _i: i })).filter(c => c.status !== 'sold' && !c.productOnly);
   if (kf === 'set') list = list.filter(isSetCard);
-  else if (kf === 'single') list = list.filter(c => !isSetCard(c));
+  else if (kf === 'single') list = list.filter(c => !isSetCard(c) && c.type !== 'collect'); // ใบเดี่ยว = ไม่ใช่เซต และไม่ใช่ของสะสม
+  else if (kf === 'collect') list = list.filter(c => c.type === 'collect');
   if (sf) list = list.filter(c => c.status === sf);
   if (tf) list = list.filter(c => (c.topic || '') === tf);
   if (pMin != null && !isNaN(pMin)) list = list.filter(c => (Number(c.median) || 0) >= pMin);
