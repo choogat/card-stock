@@ -1129,7 +1129,12 @@
       </div>
     </div>
     <div class="product-section">
-      <div class="report-controls">
+      <div class="report-controls" id="gachaStatusRow">
+        <label>สถานะ</label>
+        <button class="btn btn-primary btn-sm" id="gsActive" onclick="setGachaStatus('active')">ใช้งานอยู่</button>
+        <button class="btn btn-ghost btn-sm" id="gsDone" onclick="setGachaStatus('done')">จบงานแล้ว</button>
+      </div>
+      <div class="report-controls" id="gachaDateRow" style="display:none">
         <label>เลือกวัน</label>
         <button class="btn btn-ghost btn-sm" id="gmAll" onclick="setGachaMode('all')">ทุกวัน</button>
         <button class="btn btn-primary btn-sm" id="gmDay" onclick="setGachaMode('day')">วันนี้</button>
@@ -2577,7 +2582,7 @@ function switchView(view) {
   if (view === 'soldstock') renderSoldStock();
   if (view === 'buy') { closeBuyPopup(); renderBuyList(); }
   if (view === 'product') { const ps = document.getElementById('productSearch'); if (ps) ps.value = ''; renderProductSearch(); }
-  if (view === 'gacha') { renderGacha(); refreshGacha(); startGachaPoll(); } else { stopGachaPoll(); }
+  if (view === 'gacha') { setGachaStatus('active'); refreshGacha(); startGachaPoll(); } else { stopGachaPoll(); }
   if (view === 'shop') renderShopManage();
   if (view === 'users') renderUsers();
   renderShopNav();
@@ -4898,7 +4903,7 @@ function switchShopView(shopId, feature) {
   if (f.key === 'sales') renderSales();
   else if (f.key === 'report') renderReport();
   else if (f.key === 'buy') { closeBuyPopup(); renderBuyList(); }
-  else if (f.key === 'gacha') { renderGacha(); refreshGacha(); startGachaPoll(); }
+  else if (f.key === 'gacha') { setGachaStatus('active'); refreshGacha(); startGachaPoll(); }
   localStorage.setItem('app_view', 'shop');
   localStorage.setItem('app_shopview', JSON.stringify({ shop: shopId, feat: f.key }));
 }
@@ -5662,6 +5667,32 @@ function setGachaMode(m) {
   });
   renderGacha();
 }
+// ---- สถานะงานของตู้จุ่ม: ใช้งานอยู่ (ยังไม่จบงาน) / จบงานแล้ว ----
+// ตู้ที่ยังไม่กด "จบงาน" = ใช้งานอยู่ (โชว์ทุกวันรวมกัน เผื่อจุ่มใช้หลายวัน) · เข้าหน้าใหม่ตั้งต้นที่ "ใช้งานอยู่" เสมอ
+let gachaStatus = 'active'; // 'active' = ใช้งานอยู่ · 'done' = จบงานแล้ว
+function gachaIsDone(b) { return !!(b && b.done); }
+function setGachaStatus(s) {
+  gachaStatus = s;
+  const map = { active: 'gsActive', done: 'gsDone' };
+  Object.keys(map).forEach(k => {
+    const el = document.getElementById(map[k]); if (!el) return;
+    el.classList.toggle('btn-primary', k === s);
+    el.classList.toggle('btn-ghost', k !== s);
+  });
+  // แถบเลือกวันโชว์เฉพาะตอนดู "จบงานแล้ว" — ตอนใช้งานอยู่โชว์ทุกตู้รวมกันไม่ต้องกรองวัน
+  const dateRow = document.getElementById('gachaDateRow');
+  if (dateRow) dateRow.style.display = (s === 'done') ? '' : 'none';
+  renderGacha();
+}
+// กด "จบงาน" / "เปิดงานใหม่" ให้ตู้ — ย้ายข้ามแท็บ ใช้งานอยู่ ↔ จบงานแล้ว (ซิงก์ข้ามเครื่องผ่าน stamp updatedAt อัตโนมัติ)
+function markGachaDone(i, val) {
+  if (!canEditGacha()) return;
+  const b = gachaBoxes[i]; if (!b) return;
+  if (val && !confirm('ทำเครื่องหมาย "จบงาน" ให้ตู้ "' + (b.name || '') + '"?\nตู้นี้จะย้ายไปแท็บ "จบงานแล้ว"')) return;
+  b.done = !!val;
+  saveGacha();
+  renderGacha();
+}
 // กล่องสรุป 4 ช่อง (จำนวนจุ่ม · ยอดขาย · ทุน · กำไร)
 function gachaSummaryHTML(draws, sales, cost) {
   const profit = sales - cost, cls = profit >= 0 ? 'pos' : 'neg';
@@ -5746,6 +5777,9 @@ function gachaBoxHTML(b, i, canUp, canDown) {
         <button class="icon-btn" onclick="event.stopPropagation();moveGachaBox(${i},-1)" title="เลื่อนขึ้น"${canUp ? '' : ' disabled'}>⬆️</button>
         <button class="icon-btn" onclick="event.stopPropagation();moveGachaBox(${i},1)" title="เลื่อนลง"${canDown ? '' : ' disabled'}>⬇️</button>
         <button class="icon-btn" onclick="event.stopPropagation();copyGachaBox(${i})" title="ก็อปปี้ตู้นี้">📋</button>
+        ${b.done
+          ? `<button class="icon-btn" onclick="event.stopPropagation();markGachaDone(${i},false)" title="เปิดงานใหม่ (กลับไปใช้งานอยู่)">↩️</button>`
+          : `<button class="icon-btn" onclick="event.stopPropagation();markGachaDone(${i},true)" title="จบงาน — ย้ายไปแท็บจบงานแล้ว">🏁</button>`}
         <button class="icon-btn" onclick="event.stopPropagation();openGachaForm(${i})" title="แก้ไข">✏️</button>
         <button class="icon-btn del" onclick="event.stopPropagation();deleteGachaBox(${i})" title="ลบ">🗑️</button>
       </div>`}
@@ -5774,6 +5808,18 @@ function gachaDayBlockHTML(idxs, label, subNote) {
     ${boxesHTML}
   </div>`;
 }
+// จัดกลุ่มตู้ตามวัน เรียงวันใหม่→เก่า พร้อมกล่องยอดรวมด้านบน (ใช้ทั้งโหมดใช้งานอยู่ / ทุกวัน / รายเดือน)
+function gachaGroupedByDayHTML(idxs, totalLabel, emptyMsg) {
+  if (!idxs.length) return `<div class="empty"><div class="big">🎲</div>${esc(emptyMsg || 'ยังไม่มีตู้จุ่ม')}</div>`;
+  const byDate = {};
+  idxs.forEach(i => { const k = gachaDateKey(gachaBoxes[i]); (byDate[k] = byDate[k] || []).push(i); });
+  const dates = Object.keys(byDate).sort().reverse();   // วันใหม่อยู่บน
+  let D = 0, S = 0, C = 0;
+  idxs.forEach(i => { const st = gachaBoxStats(gachaBoxes[i]); D += st.drawn; S += st.sales; C += st.cost; });
+  let html = `<div class="gacha-day"><div class="gd-head"><span class="gd-date">📊 ${esc(totalLabel)}</span><span class="gd-sub">${dates.length} วัน · ${idxs.length} ตู้</span></div>${gachaSummaryHTML(D, S, C)}</div>`;
+  html += dates.map(dk => gachaDayBlockHTML(byDate[dk], gachaDateLabel(dk))).join('');
+  return html;
+}
 function renderGacha() {
   const area = document.getElementById('gachaList');
   if (!area) return;
@@ -5781,46 +5827,49 @@ function renderGacha() {
   // ผู้ช่วยที่ตั้ง "ดูอย่างเดียว" — ซ่อนปุ่มสร้างตู้
   const tools = document.getElementById('gachaTools');
   if (tools) tools.style.display = canEditGacha() ? '' : 'none';
+  // แถบเลือกวันโชว์เฉพาะตอนดู "จบงานแล้ว"
+  const dateRow = document.getElementById('gachaDateRow');
+  if (dateRow) dateRow.style.display = (gachaStatus === 'done') ? '' : 'none';
+
   const scopedIdxs = gachaBoxes.map((b, i) => inShopScopeStrict(b) ? i : -1).filter(i => i >= 0);
   if (!scopedIdxs.length) {
     area.innerHTML = '<div class="empty"><div class="big">🎲</div>ยังไม่มีตู้จุ่ม — กด “+ สร้างตู้จุ่ม” เพื่อเริ่ม</div>';
     return;
   }
-  const undatedIdxs = scopedIdxs.filter(i => gachaDateKey(gachaBoxes[i]) === '0000-00-00');
-  const datedIdxs = scopedIdxs.filter(i => gachaDateKey(gachaBoxes[i]) !== '0000-00-00');
+  // กรองตามสถานะงานก่อน: ใช้งานอยู่ (ยังไม่จบงาน) / จบงานแล้ว
+  const statusIdxs = scopedIdxs.filter(i => (gachaStatus === 'done') === gachaIsDone(gachaBoxes[i]));
+  if (!statusIdxs.length) {
+    area.innerHTML = gachaStatus === 'done'
+      ? '<div class="empty"><div class="big">🏁</div>ยังไม่มีตู้จุ่มที่จบงานแล้ว</div>'
+      : '<div class="empty"><div class="big">🎲</div>ไม่มีตู้จุ่มที่ใช้งานอยู่ — กด “+ สร้างตู้จุ่ม” หรือดูที่แท็บ “จบงานแล้ว”</div>';
+    return;
+  }
+  const undatedIdxs = statusIdxs.filter(i => gachaDateKey(gachaBoxes[i]) === '0000-00-00');
+  const datedIdxs = statusIdxs.filter(i => gachaDateKey(gachaBoxes[i]) !== '0000-00-00');
   let html = '';
 
-  if (gachaMode === 'day') {
-    // ---- โหมดเลือกวัน (ตั้งต้นวันนี้ — แบบหน้ารายงานการขาย) ----
+  if (gachaStatus === 'active') {
+    // ---- ใช้งานอยู่: โชว์ทุกตู้ที่ยังไม่จบงาน จัดกลุ่มตามวัน (ไม่กรองวัน เผื่อจุ่มใช้หลายวัน) ----
+    html = gachaGroupedByDayHTML(datedIdxs, 'รวมที่ใช้งานอยู่');
+  } else if (gachaMode === 'day') {
+    // ---- จบงานแล้ว + โหมดเลือกวัน (ตั้งต้นวันนี้ — แบบหน้ารายงานการขาย) ----
     const dateEl = document.getElementById('gachaDate');
     if (dateEl && !dateEl.value) dateEl.value = todayStr();
     const sel = dateEl ? dateEl.value : todayStr();
     const dayIdxs = datedIdxs.filter(i => gachaDateKey(gachaBoxes[i]) === sel);
     html = dayIdxs.length
       ? gachaDayBlockHTML(dayIdxs, gachaDateLabel(sel))
-      : `<div class="empty"><div class="big">🎲</div>วันที่ ${esc(gachaDateLabel(sel))} ยังไม่มีตู้จุ่ม</div>`;
+      : `<div class="empty"><div class="big">🎲</div>วันที่ ${esc(gachaDateLabel(sel))} ยังไม่มีตู้จุ่มที่จบงาน</div>`;
   } else {
-    // ---- โหมดทุกวัน / รายเดือน: จัดกลุ่มตามวัน เรียงวันใหม่→เก่า พร้อมยอดรวมด้านบน ----
+    // ---- จบงานแล้ว + โหมดทุกวัน / รายเดือน: จัดกลุ่มตามวัน พร้อมยอดรวม ----
     let idxs = datedIdxs, emptyMsg = 'ยังไม่มีตู้จุ่ม';
     if (gachaMode === 'month') {
       const mEl = document.getElementById('gachaMonth');
       const mo = (mEl && mEl.value) ? mEl.value : todayStr().slice(0, 7);
       idxs = datedIdxs.filter(i => gachaDateKey(gachaBoxes[i]).slice(0, 7) === mo);
-      emptyMsg = 'เดือนนี้ยังไม่มีตู้จุ่ม';
+      emptyMsg = 'เดือนนี้ยังไม่มีตู้จุ่มที่จบงาน';
     }
-    if (!idxs.length) {
-      html = `<div class="empty"><div class="big">🎲</div>${emptyMsg}</div>`;
-    } else {
-      const byDate = {};
-      idxs.forEach(i => { const k = gachaDateKey(gachaBoxes[i]); (byDate[k] = byDate[k] || []).push(i); });
-      const dates = Object.keys(byDate).sort().reverse();   // วันใหม่อยู่บน
-      // ยอดรวมทุกวันที่แสดง (จำนวนจุ่ม · ยอดขาย · ทุน · กำไร)
-      let D = 0, S = 0, C = 0;
-      idxs.forEach(i => { const st = gachaBoxStats(gachaBoxes[i]); D += st.drawn; S += st.sales; C += st.cost; });
-      const totalLabel = gachaMode === 'month' ? 'รวมทั้งเดือน' : 'รวมทุกวัน';
-      html = `<div class="gacha-day"><div class="gd-head"><span class="gd-date">📊 ${totalLabel}</span><span class="gd-sub">${dates.length} วัน · ${idxs.length} ตู้</span></div>${gachaSummaryHTML(D, S, C)}</div>`;
-      html += dates.map(dk => gachaDayBlockHTML(byDate[dk], gachaDateLabel(dk))).join('');
-    }
+    html = gachaGroupedByDayHTML(idxs, gachaMode === 'month' ? 'รวมทั้งเดือน' : 'รวมทุกวัน', emptyMsg);
   }
   // ตู้ที่ยังไม่ระบุวันที่ (เก่า) — โชว์ด้านล่างเสมอ ไม่ให้ข้อมูลหาย
   if (undatedIdxs.length) html += gachaDayBlockHTML(undatedIdxs, 'ไม่ระบุวันที่', 'กดแก้ไขเพื่อใส่วันที่');
