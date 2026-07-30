@@ -962,7 +962,7 @@
       <option value="buyDate_desc">วันที่ซื้อ ล่าสุด</option>
     </select>
     <div class="price-filter">
-      <span class="pf-label">ราคา</span>
+      <span class="pf-label">ราคาขาย</span>
       <input class="pf-input" id="priceMin" type="number" min="0" inputmode="numeric" placeholder="น้อย" oninput="render()">
       <span class="pf-dash">–</span>
       <input class="pf-input" id="priceMax" type="number" min="0" inputmode="numeric" placeholder="มาก" oninput="render()">
@@ -2282,8 +2282,8 @@ function render() {
   const sortBy = document.getElementById('sortBy').value;
   const pMinRaw = document.getElementById('priceMin').value;
   const pMaxRaw = document.getElementById('priceMax').value;
-  const pMin = pMinRaw !== '' ? Number(pMinRaw) : null; // กรองราคากลาง: อย่างน้อย
-  const pMax = pMaxRaw !== '' ? Number(pMaxRaw) : null; // กรองราคากลาง: อย่างมาก
+  const pMin = pMinRaw !== '' ? Number(pMinRaw) : null; // กรองราคาขาย: อย่างน้อย
+  const pMax = pMaxRaw !== '' ? Number(pMaxRaw) : null; // กรองราคาขาย: อย่างมาก
   const area = document.getElementById('tableArea');
 
   // หน้าคลังสินค้า: ไม่รวมใบที่ขายแล้ว + ไม่รวม "ข้อมูลสินค้าอย่างเดียว"
@@ -2293,8 +2293,8 @@ function render() {
   else if (kf === 'collect') list = list.filter(c => c.type === 'collect');
   if (sf) list = list.filter(c => c.status === sf);
   if (tf) list = list.filter(c => (c.topic || '') === tf);
-  if (pMin != null && !isNaN(pMin)) list = list.filter(c => (Number(c.median) || 0) >= pMin);
-  if (pMax != null && !isNaN(pMax)) list = list.filter(c => (Number(c.median) || 0) <= pMax);
+  if (pMin != null && !isNaN(pMin)) list = list.filter(c => (Number(c.sell) || 0) >= pMin);
+  if (pMax != null && !isNaN(pMax)) list = list.filter(c => (Number(c.sell) || 0) <= pMax);
   if (q) {
     const terms = q.split(/\s+/).filter(Boolean);
     list = list.filter(c => {
