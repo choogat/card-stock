@@ -1131,8 +1131,11 @@
     <div class="product-section">
       <div class="report-controls">
         <label>เลือกวัน</label>
+        <button class="btn btn-ghost btn-sm" id="gmAll" onclick="setGachaMode('all')">ทุกวัน</button>
+        <button class="btn btn-primary btn-sm" id="gmDay" onclick="setGachaMode('day')">วันนี้</button>
+        <button class="btn btn-ghost btn-sm" id="gmMonth" onclick="setGachaMode('month')">รายเดือน</button>
         <input type="date" id="gachaDate" onchange="renderGacha()">
-        <button class="btn btn-ghost btn-sm" onclick="gachaToday()">วันนี้</button>
+        <input type="month" id="gachaMonth" style="display:none" onchange="renderGacha()">
       </div>
       <div id="gachaList"></div>
     </div>
@@ -5641,8 +5644,24 @@ async function refreshGacha() {
 function startGachaPoll() { stopGachaPoll(); gachaPollTimer = setInterval(refreshGacha, 6000); }
 function stopGachaPoll() { if (gachaPollTimer) { clearInterval(gachaPollTimer); gachaPollTimer = null; } }
 
-// ---- วันที่ของตู้จุ่ม (เลือกวันที่ + ปุ่มวันนี้ แบบหน้ารายงานการขาย) ----
-function gachaToday() { const el = document.getElementById('gachaDate'); if (el) el.value = todayStr(); renderGacha(); }
+// ---- วันที่ของตู้จุ่ม: 3 โหมด — ทุกวัน / วันนี้(รายวัน) / รายเดือน ----
+let gachaMode = 'day'; // 'all' = ทุกวัน · 'day' = เลือกวัน (ตั้งต้นวันนี้) · 'month' = รายเดือน
+function setGachaMode(m) {
+  gachaMode = m;
+  const dateEl = document.getElementById('gachaDate');
+  const monthEl = document.getElementById('gachaMonth');
+  if (m === 'day' && dateEl) dateEl.value = todayStr();        // กด "วันนี้" = เด้งไปวันนี้เสมอ
+  if (m === 'month' && monthEl && !monthEl.value) monthEl.value = todayStr().slice(0, 7);
+  if (dateEl) dateEl.style.display = (m === 'day') ? '' : 'none';
+  if (monthEl) monthEl.style.display = (m === 'month') ? '' : 'none';
+  const map = { all: 'gmAll', day: 'gmDay', month: 'gmMonth' };
+  Object.keys(map).forEach(k => {
+    const el = document.getElementById(map[k]); if (!el) return;
+    el.classList.toggle('btn-primary', k === m);
+    el.classList.toggle('btn-ghost', k !== m);
+  });
+  renderGacha();
+}
 // กล่องสรุป 4 ช่อง (จำนวนจุ่ม · ยอดขาย · ทุน · กำไร)
 function gachaSummaryHTML(draws, sales, cost) {
   const profit = sales - cost, cls = profit >= 0 ? 'pos' : 'neg';
@@ -5767,17 +5786,42 @@ function renderGacha() {
     area.innerHTML = '<div class="empty"><div class="big">🎲</div>ยังไม่มีตู้จุ่ม — กด “+ สร้างตู้จุ่ม” เพื่อเริ่ม</div>';
     return;
   }
-  // วันที่ที่เลือก (ตั้งต้นวันนี้ — แบบหน้ารายงานการขาย)
-  const dateEl = document.getElementById('gachaDate');
-  if (dateEl && !dateEl.value) dateEl.value = todayStr();
-  const sel = dateEl ? dateEl.value : todayStr();
-
-  const dayIdxs = scopedIdxs.filter(i => gachaDateKey(gachaBoxes[i]) === sel);
   const undatedIdxs = scopedIdxs.filter(i => gachaDateKey(gachaBoxes[i]) === '0000-00-00');
+  const datedIdxs = scopedIdxs.filter(i => gachaDateKey(gachaBoxes[i]) !== '0000-00-00');
+  let html = '';
 
-  let html = dayIdxs.length
-    ? gachaDayBlockHTML(dayIdxs, gachaDateLabel(sel))
-    : `<div class="empty"><div class="big">🎲</div>วันที่ ${esc(gachaDateLabel(sel))} ยังไม่มีตู้จุ่ม</div>`;
+  if (gachaMode === 'day') {
+    // ---- โหมดเลือกวัน (ตั้งต้นวันนี้ — แบบหน้ารายงานการขาย) ----
+    const dateEl = document.getElementById('gachaDate');
+    if (dateEl && !dateEl.value) dateEl.value = todayStr();
+    const sel = dateEl ? dateEl.value : todayStr();
+    const dayIdxs = datedIdxs.filter(i => gachaDateKey(gachaBoxes[i]) === sel);
+    html = dayIdxs.length
+      ? gachaDayBlockHTML(dayIdxs, gachaDateLabel(sel))
+      : `<div class="empty"><div class="big">🎲</div>วันที่ ${esc(gachaDateLabel(sel))} ยังไม่มีตู้จุ่ม</div>`;
+  } else {
+    // ---- โหมดทุกวัน / รายเดือน: จัดกลุ่มตามวัน เรียงวันใหม่→เก่า พร้อมยอดรวมด้านบน ----
+    let idxs = datedIdxs, emptyMsg = 'ยังไม่มีตู้จุ่ม';
+    if (gachaMode === 'month') {
+      const mEl = document.getElementById('gachaMonth');
+      const mo = (mEl && mEl.value) ? mEl.value : todayStr().slice(0, 7);
+      idxs = datedIdxs.filter(i => gachaDateKey(gachaBoxes[i]).slice(0, 7) === mo);
+      emptyMsg = 'เดือนนี้ยังไม่มีตู้จุ่ม';
+    }
+    if (!idxs.length) {
+      html = `<div class="empty"><div class="big">🎲</div>${emptyMsg}</div>`;
+    } else {
+      const byDate = {};
+      idxs.forEach(i => { const k = gachaDateKey(gachaBoxes[i]); (byDate[k] = byDate[k] || []).push(i); });
+      const dates = Object.keys(byDate).sort().reverse();   // วันใหม่อยู่บน
+      // ยอดรวมทุกวันที่แสดง (จำนวนจุ่ม · ยอดขาย · ทุน · กำไร)
+      let D = 0, S = 0, C = 0;
+      idxs.forEach(i => { const st = gachaBoxStats(gachaBoxes[i]); D += st.drawn; S += st.sales; C += st.cost; });
+      const totalLabel = gachaMode === 'month' ? 'รวมทั้งเดือน' : 'รวมทุกวัน';
+      html = `<div class="gacha-day"><div class="gd-head"><span class="gd-date">📊 ${totalLabel}</span><span class="gd-sub">${dates.length} วัน · ${idxs.length} ตู้</span></div>${gachaSummaryHTML(D, S, C)}</div>`;
+      html += dates.map(dk => gachaDayBlockHTML(byDate[dk], gachaDateLabel(dk))).join('');
+    }
+  }
   // ตู้ที่ยังไม่ระบุวันที่ (เก่า) — โชว์ด้านล่างเสมอ ไม่ให้ข้อมูลหาย
   if (undatedIdxs.length) html += gachaDayBlockHTML(undatedIdxs, 'ไม่ระบุวันที่', 'กดแก้ไขเพื่อใส่วันที่');
   area.innerHTML = html;
