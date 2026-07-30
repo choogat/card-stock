@@ -3858,13 +3858,14 @@ function openSaleShopBatch() {
   document.getElementById('saleShopOverlay').classList.add('open');
 }
 // ตู้จุ่มที่เลือกได้ (แอดมิน = ทุกตู้ · เปิดร้านอยู่ = เฉพาะตู้ร้านนั้น/ตู้กลาง) — คืน {b, i} โดย i = index จริง
-// ตัดตู้ที่ "หมดเวลาแล้ว" (วันที่ของตู้ผ่านไปแล้ว) ออก ไม่ให้เลือก
+// ตัดออก: ตู้ที่ "หมดเวลาแล้ว" (วันที่ผ่านไปแล้ว) และตู้ที่ "จบงานแล้ว" (ปิดแล้ว) — โชว์เฉพาะตู้ที่ใช้งานอยู่
 function saleGachaScopedBoxes() {
   const arr = (typeof gachaBoxes !== 'undefined' && Array.isArray(gachaBoxes)) ? gachaBoxes : [];
   const today = todayStr();
   return arr.map((b, i) => ({ b, i }))
     .filter(({ b }) => !viewShopId || b.shopId === viewShopId || !b.shopId)
-    .filter(({ b }) => !b.date || b.date >= today);
+    .filter(({ b }) => !b.date || b.date >= today)
+    .filter(({ b }) => !gachaIsDone(b)); // เฉพาะตู้ที่ยังใช้งานอยู่ (ยังไม่กดจบงาน)
 }
 function populateSaleGachaBoxes() {
   const sel = document.getElementById('saleGachaBox');
