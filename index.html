@@ -1139,8 +1139,8 @@
         <button class="btn btn-ghost btn-sm" id="gmAll" onclick="setGachaMode('all')">ทุกวัน</button>
         <button class="btn btn-primary btn-sm" id="gmDay" onclick="setGachaMode('day')">วันนี้</button>
         <button class="btn btn-ghost btn-sm" id="gmMonth" onclick="setGachaMode('month')">รายเดือน</button>
-        <input type="date" id="gachaDate" onchange="renderGacha()">
-        <input type="month" id="gachaMonth" style="display:none" onchange="renderGacha()">
+        <input type="date" id="gachaDate" onchange="onGachaDateChange()">
+        <input type="month" id="gachaMonth" style="display:none" onchange="onGachaMonthChange()">
       </div>
       <div id="gachaList"></div>
     </div>
@@ -2584,7 +2584,7 @@ function switchView(view) {
   if (view === 'soldstock') renderSoldStock();
   if (view === 'buy') { closeBuyPopup(); renderBuyList(); }
   if (view === 'product') { const ps = document.getElementById('productSearch'); if (ps) ps.value = ''; renderProductSearch(); }
-  if (view === 'gacha') { setGachaStatus((wasGacha || gachaBooting) ? gachaStatus : 'active'); refreshGacha(); startGachaPoll(); } else { stopGachaPoll(); }
+  if (view === 'gacha') { enterGachaView(wasGacha || gachaBooting); } else { stopGachaPoll(); }
   if (view === 'shop') renderShopManage();
   if (view === 'users') renderUsers();
   renderShopNav();
@@ -4907,7 +4907,7 @@ function switchShopView(shopId, feature) {
   if (f.key === 'sales') renderSales();
   else if (f.key === 'report') renderReport();
   else if (f.key === 'buy') { closeBuyPopup(); renderBuyList(); }
-  else if (f.key === 'gacha') { setGachaStatus((wasGacha || gachaBooting) ? gachaStatus : 'active'); refreshGacha(); startGachaPoll(); }
+  else if (f.key === 'gacha') { enterGachaView(wasGacha || gachaBooting); }
   localStorage.setItem('app_view', 'shop');
   localStorage.setItem('app_shopview', JSON.stringify({ shop: shopId, feat: f.key }));
 }
@@ -5653,24 +5653,34 @@ async function refreshGacha() {
 function startGachaPoll() { stopGachaPoll(); gachaPollTimer = setInterval(refreshGacha, 6000); }
 function stopGachaPoll() { if (gachaPollTimer) { clearInterval(gachaPollTimer); gachaPollTimer = null; } }
 
-// ---- วันที่ของตู้จุ่ม: 3 โหมด — ทุกวัน / วันนี้(รายวัน) / รายเดือน ----
-let gachaMode = 'day'; // 'all' = ทุกวัน · 'day' = เลือกวัน (ตั้งต้นวันนี้) · 'month' = รายเดือน
-function setGachaMode(m) {
-  gachaMode = m;
-  const dateEl = document.getElementById('gachaDate');
-  const monthEl = document.getElementById('gachaMonth');
-  if (m === 'day' && dateEl) dateEl.value = todayStr();        // กด "วันนี้" = เด้งไปวันนี้เสมอ
-  if (m === 'month' && monthEl && !monthEl.value) monthEl.value = todayStr().slice(0, 7);
-  if (dateEl) dateEl.style.display = (m === 'day') ? '' : 'none';
-  if (monthEl) monthEl.style.display = (m === 'month') ? '' : 'none';
+// ---- วันที่ของตู้จุ่ม: 3 โหมด — ทุกวัน / วันนี้(รายวัน) / รายเดือน ---- (จำไว้ให้ F5 แล้วคงโหมดเดิม)
+let gachaMode = ['all', 'day', 'month'].includes(localStorage.getItem('app_gacha_mode')) ? localStorage.getItem('app_gacha_mode') : 'day';
+// อัปเดตปุ่มโหมด + ซ่อน/โชว์ช่องวันที่/เดือน ตาม gachaMode ปัจจุบัน (ไม่แตะค่าวันที่ — ใช้ตอนคืนค่าหลัง F5)
+function applyGachaModeUI() {
   const map = { all: 'gmAll', day: 'gmDay', month: 'gmMonth' };
   Object.keys(map).forEach(k => {
     const el = document.getElementById(map[k]); if (!el) return;
-    el.classList.toggle('btn-primary', k === m);
-    el.classList.toggle('btn-ghost', k !== m);
+    el.classList.toggle('btn-primary', k === gachaMode);
+    el.classList.toggle('btn-ghost', k !== gachaMode);
   });
+  const dateEl = document.getElementById('gachaDate');
+  const monthEl = document.getElementById('gachaMonth');
+  if (dateEl) dateEl.style.display = (gachaMode === 'day') ? '' : 'none';
+  if (monthEl) monthEl.style.display = (gachaMode === 'month') ? '' : 'none';
+}
+function setGachaMode(m) {
+  gachaMode = m;
+  try { localStorage.setItem('app_gacha_mode', m); } catch (e) {}
+  const dateEl = document.getElementById('gachaDate');
+  const monthEl = document.getElementById('gachaMonth');
+  if (m === 'day' && dateEl) { dateEl.value = todayStr(); try { localStorage.setItem('app_gacha_date', dateEl.value); } catch (e) {} } // กด "วันนี้" = เด้งไปวันนี้เสมอ
+  if (m === 'month' && monthEl && !monthEl.value) { monthEl.value = todayStr().slice(0, 7); try { localStorage.setItem('app_gacha_month', monthEl.value); } catch (e) {} }
+  applyGachaModeUI();
   renderGacha();
 }
+// เปลี่ยนค่าช่องวันที่/เดือนเอง → จำไว้ให้ F5 คงค่าเดิม
+function onGachaDateChange() { const el = document.getElementById('gachaDate'); if (el) { try { localStorage.setItem('app_gacha_date', el.value); } catch (e) {} } renderGacha(); }
+function onGachaMonthChange() { const el = document.getElementById('gachaMonth'); if (el) { try { localStorage.setItem('app_gacha_month', el.value); } catch (e) {} } renderGacha(); }
 // ---- สถานะงานของตู้จุ่ม: ใช้งานอยู่ (ยังไม่จบงาน) / จบงานแล้ว ----
 // ตู้ที่ยังไม่กด "จบงาน" = ใช้งานอยู่ (โชว์ทุกวันรวมกัน เผื่อจุ่มใช้หลายวัน)
 // จำแท็บล่าสุดไว้ (F5 แล้วคงแท็บเดิม) — แต่ถ้ากดเมนูอื่นแล้วกลับเข้ามาใหม่ จะรีเซ็ตเป็น "ใช้งานอยู่"
@@ -5689,7 +5699,24 @@ function setGachaStatus(s) {
   // แถบเลือกวันโชว์เฉพาะตอนดู "จบงานแล้ว" — ตอนใช้งานอยู่โชว์ทุกตู้รวมกันไม่ต้องกรองวัน
   const dateRow = document.getElementById('gachaDateRow');
   if (dateRow) dateRow.style.display = (s === 'done') ? '' : 'none';
+  applyGachaModeUI(); // ปุ่มโหมด (ทุกวัน/วันนี้/รายเดือน) ให้ตรงกับ gachaMode ปัจจุบันเสมอ
   renderGacha();
+}
+// เข้าหน้ายอดจุ่ม — preserve=true (F5/re-apply) คงแท็บ+โหมด+วันที่เดิม · preserve=false (กดเมนูอื่นกลับมา) รีเซ็ตเป็นใช้งานอยู่
+function enterGachaView(preserve) {
+  if (preserve) {
+    // คืนค่าวันที่/เดือนที่จำไว้ (F5 แล้วอยู่หน้าเดิมเป๊ะ)
+    const dEl = document.getElementById('gachaDate');
+    const mEl = document.getElementById('gachaMonth');
+    const sd = localStorage.getItem('app_gacha_date'); if (dEl && sd) dEl.value = sd;
+    const sm = localStorage.getItem('app_gacha_month'); if (mEl && sm) mEl.value = sm;
+    applyGachaModeUI();
+    setGachaStatus(gachaStatus);
+  } else {
+    setGachaStatus('active');
+  }
+  refreshGacha();
+  startGachaPoll();
 }
 // กด "จบงาน" / "เปิดงานใหม่" ให้ตู้ — ย้ายข้ามแท็บ ใช้งานอยู่ ↔ จบงานแล้ว (ซิงก์ข้ามเครื่องผ่าน stamp updatedAt อัตโนมัติ)
 function markGachaDone(i, val) {
