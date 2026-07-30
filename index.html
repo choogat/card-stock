@@ -5768,8 +5768,9 @@ function gachaBoxStats(b) {
   let drawn = realPrizes.filter(p => p.drawn).length;
   if (slots) drawn = Math.min(drawn, slots);
   const sales = drawn * price;          // ยอดขาย = จำนวนจุ่ม × ราคาต่อครั้ง
-  // ทุน = ผลรวม "ยอดรางวัล" ทุกใบที่ใส่ (พอเพิ่มรางวัลก็รวมเป็นทุนทันที ไม่ต้องรอติ๊กออกแล้ว)
-  const cost = prizeValue;
+  // ทุน = ผลรวมมูลค่าของรางวัลที่ "ออกแล้ว" (นับใบละครั้งตามที่คลิก)
+  const cost = realPrizes.filter(p => p.drawn)
+    .reduce((s, p) => s + (Number(p.value != null ? p.value : p.qty) || 0), 0);
   return { realPrizes, prizeValue, slots, price, total, drawn, sales, cost, profit: sales - cost };
 }
 // HTML ของตู้หนึ่งใบ (i = index จริงใน gachaBoxes)
