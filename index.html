@@ -177,6 +177,8 @@
   .product-section { margin-bottom: 26px; }
   /* ยอดจุ่ม: การ์ดตู้ + แถวรางวัล */
   .gacha-box { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 14px 18px; margin-bottom: 12px; }
+  /* ใบที่เพิ่งกดจบงาน/เปิดใหม่ — จางลงทันทีเป็นฟีดแบ็ก แล้วค่อยจัดลิสต์ใหม่ */
+  .gacha-box.gb-leaving { opacity: .4; pointer-events: none; transition: opacity .18s ease; }
   .gb-head { display: flex; align-items: center; gap: 10px; cursor: pointer; user-select: none; }
   .gb-caret { color: var(--muted); font-size: .8rem; transition: transform .15s; flex: none; }
   .gacha-box.open .gb-caret { transform: rotate(90deg); }
@@ -5718,14 +5720,20 @@ function enterGachaView(preserve) {
   refreshGacha();
   startGachaPoll();
 }
-// กด "จบงาน" / "เปิดงานใหม่" ให้ตู้ — ย้ายข้ามแท็บ ใช้งานอยู่ ↔ จบงานแล้ว (ซิงก์ข้ามเครื่องผ่าน stamp updatedAt อัตโนมัติ)
-function markGachaDone(i, val) {
+// กด "จบงาน" / "เปิดงานใหม่" ให้ตู้ — ทำงานทันทีไม่มี popup (ย้อนได้ด้วย ↩️) · ซิงก์ข้ามเครื่องผ่าน stamp updatedAt อัตโนมัติ
+// อ้างอิงด้วย id ไม่ใช่ลำดับ + จัดลิสต์ใหม่ครั้งเดียวหลังหยุดกด → กดรัวหลายใบไม่หลุด "กดแล้วไม่ไป"
+let gachaReflowTimer = null;
+function markGachaDone(btn, id, val) {
   if (!canEditGacha()) return;
-  const b = gachaBoxes[i]; if (!b) return;
-  if (val && !confirm('ทำเครื่องหมาย "จบงาน" ให้ตู้ "' + (b.name || '') + '"?\nตู้นี้จะย้ายไปแท็บ "จบงานแล้ว"')) return;
+  const b = gachaBoxes.find(x => x && String(x.id) === String(id)); if (!b) return;
   b.done = !!val;
-  saveGacha();
-  renderGacha();
+  saveGacha(); // push แบบ debounce — กดรัวหลายใบรวมส่งขึ้นเซิร์ฟเวอร์ครั้งเดียว
+  // ฟีดแบ็กทันทีต่อใบที่กด (จางลง + กดซ้ำไม่ได้) โดยยังไม่ rebuild ทั้งลิสต์ กัน DOM เพี้ยนตอนกดรัว
+  const boxEl = btn && btn.closest('.gacha-box');
+  if (boxEl) boxEl.classList.add('gb-leaving');
+  // จัดลิสต์ใหม่ครั้งเดียวหลังหยุดกด ~0.5 วิ (ย้ายใบที่จบงานออกจากแท็บจริง)
+  clearTimeout(gachaReflowTimer);
+  gachaReflowTimer = setTimeout(() => { gachaReflowTimer = null; renderGacha(); }, 500);
 }
 // กล่องสรุป 4 ช่อง (จำนวนจุ่ม · ยอดขาย · ทุน · กำไร)
 function gachaSummaryHTML(draws, sales, cost) {
@@ -5812,8 +5820,8 @@ function gachaBoxHTML(b, i, canUp, canDown) {
         <button class="icon-btn" onclick="event.stopPropagation();moveGachaBox(${i},1)" title="เลื่อนลง"${canDown ? '' : ' disabled'}>⬇️</button>
         <button class="icon-btn" onclick="event.stopPropagation();copyGachaBox(${i})" title="ก็อปปี้ตู้นี้">📋</button>
         ${b.done
-          ? `<button class="icon-btn" onclick="event.stopPropagation();markGachaDone(${i},false)" title="เปิดงานใหม่ (กลับไปใช้งานอยู่)">↩️</button>`
-          : `<button class="icon-btn" onclick="event.stopPropagation();markGachaDone(${i},true)" title="จบงาน — ย้ายไปแท็บจบงานแล้ว">🏁</button>`}
+          ? `<button class="icon-btn" onclick="event.stopPropagation();markGachaDone(this,'${b.id}',false)" title="เปิดงานใหม่ (กลับไปใช้งานอยู่)">↩️</button>`
+          : `<button class="icon-btn" onclick="event.stopPropagation();markGachaDone(this,'${b.id}',true)" title="จบงาน — ย้ายไปแท็บจบงานแล้ว">🏁</button>`}
         <button class="icon-btn" onclick="event.stopPropagation();openGachaForm(${i})" title="แก้ไข">✏️</button>
         <button class="icon-btn del" onclick="event.stopPropagation();deleteGachaBox(${i})" title="ลบ">🗑️</button>
       </div>`}
