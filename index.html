@@ -5759,10 +5759,20 @@ function gachaDateLabel(d) {
   else if (d === yesterdayStr()) label += ' (เมื่อวาน)';
   return label;
 }
+// มูลค่ารางวัล 1 ใบ — ถ้าผูกกับการ์ด (cardId) ให้ดึง "ราคาขายปัจจุบัน" ของการ์ดมาสด ๆ (แก้ราคาขายแล้วตู้จุ่มอัปเดตตาม)
+// ถ้าไม่มีการ์ดผูก/ราคาขายว่าง → ใช้ค่าที่บันทึกไว้เดิม (p.value)
+function prizeValueOf(p) {
+  if (!p) return 0;
+  if (p.cardId && typeof cards !== 'undefined' && Array.isArray(cards)) {
+    const c = cards.find(x => x && x.id === p.cardId);
+    if (c && Number(c.sell)) return Number(c.sell);
+  }
+  return Number(p.value != null ? p.value : p.qty) || 0;
+}
 // คำนวณสรุปของตู้หนึ่งใบ
 function gachaBoxStats(b) {
   const realPrizes = (b.prizes || []).filter(p => p && !p.header);
-  const prizeValue = realPrizes.reduce((s, p) => s + (Number(p.value != null ? p.value : p.qty) || 0), 0);
+  const prizeValue = realPrizes.reduce((s, p) => s + prizeValueOf(p), 0);
   const slots = Number(b.slots) || 0;
   const price = Number(b.price) || 0;
   const total = price * slots;
@@ -5771,8 +5781,7 @@ function gachaBoxStats(b) {
   if (slots) drawn = Math.min(drawn, slots);
   const sales = drawn * price;          // ยอดขาย = จำนวนจุ่ม × ราคาต่อครั้ง
   // ทุน = ผลรวมมูลค่าของรางวัลที่ "ออกแล้ว" (นับใบละครั้งตามที่คลิก)
-  const cost = realPrizes.filter(p => p.drawn)
-    .reduce((s, p) => s + (Number(p.value != null ? p.value : p.qty) || 0), 0);
+  const cost = realPrizes.filter(p => p.drawn).reduce((s, p) => s + prizeValueOf(p), 0);
   return { realPrizes, prizeValue, slots, price, total, drawn, sales, cost, profit: sales - cost };
 }
 // HTML ของตู้หนึ่งใบ (i = index จริงใน gachaBoxes)
@@ -5794,7 +5803,7 @@ function gachaBoxHTML(b, i, canUp, canDown) {
         const thumb = img
           ? `<img class="gb-pimg" src="${esc(img)}" onclick="event.stopPropagation();openImgUrl('${esc(img)}')" alt="">`
           : '<span class="gb-pimg gb-noimg">—</span>';
-        const v = Number(p.value != null ? p.value : p.qty) || 0;
+        const v = prizeValueOf(p);
         const noShow = (p.no != null && p.no !== '') ? p.no : (k + 1);
         // ยังไม่ออก: แตะเลือกได้หลายอัน แล้วกดยืนยันทีเดียว · ออกแล้ว: แอดมินยกเลิกได้ / คนอื่นล็อก
         let checkCell;
