@@ -3871,7 +3871,7 @@ function populateSaleGachaBoxes() {
   const sel = document.getElementById('saleGachaBox');
   if (!sel) return;
   const boxes = saleGachaScopedBoxes();
-  let html = boxes.map(({ b, i }) => `<option value="${i}">${esc(b.name || 'ตู้จุ่ม')}${b.date ? ' · ' + esc(b.date) : ''} (${(b.prizes || []).length} รางวัล)</option>`).join('');
+  let html = boxes.map(({ b }) => `<option value="${esc(b.id)}">${esc(b.name || 'ตู้จุ่ม')}${b.date ? ' · ' + esc(b.date) : ''} (${(b.prizes || []).length} รางวัล)</option>`).join('');
   html += `<option value="__new__">➕ สร้างตู้จุ่มใหม่</option>`;
   sel.innerHTML = html;
   onSaleGachaBoxChange();
@@ -3882,7 +3882,7 @@ function onSaleGachaBoxChange() {
   const noEl = document.getElementById('saleGachaNo');
   if (!sel || !noEl) return;
   if (sel.value === '__new__') { noEl.value = 1; return; }
-  const b = gachaBoxes[Number(sel.value)];
+  const b = gachaBoxes.find(x => x && String(x.id) === sel.value);
   noEl.value = b ? ((b.prizes || []).length + 1) : 1;
 }
 function toggleGachaDest() {
@@ -3917,7 +3917,7 @@ function confirmGachaDest() {
     box = { id: uid(), name, date: todayStr(), slots: 0, price: 0, note: '', shopId: viewShopId || '', prizes: [] };
     gachaBoxes.push(box);
   } else {
-    box = gachaBoxes[Number(sel.value)];
+    box = gachaBoxes.find(x => x && String(x.id) === sel.value);
     if (!box) { alert('ไม่พบตู้จุ่มที่เลือก'); return; }
   }
   if (!Array.isArray(box.prizes)) box.prizes = [];
@@ -3932,7 +3932,7 @@ function confirmGachaDest() {
       cert: (c.cert || '').toString().replace(/\D/g, ''),
       name: c.name || '',
       image: c.image || '',
-      value: Number(c.median) || Number(c.buy) || 0,
+      value: Number(c.sell) || Number(c.median) || Number(c.buy) || 0, // เอาราคาขายมาเป็นมูลค่ารางวัลก่อน
       drawn: false,
       cardId: c.id,
     };
