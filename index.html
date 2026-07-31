@@ -903,13 +903,13 @@
   }
   /* ===== หน้าคลังสินค้า (#viewStock) บน iPad/จอสัมผัส: ย่อส่วนหัวให้เล็ก + แถวรูปการ์ดใหญ่ขึ้น ===== */
   @media (max-width: 1024px), (max-width: 1366px) and (any-pointer: coarse) {
-    /* การ์ดสรุปยอด: กระชับลงมาก */
-    #viewStock .stats { gap: 8px; margin-bottom: 10px; }
-    #viewStock .stat { padding: 10px 13px; border-radius: 12px; }
-    #viewStock .stat::after { display: none; }
-    #viewStock .stat .label { font-size: .7rem; margin-bottom: 2px; }
-    #viewStock .stat .value { font-size: 1.15rem; }
-    #viewStock .stat .sub { font-size: .66rem; margin-top: 1px; }
+    /* การ์ดสรุปยอด: ออกแบบให้เตี้ย เรียบ กะทัดรัด */
+    #viewStock .stats { gap: 8px; margin-bottom: 8px; }
+    #viewStock .stat { padding: 8px 11px; border-radius: 11px; line-height: 1.15; }
+    #viewStock .stat::after { display: none; } /* เอาวงกลมตกแต่งออก ให้เรียบ */
+    #viewStock .stat .label { font-size: .64rem; margin-bottom: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    #viewStock .stat .value { font-size: 1.02rem; letter-spacing: -.2px; }
+    #viewStock .stat .sub { font-size: .6rem; margin-top: 2px; line-height: 1.3; opacity: .85; }
     /* ชิปแยกเรื่อง: เล็กลง ชิด */
     #viewStock .topic-breakdown { gap: 6px; margin-bottom: 10px; }
     #viewStock .topic-chip { padding: 6px 11px; min-width: 0; border-radius: 10px; }
@@ -934,7 +934,6 @@
   @media (min-width: 641px) and (max-width: 1024px),
          (min-width: 641px) and (max-width: 1366px) and (any-pointer: coarse) {
     #viewStock .stats { grid-template-columns: repeat(4, 1fr); }
-    #viewStock .stat .value { font-size: 1.05rem; }
   }
 </style>
 </head>
