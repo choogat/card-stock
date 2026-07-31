@@ -512,6 +512,13 @@
   .price-filter .pf-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
   .price-filter .pf-input { -moz-appearance: textfield; }
 
+  /* ปุ่มกรอง (เช่น ปุ่มราคา) หน้าตาเหมือน select.filter */
+  .fbtn { background: var(--card); border: 1px solid var(--border); color: var(--text); padding: 12px 14px; border-radius: 12px; font-size: .9rem; font-family: inherit; cursor: pointer; white-space: nowrap; }
+  .fbtn:hover { border-color: var(--accent); }
+  .fbtn.active { border-color: var(--accent); color: var(--accent); font-weight: 700; }
+  /* หน้าคลังสินค้า: ช่องค้นหาเล็ก (~20 ตัว) อยู่แถวเดียวกับตัวกรอง */
+  #viewStock .filters-row .search { flex: 0 0 auto; width: 21ch; min-width: 0; }
+
   table { width: 100%; border-collapse: separate; border-spacing: 0 6px; }
   th { text-align: left; color: var(--muted); font-size: .72rem; font-weight: 600; padding: 2px 12px 6px; text-transform: uppercase; letter-spacing: .4px; white-space: nowrap; }
   th.num { text-align: right; }
@@ -919,12 +926,11 @@
     #viewStock .toolbar { gap: 7px; margin-bottom: 8px; }
     #viewStock .toolbar .btn-ghost { display: none; } /* เอา 🔍 ค้นหาการ์ด PSA ออก ประหยัดพื้นที่ */
     #viewStock .toolbar .btn { padding: 8px 13px; font-size: .84rem; }
-    #viewStock .toolbar .search { padding: 8px 13px; font-size: .86rem; }
-    /* แถวตัวกรอง/จัดเรียง: เล็กลง ชิด */
+    /* แถวค้นหา+ตัวกรอง+จัดเรียง: อยู่แถวเดียว เล็กลง ชิด */
     #viewStock .filters-row { gap: 7px; margin-bottom: 8px; }
-    #viewStock .filters-row select.filter { padding: 8px 11px; font-size: .82rem; }
-    #viewStock .price-filter { padding: 0 11px; }
-    #viewStock .price-filter .pf-label { font-size: .76rem; }
+    #viewStock .filters-row .search { padding: 8px 12px; font-size: .84rem; }
+    #viewStock .filters-row select.filter,
+    #viewStock .filters-row .fbtn { padding: 8px 11px; font-size: .82rem; }
     /* ===== แถวตาราง: รูปการ์ดใหญ่ขึ้น (ตามที่ขอ) เห็นการ์ดชัด ===== */
     #viewStock .thumb, #viewStock .thumb-empty { width: 58px; height: 82px; }
     #viewStock .thumb-empty { font-size: 1.3rem; }
@@ -1033,10 +1039,10 @@
     <button class="btn btn-primary" onclick="openForm('card')">+ เพิ่มการ์ด</button>
     <button class="btn btn-primary" onclick="openForm('collect')">+ เพิ่มของสะสม</button>
     <button class="btn btn-ghost" onclick="openPSASearch()">🔍 ค้นหาการ์ด PSA</button>
-    <input class="search" id="search" placeholder="ค้นหา เรื่อง / ชื่อ / รุ่น / PSA..." oninput="render()">
   </div>
 
   <div class="filters-row">
+    <input class="search" id="search" placeholder="ค้นหา / PSA…" oninput="render()">
     <select class="filter" id="topicFilter" onchange="render()">
       <option value="">ทุกเรื่อง</option>
     </select>
@@ -1060,11 +1066,22 @@
       <option value="profit_desc">กำไร มาก→น้อย</option>
       <option value="buyDate_desc">วันที่ซื้อ ล่าสุด</option>
     </select>
-    <div class="price-filter">
-      <span class="pf-label">ราคาขาย</span>
-      <input class="pf-input" id="priceMin" type="number" min="0" inputmode="numeric" placeholder="น้อย" oninput="render()">
-      <span class="pf-dash">–</span>
-      <input class="pf-input" id="priceMax" type="number" min="0" inputmode="numeric" placeholder="มาก" oninput="render()">
+    <button type="button" class="filter fbtn" id="priceBtn" onclick="openPricePop()">💰 ราคาขาย</button>
+  </div>
+
+  <!-- popup กรองช่วงราคาขาย (กดปุ่มราคาแล้วเด้งขึ้นมา) -->
+  <div class="overlay" id="priceOverlay" onclick="if(event.target===this)closePricePop()">
+    <div class="modal" style="max-width:340px">
+      <h2>💰 กรองช่วงราคาขาย</h2>
+      <div class="price-filter" style="width:100%;justify-content:center;gap:12px;padding:12px 14px">
+        <input class="pf-input" id="priceMin" type="number" min="0" inputmode="numeric" placeholder="น้อย" oninput="render();updatePriceBtn()" style="width:110px;text-align:center">
+        <span class="pf-dash">–</span>
+        <input class="pf-input" id="priceMax" type="number" min="0" inputmode="numeric" placeholder="มาก" oninput="render();updatePriceBtn()" style="width:110px;text-align:center">
+      </div>
+      <div style="display:flex;gap:10px;margin-top:18px">
+        <button class="btn btn-ghost" onclick="clearPrice()">ล้าง</button>
+        <button class="btn btn-primary" style="flex:1" onclick="closePricePop()">ตกลง</button>
+      </div>
     </div>
   </div>
 
@@ -2648,6 +2665,15 @@ function canViewTab(v) {
 }
 function toggleNav() { document.body.classList.toggle('nav-open'); }
 function closeNav() { document.body.classList.remove('nav-open'); }
+function openPricePop() { document.getElementById('priceOverlay').classList.add('open'); }
+function closePricePop() { document.getElementById('priceOverlay').classList.remove('open'); }
+function clearPrice() { document.getElementById('priceMin').value = ''; document.getElementById('priceMax').value = ''; render(); updatePriceBtn(); }
+function updatePriceBtn() {
+  const mn = document.getElementById('priceMin').value, mx = document.getElementById('priceMax').value;
+  const b = document.getElementById('priceBtn'); if (!b) return;
+  b.textContent = (mn || mx) ? `💰 ${mn || 0}–${mx || '∞'}` : '💰 ราคาขาย';
+  b.classList.toggle('active', !!(mn || mx));
+}
 function switchView(view) {
   document.body.classList.remove('nav-open'); // เลือกเมนูแล้วปิดลิ้นชักอัตโนมัติ
   if (!canViewTab(view)) view = allowedTabs()[0] || 'stock';
