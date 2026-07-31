@@ -415,8 +415,8 @@
   body.nav-open .nav-backdrop { opacity: 1; pointer-events: auto; }
   body.locked .nav-fab, body.locked .nav-backdrop { display: none !important; }
 
-  @media (max-width: 900px) {
-    /* เมนูข้างกลายเป็นลิ้นชักเลื่อนออกจากซ้าย — เนื้อหาได้เต็มจอ ไม่โดนเมนูกินพื้นที่ */
+  @media (max-width: 900px), (orientation: portrait) and (any-pointer: coarse) and (max-width: 1366px) {
+    /* เมนูข้างกลายเป็นลิ้นชักเลื่อนออกจากซ้าย — เนื้อหาได้เต็มจอ ไม่โดนเมนูกินพื้นที่ (จอแคบ + iPad แนวตั้ง) */
     .layout { display: block; gap: 0; }
     .sidebar {
       position: fixed; top: 0; left: 0; z-index: 80;
@@ -866,8 +866,8 @@
   /* กันตารางกว้างเกินจนดันหน้าเลื่อนแนวนอน — เลื่อนภายในกล่องแทน */
   #productSearchArea { overflow-x: auto; -webkit-overflow-scrolling: touch; }
 
-  /* ===== หน้าสินค้าบนจอแคบ ≤1024: ย่อส่วนหัว (ปุ่มเพิ่ม+ค้นหา) ให้กินพื้นที่ ≤20% เหลือที่ให้ตาราง ===== */
-  @media (max-width: 1024px) {
+  /* ===== หน้าสินค้าบนจอแคบ + iPad ทุกแนว (จอสัมผัส ≤1366): ย่อส่วนหัวให้กินพื้นที่ ≤20% เหลือที่ให้ตาราง ===== */
+  @media (max-width: 1024px), (max-width: 1366px) and (any-pointer: coarse) {
     #viewProduct .view-title { font-size: 1.05rem; margin-bottom: 8px; }
     /* ซ่อนหัวข้อย่อย + ข้อความอธิบาย ที่กินพื้นที่โดยไม่จำเป็น */
     #viewProduct .product-section .daily-title,
@@ -882,8 +882,9 @@
     /* บรรทัดสรุป "ทั้งหมด N รายการ": ชิด (ทับ margin inline เดิม) */
     #viewProduct .sales-summary { margin: 6px 0 !important; font-size: .82rem; }
   }
-  /* ===== iPad/แท็บเล็ต (641–1024px): แถวตารางกระชับ อ่านง่าย โชว์ข้อมูลได้มากขึ้น ===== */
-  @media (min-width: 641px) and (max-width: 1024px) {
+  /* ===== iPad/แท็บเล็ต (641–1024px + จอสัมผัส ≤1366): แถวตารางกระชับ โชว์ข้อมูลได้มากขึ้น ===== */
+  @media (min-width: 641px) and (max-width: 1024px),
+         (min-width: 641px) and (max-width: 1366px) and (any-pointer: coarse) {
     #viewProduct table { border-spacing: 0 6px; }
     #viewProduct th { font-size: .68rem; padding: 2px 12px 6px; }
     #viewProduct td { padding: 9px 12px; font-size: .88rem; }
