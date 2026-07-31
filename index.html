@@ -400,13 +400,36 @@
   .lock-btn { background: var(--card2); border: 1px solid var(--border); color: var(--muted); width: 30px; height: 30px; border-radius: 8px; cursor: pointer; font-size: .85rem; }
   .lock-btn:hover { border-color: var(--accent); color: var(--text); }
 
+  /* ปุ่ม ☰ ลอย + ฉากหลัง สำหรับลิ้นชักเมนู (โชว์เฉพาะจอแคบ ≤900px) */
+  .nav-fab {
+    display: none; position: fixed; top: 12px; left: 12px; z-index: 82;
+    width: 46px; height: 46px; border-radius: 13px; align-items: center; justify-content: center;
+    background: var(--card); border: 1px solid var(--border); color: var(--text);
+    font-size: 1.25rem; cursor: pointer; box-shadow: 0 5px 18px rgba(6,8,18,.2);
+  }
+  .nav-fab:active { transform: scale(.94); }
+  .nav-backdrop {
+    display: none; position: fixed; inset: 0; z-index: 79; background: rgba(6,8,18,.5);
+    opacity: 0; pointer-events: none; transition: opacity .26s ease;
+  }
+  body.nav-open .nav-backdrop { opacity: 1; pointer-events: auto; }
+  body.locked .nav-fab, body.locked .nav-backdrop { display: none !important; }
+
   @media (max-width: 900px) {
-    .layout { flex-direction: column; gap: 16px; }
-    .sidebar { width: auto; position: static; flex-direction: row; flex-wrap: wrap; align-items: center; max-height: none; overflow: visible; }
-    .sidebar .brand { padding: 6px 8px; }
-    .nav { flex-direction: row; flex: 1; flex-wrap: wrap; }
-    .nav-group { display: none; }
-    .sidebar-foot { margin-top: 0; padding-top: 0; border-top: none; flex-direction: row; align-items: center; width: 100%; }
+    /* เมนูข้างกลายเป็นลิ้นชักเลื่อนออกจากซ้าย — เนื้อหาได้เต็มจอ ไม่โดนเมนูกินพื้นที่ */
+    .layout { display: block; gap: 0; }
+    .sidebar {
+      position: fixed; top: 0; left: 0; z-index: 80;
+      width: 270px; max-width: 84vw; height: 100vh; max-height: 100vh;
+      border-radius: 0 18px 18px 0; border-width: 0 1px 0 0;
+      transform: translateX(-102%); transition: transform .26s ease; will-change: transform;
+      box-shadow: 8px 0 40px rgba(6,8,18,.35);
+    }
+    body.nav-open .sidebar { transform: translateX(0); }
+    .main { width: 100%; }
+    body:not(.shop-ui) .main { padding-top: 52px; } /* เว้นที่ให้ปุ่ม ☰ ลอย (โหมด admin) */
+    body:not(.shop-ui) .nav-fab { display: flex; }  /* โหมดร้านใช้ ☰ บน topbar แทน */
+    .nav-backdrop { display: block; }
   }
   header {
     display: flex; align-items: center; justify-content: space-between;
@@ -864,6 +887,8 @@
 </style>
 </head>
 <body>
+<button class="nav-fab" onclick="toggleNav()" aria-label="เปิดเมนู" title="เมนู">☰</button>
+<div class="nav-backdrop" onclick="closeNav()"></div>
 <div class="layout">
   <aside class="sidebar">
     <div class="brand" id="brandBox">🃏 CielLand <span class="pill">PSA</span></div>
@@ -901,7 +926,7 @@
 
   <main class="main">
   <header class="topbar" id="shopTopbar" style="display:none">
-    <button class="tb-burger" onclick="document.querySelector('.sidebar').scrollIntoView({behavior:'smooth'})" title="เมนู">☰</button>
+    <button class="tb-burger" onclick="toggleNav()" title="เมนู">☰</button>
     <div class="tb-titles"><div class="tb-title" id="tbTitle">แดชบอร์ด</div><div class="tb-sub" id="tbSub">ภาพรวมธุรกิจ</div></div>
     <div class="tb-right">
       <span class="tb-conn">🟢 เชื่อมต่ออยู่</span>
@@ -2570,7 +2595,10 @@ function canViewTab(v) {
   const allowed = allowedTabs();
   return allowed.includes(v) || (v === 'soldstock' && allowed.includes('stock'));
 }
+function toggleNav() { document.body.classList.toggle('nav-open'); }
+function closeNav() { document.body.classList.remove('nav-open'); }
 function switchView(view) {
+  document.body.classList.remove('nav-open'); // เลือกเมนูแล้วปิดลิ้นชักอัตโนมัติ
   if (!canViewTab(view)) view = allowedTabs()[0] || 'stock';
   // จำว่าหน้ายอดจุ่มโชว์อยู่ก่อนหรือไม่ — ถ้า re-apply วิวเดิมซ้ำ (เช่น applyPermissions) อย่ารีเซ็ตแท็บสถานะ
   const wasGacha = document.getElementById('viewGacha').style.display !== 'none';
