@@ -930,6 +930,12 @@
     #viewStock .thumb-empty { font-size: 1.3rem; }
     #viewStock td { padding: 10px 12px; }
   }
+  /* การ์ดสรุปยอด: บังคับ 4 ใบเรียงแถวเดียว (เฉพาะ iPad/แท็บเล็ต ≥641px กันมือถือจอเล็กที่จะแคบเกิน) */
+  @media (min-width: 641px) and (max-width: 1024px),
+         (min-width: 641px) and (max-width: 1366px) and (any-pointer: coarse) {
+    #viewStock .stats { grid-template-columns: repeat(4, 1fr); }
+    #viewStock .stat .value { font-size: 1.05rem; }
+  }
 </style>
 </head>
 <body>
