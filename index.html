@@ -400,7 +400,7 @@
   .lock-btn { background: var(--card2); border: 1px solid var(--border); color: var(--muted); width: 30px; height: 30px; border-radius: 8px; cursor: pointer; font-size: .85rem; }
   .lock-btn:hover { border-color: var(--accent); color: var(--text); }
 
-  @media (max-width: 760px) {
+  @media (max-width: 900px) {
     .layout { flex-direction: column; gap: 16px; }
     .sidebar { width: auto; position: static; flex-direction: row; flex-wrap: wrap; align-items: center; max-height: none; overflow: visible; }
     .sidebar .brand { padding: 6px 8px; }
@@ -837,6 +837,29 @@
     .grid2 { gap: 10px; }
     .empty { padding: 32px 16px; }
     .sales-summary { font-size: .85rem; }
+  }
+
+  /* กันตารางกว้างเกินจนดันหน้าเลื่อนแนวนอน — เลื่อนภายในกล่องแทน */
+  #productSearchArea { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+
+  /* ===== iPad/แท็บเล็ต (641–1024px): จัดหน้าสินค้าให้เป็นระเบียบ อ่านง่าย แตะสะดวก ===== */
+  @media (min-width: 641px) and (max-width: 1024px) {
+    #viewProduct .view-title { font-size: 1.3rem; }
+    #viewProduct .product-section { margin-bottom: 18px; }
+    /* ปุ่มเพิ่มสินค้า/ของสะสม: ขยายเต็มพอเหมาะ แตะง่าย */
+    #viewProduct .toolbar .btn { flex: 1 1 200px; }
+    /* ตารางข้อมูลสินค้า: ระยะห่างสม่ำเสมอ แถวสูงเท่ากัน */
+    #viewProduct table { border-spacing: 0 8px; }
+    #viewProduct th { font-size: .7rem; padding: 2px 14px 7px; }
+    #viewProduct td { padding: 12px 14px; font-size: .9rem; }
+    /* รูปการ์ดใหญ่ขึ้นให้เห็นชัด */
+    #viewProduct .thumb, #viewProduct .thumb-empty { width: 48px; height: 66px; }
+    #viewProduct .thumb-empty { font-size: 1.15rem; }
+    /* รายละเอียด: จำกัด 2 บรรทัดให้แถวไม่สูงเกิน */
+    #viewProduct td.name .detail { max-width: 100%; -webkit-line-clamp: 2; line-clamp: 2; }
+    #viewProduct td.name .cardset { font-size: .82rem; }
+    /* ปุ่มแก้ไข: พื้นที่แตะใหญ่ขึ้นสำหรับจอสัมผัส */
+    #viewProduct .icon-btn { width: 40px; height: 40px; font-size: 1rem; }
   }
 </style>
 </head>
