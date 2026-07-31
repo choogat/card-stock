@@ -429,6 +429,7 @@
     .main { width: 100%; }
     body:not(.shop-ui) .main { padding-top: 10px; }
     body:not(.shop-ui) .view-title { padding-left: 56px; } /* เลื่อนหัวข้อไปข้างปุ่ม ☰ ลอย แทนเว้นที่ด้านบน */
+    body:not(.shop-ui) #viewStock { padding-top: 44px; } /* หน้าคลังสินค้าไม่มีหัวข้อ → เว้นบนให้ ☰ ไม่ทับการ์ดสรุป */
     body:not(.shop-ui) .nav-fab { display: flex; }  /* โหมดร้านใช้ ☰ บน topbar แทน */
     .nav-backdrop { display: block; }
   }
@@ -899,6 +900,35 @@
     #viewProduct td.name .cardset { font-size: .74rem; margin-top: 0; }
     /* ปุ่มแก้ไข: เล็กลงแต่ยังแตะได้ */
     #viewProduct .icon-btn { width: 32px; height: 32px; font-size: .82rem; }
+  }
+  /* ===== หน้าคลังสินค้า (#viewStock) บน iPad/จอสัมผัส: ย่อส่วนหัวให้เล็ก + แถวรูปการ์ดใหญ่ขึ้น ===== */
+  @media (max-width: 1024px), (max-width: 1366px) and (any-pointer: coarse) {
+    /* การ์ดสรุปยอด: กระชับลงมาก */
+    #viewStock .stats { gap: 8px; margin-bottom: 10px; }
+    #viewStock .stat { padding: 10px 13px; border-radius: 12px; }
+    #viewStock .stat::after { display: none; }
+    #viewStock .stat .label { font-size: .7rem; margin-bottom: 2px; }
+    #viewStock .stat .value { font-size: 1.15rem; }
+    #viewStock .stat .sub { font-size: .66rem; margin-top: 1px; }
+    /* ชิปแยกเรื่อง: เล็กลง ชิด */
+    #viewStock .topic-breakdown { gap: 6px; margin-bottom: 10px; }
+    #viewStock .topic-chip { padding: 6px 11px; min-width: 0; border-radius: 10px; }
+    #viewStock .topic-chip .t-name { font-size: .78rem; margin-bottom: 1px; }
+    #viewStock .topic-chip .t-meta { font-size: .68rem; }
+    /* แถบปุ่ม+ค้นหา: เอาปุ่มค้นหา PSA ออก + เล็กลง */
+    #viewStock .toolbar { gap: 7px; margin-bottom: 8px; }
+    #viewStock .toolbar .btn-ghost { display: none; } /* เอา 🔍 ค้นหาการ์ด PSA ออก ประหยัดพื้นที่ */
+    #viewStock .toolbar .btn { padding: 8px 13px; font-size: .84rem; }
+    #viewStock .toolbar .search { padding: 8px 13px; font-size: .86rem; }
+    /* แถวตัวกรอง/จัดเรียง: เล็กลง ชิด */
+    #viewStock .filters-row { gap: 7px; margin-bottom: 8px; }
+    #viewStock .filters-row select.filter { padding: 8px 11px; font-size: .82rem; }
+    #viewStock .price-filter { padding: 0 11px; }
+    #viewStock .price-filter .pf-label { font-size: .76rem; }
+    /* ===== แถวตาราง: รูปการ์ดใหญ่ขึ้น (ตามที่ขอ) เห็นการ์ดชัด ===== */
+    #viewStock .thumb, #viewStock .thumb-empty { width: 58px; height: 82px; }
+    #viewStock .thumb-empty { font-size: 1.3rem; }
+    #viewStock td { padding: 10px 12px; }
   }
 </style>
 </head>
