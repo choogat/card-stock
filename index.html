@@ -427,7 +427,8 @@
     }
     body.nav-open .sidebar { transform: translateX(0); }
     .main { width: 100%; }
-    body:not(.shop-ui) .main { padding-top: 52px; } /* เว้นที่ให้ปุ่ม ☰ ลอย (โหมด admin) */
+    body:not(.shop-ui) .main { padding-top: 10px; }
+    body:not(.shop-ui) .view-title { padding-left: 56px; } /* เลื่อนหัวข้อไปข้างปุ่ม ☰ ลอย แทนเว้นที่ด้านบน */
     body:not(.shop-ui) .nav-fab { display: flex; }  /* โหมดร้านใช้ ☰ บน topbar แทน */
     .nav-backdrop { display: block; }
   }
@@ -865,24 +866,33 @@
   /* กันตารางกว้างเกินจนดันหน้าเลื่อนแนวนอน — เลื่อนภายในกล่องแทน */
   #productSearchArea { overflow-x: auto; -webkit-overflow-scrolling: touch; }
 
-  /* ===== iPad/แท็บเล็ต (641–1024px): จัดหน้าสินค้าให้เป็นระเบียบ อ่านง่าย แตะสะดวก ===== */
+  /* ===== หน้าสินค้าบนจอแคบ ≤1024: ย่อส่วนหัว (ปุ่มเพิ่ม+ค้นหา) ให้กินพื้นที่ ≤20% เหลือที่ให้ตาราง ===== */
+  @media (max-width: 1024px) {
+    #viewProduct .view-title { font-size: 1.05rem; margin-bottom: 8px; }
+    /* ซ่อนหัวข้อย่อย + ข้อความอธิบาย ที่กินพื้นที่โดยไม่จำเป็น */
+    #viewProduct .product-section .daily-title,
+    #viewProduct .product-section > p { display: none; }
+    /* บีบระยะห่างระหว่างส่วนให้ชิด */
+    #viewProduct .product-section { margin-bottom: 8px; }
+    /* ปุ่มเพิ่มสินค้า/ของสะสม: กะทัดรัด อยู่แถวเดียว ไม่เต็มจอ */
+    #viewProduct .toolbar { gap: 8px; margin-bottom: 0; }
+    #viewProduct .toolbar .btn { flex: 0 1 auto; padding: 9px 15px; font-size: .88rem; }
+    /* ช่องค้นหา: เตี้ยลง ชิดขึ้น (ทับ margin inline เดิม) */
+    #viewProduct .search { padding: 9px 14px; font-size: .9rem; margin-bottom: 8px !important; }
+    /* บรรทัดสรุป "ทั้งหมด N รายการ": ชิด (ทับ margin inline เดิม) */
+    #viewProduct .sales-summary { margin: 6px 0 !important; font-size: .82rem; }
+  }
+  /* ===== iPad/แท็บเล็ต (641–1024px): แถวตารางกระชับ อ่านง่าย โชว์ข้อมูลได้มากขึ้น ===== */
   @media (min-width: 641px) and (max-width: 1024px) {
-    #viewProduct .view-title { font-size: 1.3rem; }
-    #viewProduct .product-section { margin-bottom: 18px; }
-    /* ปุ่มเพิ่มสินค้า/ของสะสม: ขยายเต็มพอเหมาะ แตะง่าย */
-    #viewProduct .toolbar .btn { flex: 1 1 200px; }
-    /* ตารางข้อมูลสินค้า: ระยะห่างสม่ำเสมอ แถวสูงเท่ากัน */
-    #viewProduct table { border-spacing: 0 8px; }
-    #viewProduct th { font-size: .7rem; padding: 2px 14px 7px; }
-    #viewProduct td { padding: 12px 14px; font-size: .9rem; }
-    /* รูปการ์ดใหญ่ขึ้นให้เห็นชัด */
-    #viewProduct .thumb, #viewProduct .thumb-empty { width: 48px; height: 66px; }
-    #viewProduct .thumb-empty { font-size: 1.15rem; }
+    #viewProduct table { border-spacing: 0 6px; }
+    #viewProduct th { font-size: .68rem; padding: 2px 12px 6px; }
+    #viewProduct td { padding: 9px 12px; font-size: .88rem; }
+    #viewProduct .thumb, #viewProduct .thumb-empty { width: 42px; height: 58px; }
     /* รายละเอียด: จำกัด 2 บรรทัดให้แถวไม่สูงเกิน */
     #viewProduct td.name .detail { max-width: 100%; -webkit-line-clamp: 2; line-clamp: 2; }
-    #viewProduct td.name .cardset { font-size: .82rem; }
-    /* ปุ่มแก้ไข: พื้นที่แตะใหญ่ขึ้นสำหรับจอสัมผัส */
-    #viewProduct .icon-btn { width: 40px; height: 40px; font-size: 1rem; }
+    #viewProduct td.name .cardset { font-size: .8rem; }
+    /* ปุ่มแก้ไข: พื้นที่แตะพอเหมาะสำหรับจอสัมผัส */
+    #viewProduct .icon-btn { width: 38px; height: 38px; }
   }
 </style>
 </head>
