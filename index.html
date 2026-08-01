@@ -522,6 +522,19 @@
   .fbtn.active { border-color: var(--accent); color: var(--accent); font-weight: 700; }
   /* หน้าคลังสินค้า: ช่องค้นหาเล็ก (~20 ตัว) อยู่แถวเดียวกับตัวกรอง */
   #viewStock .filters-row .search { flex: 0 0 auto; width: 21ch; min-width: 0; }
+  /* หน้าคลังสินค้า: ปุ่มเพิ่มของอยู่แถวเดียวกับค้นหา/ตัวกรอง — ย่อให้สูงเท่ากัน */
+  #viewStock .filters-row .btn { flex: 0 0 auto; padding: 12px 16px; font-size: .88rem; white-space: nowrap; }
+  /* หน้าคลังสินค้า: บีบแถวสรุปยอด + ชิปหัวข้อให้กระชับ เหลือพื้นที่ให้ตารางมากขึ้น */
+  #viewStock .stats { grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 10px; margin-bottom: 10px; }
+  #viewStock .stat { padding: 9px 13px; border-radius: 12px; }
+  #viewStock .stat::after { width: 60px; height: 60px; right: -24px; top: -24px; }
+  #viewStock .stat .label { font-size: .74rem; margin-bottom: 2px; }
+  #viewStock .stat .value { font-size: 1.25rem; }
+  #viewStock .stat .sub { font-size: .7rem; margin-top: 1px; }
+  #viewStock .topic-breakdown { gap: 8px; margin-bottom: 12px; }
+  #viewStock .topic-chip { padding: 7px 12px; border-radius: 11px; min-width: 0; }
+  #viewStock .topic-chip .t-name { font-size: .82rem; margin-bottom: 1px; }
+  #viewStock .topic-chip .t-meta { font-size: .72rem; }
   /* หน้าสินค้าขาย: ย่อช่องค้นหาเหลือครึ่งเดียว เผื่อที่ให้ตัวกรองร้านค้า */
   #viewSales .toolbar .search { flex: 0 1 50%; min-width: 140px; }
 
@@ -928,12 +941,9 @@
     #viewStock .topic-chip { padding: 6px 11px; min-width: 0; border-radius: 10px; }
     #viewStock .topic-chip .t-name { font-size: .78rem; margin-bottom: 1px; }
     #viewStock .topic-chip .t-meta { font-size: .68rem; }
-    /* แถบปุ่ม+ค้นหา: เอาปุ่มค้นหา PSA ออก + เล็กลง */
-    #viewStock .toolbar { gap: 7px; margin-bottom: 8px; }
-    #viewStock .toolbar .btn-ghost { display: none; } /* เอา 🔍 ค้นหาการ์ด PSA ออก ประหยัดพื้นที่ */
-    #viewStock .toolbar .btn { padding: 8px 13px; font-size: .84rem; }
-    /* แถวค้นหา+ตัวกรอง+จัดเรียง: อยู่แถวเดียว เล็กลง ชิด */
+    /* แถวปุ่มเพิ่มของ + ค้นหา + ตัวกรอง + จัดเรียง: อยู่แถวเดียว เล็กลง ชิด */
     #viewStock .filters-row { gap: 7px; margin-bottom: 8px; }
+    #viewStock .filters-row .btn { padding: 8px 13px; font-size: .84rem; }
     #viewStock .filters-row .search { padding: 8px 12px; font-size: .84rem; }
     #viewStock .filters-row select.filter,
     #viewStock .filters-row .fbtn { padding: 8px 11px; font-size: .82rem; }
@@ -1041,13 +1051,10 @@
 
   <div class="topic-breakdown" id="topicBreakdown"></div>
 
-  <div class="toolbar">
+  <!-- ปุ่มเพิ่มของ + ช่องค้นหา + ตัวกรอง รวมอยู่แถวเดียวกัน -->
+  <div class="filters-row">
     <button class="btn btn-primary" onclick="openForm('card')">+ เพิ่มการ์ด</button>
     <button class="btn btn-primary" onclick="openForm('collect')">+ เพิ่มของสะสม</button>
-    <button class="btn btn-ghost" onclick="openPSASearch()">🔍 ค้นหาการ์ด PSA</button>
-  </div>
-
-  <div class="filters-row">
     <input class="search" id="search" placeholder="ค้นหา / PSA…" oninput="render()">
     <select class="filter" id="topicFilter" onchange="render()">
       <option value="">ทุกเรื่อง</option>
