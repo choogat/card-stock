@@ -1380,9 +1380,12 @@
       <div class="field"><label>ราคาต่อครั้ง (฿)</label><input id="g_price" type="number" inputmode="decimal" placeholder="เช่น 50"></div>
     </div>
     <div class="field">
-      <label>รางวัลในตู้ <span style="color:var(--muted);font-weight:400;font-size:.82rem">(ช่องลำดับพิมพ์ช่วงได้ เช่น 6 - 20)</span></label>
+      <label>รางวัลในตู้ <span style="color:var(--muted);font-weight:400;font-size:.82rem">(ช่องลำดับพิมพ์ช่วงได้ เช่น 6 - 20 · แก้เลขแล้วแถวจะเรียงให้เอง)</span></label>
       <div id="gachaPrizeList"></div>
-      <button type="button" class="btn btn-ghost btn-sm" onclick="addPrizeRow()" style="margin-top:6px">+ เพิ่มรางวัล</button>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">
+        <button type="button" class="btn btn-ghost btn-sm" onclick="addPrizeRow()">+ เพิ่มรางวัล</button>
+        <button type="button" class="btn btn-ghost btn-sm" onclick="sortPrizeRowsByNo()" title="จัดแถวใหม่ให้เรียงตามเลขลำดับ">↕️ เรียงตามลำดับ</button>
+      </div>
     </div>
     <div class="field"><label>หมายเหตุ</label><input id="g_note" placeholder="(ไม่บังคับ)"></div>
     <div class="modal-actions">
@@ -5887,8 +5890,27 @@ function gachaDateLabel(d) {
   else if (d === yesterdayStr()) label += ' (เมื่อวาน)';
   return label;
 }
+// ---- เรียงรางวัลตาม "เลขลำดับ" ----
+// ค่าที่ใช้เรียง = เลขตัวแรกในช่องลำดับ ("6 - 20" → 6) · ช่องว่าง/ไม่ใช่ตัวเลข → ไปท้ายสุด
+const PRIZE_NO_LAST = Number.MAX_SAFE_INTEGER;
+function prizeNoStart(no) {
+  const m = String(no == null ? '' : no).match(/\d+/);
+  return m ? Number(m[0]) : PRIZE_NO_LAST;
+}
+// เลขท้ายของช่วง ("6 - 20" → 20 · "12" → 12) — ใช้หาเลขถัดไปตอนเพิ่มแถวใหม่
+function prizeNoEnd(no) {
+  const m = String(no == null ? '' : no).match(/\d+/g);
+  return m ? Number(m[m.length - 1]) : 0;
+}
 // คีย์เรียงรางวัลตามเลขลำดับ (no) — พิมพ์ช่วง "6 - 20" ใช้เลขหน้า · ไม่มีเลข = ไปท้ายสุด
-function prizeNoKey(p) { const m = String(p && p.no != null ? p.no : '').match(/\d+/); return m ? Number(m[0]) : Infinity; }
+function prizeNoKey(p) { return prizeNoStart(p && p.no); }
+// เรียงตามเลขลำดับ (ของเดิมที่เลขเท่ากันคงลำดับเดิมไว้)
+function sortPrizesByNo(list) {
+  return list
+    .map((p, i) => ({ p, i }))
+    .sort((a, b) => (prizeNoKey(a.p) - prizeNoKey(b.p)) || (a.i - b.i))
+    .map(x => x.p);
+}
 // มูลค่ารางวัล 1 ใบ — ถ้าผูกกับการ์ด (cardId) ให้ดึง "ราคาขายปัจจุบัน" ของการ์ดมาสด ๆ (แก้ราคาขายแล้วตู้จุ่มอัปเดตตาม)
 // ถ้าไม่มีการ์ดผูก/ราคาขายว่าง → ใช้ค่าที่บันทึกไว้เดิม (p.value)
 function prizeValueOf(p) {
@@ -5901,7 +5923,7 @@ function prizeValueOf(p) {
 }
 // คำนวณสรุปของตู้หนึ่งใบ
 function gachaBoxStats(b) {
-  const realPrizes = (b.prizes || []).filter(p => p && !p.header);
+  const realPrizes = sortPrizesByNo((b.prizes || []).filter(p => p && !p.header));
   const prizeValue = realPrizes.reduce((s, p) => s + prizeValueOf(p), 0);
   const slots = Number(b.slots) || 0;
   const price = Number(b.price) || 0;
@@ -6147,7 +6169,7 @@ function prizeRowHTML(no, p) {
   const val = (p.value != null && p.value !== '') ? Number(p.value) : (p.qty != null && p.qty !== '' ? Number(p.qty) : '');
   const noVal = (p.no != null && p.no !== '') ? p.no : no;
   return `<div class="gp-row" data-img="${esc(img)}" data-drawn="${p.drawn ? '1' : ''}">
-    <input class="gp-num" value="${esc(String(noVal))}" title="ลำดับ — พิมพ์ช่วงได้ เช่น 6 - 20">
+    <input class="gp-num" value="${esc(String(noVal))}" title="ลำดับ — พิมพ์ช่วงได้ เช่น 6 - 20 (แก้เลขแล้วแถวจะย้ายไปเรียงตามลำดับให้เอง)" onchange="sortPrizeRowsByNo()">
     <input class="gp-cert" inputmode="numeric" placeholder="cert PSA" value="${esc(p.cert || '')}" title="ใส่เลข cert แล้วกด 🔍 เพื่อดึงชื่อ+รูป" onkeydown="if(event.key==='Enter'){event.preventDefault();fetchPrizePSA(this.nextElementSibling)}">
     <button type="button" class="gp-psa" title="ค้นหาการ์ด PSA" onclick="fetchPrizePSA(this)">🔍</button>
     <input class="gp-name" placeholder="ชื่อรางวัล" value="${esc(p.name || '')}">
@@ -6174,10 +6196,14 @@ function duplicatePrizeRow(btn) {
     image: row.dataset.img || '',
     value: row.querySelector('.gp-qty').value,
   };
+  // เลขเดิมเป็นชุด 1,2,3,... → เว้นว่างแล้วไล่เลขใหม่ทั้งหมด
+  // ตั้งเลขเองไว้ (เช่นแทรก 12) → ให้แถวใหม่ไล่ต่อจากแถวต้นแบบ แล้วเรียงตามลำดับ (ไม่ไปทับเลขที่ตั้งไว้)
+  const wasDefault = prizeRowsDefaultNumbered();
+  const startNo = prizeNoEnd(row.querySelector('.gp-num').value);
   let html = '';
-  for (let k = 0; k < n; k++) html += prizeRowHTML('', data); // ลำดับเว้นว่าง → ไล่เลขใหม่ด้านล่าง
+  for (let k = 0; k < n; k++) html += prizeRowHTML(wasDefault ? '' : String(startNo + 1 + k), data);
   row.insertAdjacentHTML('afterend', html);
-  renumberPrizeRows();
+  if (wasDefault) renumberPrizeRows(); else sortPrizeRowsByNo();
   // ปรับ "จำนวนใบในตู้" ขึ้นให้พอกับจำนวนรางวัล (ไม่ลดลง)
   const slotsEl = document.getElementById('g_slots');
   const totalRows = list.querySelectorAll('.gp-row').length;
@@ -6189,14 +6215,46 @@ function renumberPrizeRows() {
   if (rows.some(r => r.querySelector('.gp-num').value.includes('-'))) return;
   rows.forEach((r, i) => { r.querySelector('.gp-num').value = i + 1; });
 }
+// เลขลำดับยังเป็นชุดเริ่มต้น 1,2,3,... อยู่ไหม — ถ้าผู้ใช้ตั้งเลขเอง จะไม่ไล่เลขใหม่ไปทับ
+function prizeRowsDefaultNumbered(rows) {
+  rows = rows || [...document.querySelectorAll('#gachaPrizeList .gp-row')];
+  return rows.every((r, i) => {
+    const v = (r.querySelector('.gp-num').value || '').trim();
+    return v === '' || v === String(i + 1);
+  });
+}
+// จัดแถวรางวัลในฟอร์มให้เรียงตามเลขลำดับ (แทรกเลข 12 ระหว่าง 11 กับ 13 → ย้ายไปอยู่ตรงกลางให้เอง)
+function sortPrizeRowsByNo() {
+  const list = document.getElementById('gachaPrizeList');
+  if (!list) return;
+  const rows = [...list.querySelectorAll('.gp-row')];
+  if (rows.length < 2) return;
+  const sorted = rows
+    .map((r, i) => ({ r, i, k: prizeNoStart(r.querySelector('.gp-num').value) }))
+    .sort((a, b) => (a.k - b.k) || (a.i - b.i));
+  if (sorted.every((s, i) => s.i === i)) return; // เรียงถูกอยู่แล้ว — ไม่ต้องขยับ DOM
+  const active = document.activeElement;
+  const selStart = active && active.selectionStart, selEnd = active && active.selectionEnd;
+  sorted.forEach(s => list.appendChild(s.r));
+  // ย้าย DOM แล้วโฟกัสหลุด — คืนโฟกัส/ตำแหน่งเคอร์เซอร์ให้ช่องเดิม
+  if (active && list.contains(active)) {
+    active.focus();
+    try { active.setSelectionRange(selStart, selEnd); } catch (e) {}
+  }
+}
+// เพิ่มแถวใหม่ — เลขลำดับไล่ต่อจากเลขมากสุดที่มีอยู่ (ไม่ใช่จำนวนแถว) แล้วเรียงให้
 function addPrizeRow() {
   const list = document.getElementById('gachaPrizeList');
-  const n = list.querySelectorAll('.gp-row').length;
-  list.insertAdjacentHTML('beforeend', prizeRowHTML(n + 1, {}));
+  const rows = [...list.querySelectorAll('.gp-row')];
+  const maxNo = rows.reduce((m, r) => Math.max(m, prizeNoEnd(r.querySelector('.gp-num').value)), 0);
+  list.insertAdjacentHTML('beforeend', prizeRowHTML(maxNo + 1, {}));
+  const added = list.lastElementChild;
+  if (added) { const el = added.querySelector('.gp-num'); if (el) el.focus(); }
 }
 function removePrizeRow(btn) {
+  const wasDefault = prizeRowsDefaultNumbered(); // เช็กก่อนลบ — ลบแล้วเลขจะขาดช่วงเอง
   btn.closest('.gp-row').remove();
-  renumberPrizeRows();
+  if (wasDefault) renumberPrizeRows(); // ตั้งเลขเองไว้ → เก็บเลขเดิมไว้ ไม่ไล่ใหม่
 }
 // ค้นหาการ์ด PSA ในแถวรางวัล → เติมชื่อ + รูป
 async function fetchPrizePSA(btn) {
@@ -6223,14 +6281,15 @@ async function fetchPrizePSA(btn) {
   }
 }
 function collectPrizes() {
-  return [...document.querySelectorAll('#gachaPrizeList .gp-row')].map(r => ({
+  // บันทึกโดยเรียงตามเลขลำดับเสมอ — แถวที่แทรกทีหลังจะไม่ไปค้างท้ายตาราง
+  return sortPrizesByNo([...document.querySelectorAll('#gachaPrizeList .gp-row')].map(r => ({
     no: (r.querySelector('.gp-num').value || '').trim(),
     cert: (r.querySelector('.gp-cert').value || '').trim().replace(/\D/g, ''),
     name: r.querySelector('.gp-name').value.trim(),
     image: r.dataset.img || '',
     value: Number(r.querySelector('.gp-qty').value) || 0,
     drawn: r.dataset.drawn === '1',   // คงสถานะ "ออกแล้ว" ไว้ตอนแก้ไข (กันยอดจุ่มหาย)
-  })).filter(p => p.name || p.cert || p.value);
+  })).filter(p => p.name || p.cert || p.value));
 }
 
 function openGachaForm(idx) {
@@ -6244,7 +6303,7 @@ function openGachaForm(idx) {
   document.getElementById('g_slots').value = b && b.slots != null ? b.slots : '';
   document.getElementById('g_price').value = b && b.price != null ? b.price : '';
   document.getElementById('g_note').value = b ? (b.note || '') : '';
-  const prizes = (b && b.prizes && b.prizes.length) ? b.prizes.filter(p => !p.header) : [{}];
+  const prizes = (b && b.prizes && b.prizes.length) ? sortPrizesByNo(b.prizes.filter(p => !p.header)) : [{}];
   document.getElementById('gachaPrizeList').innerHTML = prizes.map((p, i) => prizeRowHTML(i + 1, p)).join('');
   document.getElementById('gachaOverlay').classList.add('open');
   setTimeout(() => document.getElementById('g_name').focus(), 50);
