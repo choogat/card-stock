@@ -4012,6 +4012,13 @@ function toggleForSale(id) {
     updateSaleBar();
     render();
   } else {
+    // ติ๊กออก = ยกเลิกออกจากสินค้าขาย — ถามยืนยันก่อน กันเผลอแตะโดนแล้วของหลุดออกจากหน้าสินค้าขาย
+    const box = c.gachaBoxId && typeof gachaBoxes !== 'undefined' && Array.isArray(gachaBoxes)
+      ? gachaBoxes.find(x => x && x.id === c.gachaBoxId) : null;
+    let msg = 'ยกเลิกรายการนี้ออกจากสินค้าขาย?\n\n' + (c.name || '(ไม่มีชื่อ)');
+    if (box) msg += '\n\n⚠️ ใบนี้อยู่ในตู้จุ่ม "' + (box.name || 'ตู้จุ่ม') + '" — จะถูกดึงออกจากตู้ด้วย';
+    msg += '\n\nกด “ตกลง” เพื่อยกเลิก · กด “ยกเลิก” เพื่อคงไว้เหมือนเดิม';
+    if (!confirm(msg)) { render(); return; } // ไม่ยืนยัน → คืนติ๊กกลับเป็นเหมือนเดิม
     c.status = 'show'; // เอาออกจากขาย
     if (c.gachaBoxId) removeCardFromGacha(c); // ยกเลิก → ดึงรางวัลออกจากตู้จุ่มให้ด้วย
     delete c.gachaBoxId; delete c.gachaNo;
