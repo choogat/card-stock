@@ -893,6 +893,33 @@
   /* กันตารางกว้างเกินจนดันหน้าเลื่อนแนวนอน — เลื่อนภายในกล่องแทน */
   #productSearchArea { overflow-x: auto; -webkit-overflow-scrolling: touch; }
 
+  /* ===== หน้าสินค้าขายบนมือถือ/จอสัมผัส: อัดส่วนหัวให้เตี้ย เดิมชิป "รอขาย" กินไปครึ่งจอ ===== */
+  @media (max-width: 1024px), (max-width: 1366px) and (any-pointer: coarse) {
+    #viewSales .view-title { font-size: 1rem; margin-bottom: 4px; }
+    #viewSales .sales-head { margin-bottom: 6px; }
+    #viewSales .daily-title { font-size: .78rem; margin-bottom: 6px; opacity: .85; }
+    /* ชิป "รอขาย ..." : ตาราง 3 ช่องต่อแถว (6 ชิป = 2 แถวพอดี) แทนที่จะไหลไป 3-4 แถว */
+    #viewSales .topic-breakdown {
+      display: grid; grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 6px; margin-bottom: 8px;
+    }
+    #viewSales .topic-chip { padding: 6px 8px; min-width: 0; border-radius: 10px; }
+    #viewSales .topic-chip .t-name {
+      font-size: .72rem; margin-bottom: 1px;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    #viewSales .topic-chip .t-meta { font-size: .64rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    /* ค้นหา + เรียง + ร้าน: แถวเดียว เลื่อนแนวนอนได้ ไม่ตกลงไปเป็นสองแถว */
+    #viewSales .toolbar {
+      flex-wrap: nowrap; overflow-x: auto; gap: 7px; margin-bottom: 8px; padding-bottom: 2px;
+    }
+    #viewSales .toolbar .search { flex: 1 1 auto; min-width: 110px; padding: 8px 12px; font-size: .84rem; border-radius: 10px; }
+    #viewSales .toolbar select.filter { flex: 0 0 auto; padding: 8px 10px; font-size: .82rem; border-radius: 10px; }
+  }
+  @media (max-width: 380px) {
+    #viewSales .topic-breakdown { grid-template-columns: repeat(2, minmax(0, 1fr)); } /* จอแคบมาก 2 ช่องอ่านง่ายกว่า */
+  }
+
   /* ===== หน้าสินค้าบนจอแคบ + iPad ทุกแนว (จอสัมผัส ≤1366): อัดส่วนหัวให้แน่นที่สุด เหลือที่ให้ตาราง ===== */
   @media (max-width: 1024px), (max-width: 1366px) and (any-pointer: coarse) {
     #viewProduct .view-title { font-size: .98rem; margin-bottom: 6px; }
