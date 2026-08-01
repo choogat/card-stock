@@ -2049,7 +2049,8 @@ function stampUpdated() {
   for (const c of cards) {
     if (!c || c.id == null) continue;
     const body = cardBody(c);
-    if (_cardSnap.get(c.id) !== body) c.updatedAt = now; // ใบใหม่หรือแก้จริง → ประทับเวลา
+    // ใบใหม่หรือแก้จริง → ประทับเวลา (ต้องใหม่กว่าค่าที่เห็นล่าสุดเสมอ เผื่อนาฬิกาเครื่องช้ากว่าเครื่องอื่น)
+    if (_cardSnap.get(c.id) !== body) c.updatedAt = Math.max(now, (Number(c.updatedAt) || 0) + 1);
     _cardSnap.set(c.id, body);
   }
 }
@@ -2137,8 +2138,10 @@ async function pushToServer() {
     if (sentDel.length && deletions.length >= sentDel.length) { deletions = deletions.slice(sentDel.length); try { localStorage.setItem(DEL_KEY, JSON.stringify(deletions)); } catch (e) {} }
     // รับ "ผลรวมทีละใบ" กลับมาใช้ — เฉพาะเมื่อไม่มีการแก้ใหม่แทรกระหว่าง push (กันทับ edit ที่เพิ่งทำ)
     if (Array.isArray(resp.cards) && !pushQueued && cards === sentRef) {
-      const changed = resp.cards.length !== cards.length;
-      adoptServerCards(resp.cards);
+      // เซิร์ฟเวอร์อาจอ่านก้อนเก่าจากแคช CDN → รวมทีละใบ ใบที่ในเครื่องใหม่กว่าให้ชนะ
+      const merged = mergeServerList(cards, resp.cards, null);
+      const changed = merged.length !== cards.length;
+      adoptServerCards(merged);
       if (changed) render();
     }
     setSync('✓ ซิงก์แล้ว', 'ok');
@@ -2194,6 +2197,31 @@ async function pullFromServer() {
 //   1) ปั๊ม updatedAt เฉพาะรายการที่แก้จริง → เซิร์ฟเวอร์รวมทีละรายการ (ไม่เขียนทับกัน)
 //   2) จำ dirty + รายการที่ลบไว้ใน localStorage → รีเฟรช/ปิดหน้าแล้วของค้างไม่หาย
 //   3) ก่อนดึงของเซิร์ฟเวอร์ ถ้ามีของค้างในเครื่อง ให้ดันขึ้นก่อน ไม่ให้ถูกทับ
+// ---- รวมข้อมูลจากเซิร์ฟเวอร์เข้ากับของในเครื่อง (กันค่าที่เพิ่งแก้โดนค่าเก่าทับ) ----
+// ไฟล์ข้อมูลอยู่บน Vercel Blob ซึ่งมีแคชที่ CDN — GET หลังบันทึกทันทีมีโอกาสได้ "ก้อนเก่า" กลับมาสักพัก
+// ถ้าเอามาใช้ตรง ๆ ค่าที่เพิ่งแก้จะเด้งกลับเป็นค่าเดิม แล้วค่อยถูกต้องเองตอนแคชหมดอายุ (อาการ "ต้องรอสักพัก")
+// จึงเทียบ updatedAt ทีละรายการ: ของในเครื่องใหม่กว่า = ใช้ของในเครื่อง
+const SYNC_RECENT_MS = 5 * 60 * 1000; // เพิ่งแก้ในเครื่องไม่เกิน 5 นาที แต่เซิร์ฟเวอร์ยังไม่เห็น → เก็บไว้ก่อน
+function mergeServerList(localArr, serverArr, delIds) {
+  const at = (o) => Number(o && o.updatedAt) || 0;
+  const localById = new Map();
+  for (const o of (localArr || [])) if (o && o.id != null) localById.set(o.id, o);
+  const out = [], seen = new Set();
+  for (const s of (serverArr || [])) {
+    if (!s || s.id == null) { out.push(s); continue; }
+    if (delIds && delIds.has(s.id)) continue;      // เพิ่งลบในเครื่อง (ยังส่งไม่ถึง) — อย่าเอากลับมา
+    seen.add(s.id);
+    const l = localById.get(s.id);
+    out.push(l && at(l) > at(s) ? l : s);          // ในเครื่องใหม่กว่า → ใช้ของในเครื่อง
+  }
+  const now = Date.now();
+  for (const l of (localArr || [])) {              // มีในเครื่องแต่เซิร์ฟเวอร์ยังไม่มี
+    if (!l || l.id == null || seen.has(l.id)) continue;
+    if (delIds && delIds.has(l.id)) continue;
+    if (now - at(l) < SYNC_RECENT_MS) out.push(l); // เพิ่งสร้าง/แก้ที่นี่ → เก็บไว้ (เก่ากว่านั้น = ถูกลบจากเครื่องอื่น)
+  }
+  return out;
+}
 function makeSyncStore({ key, api, respKey, get, set, onChange, debounce = 150 }) {
   const DIRTY_K = key + '_dirty';
   const DEL_K = key + '_del';
@@ -2209,12 +2237,14 @@ function makeSyncStore({ key, api, respKey, get, set, onChange, debounce = 150 }
     for (const o of get()) if (o && o.id != null) snap.set(o.id, bodyOf(o));
   }
   // ประทับเวลาเฉพาะรายการที่เนื้อหาเปลี่ยนจริง (จุดเดียว ครอบคลุมทุกฟังก์ชันที่แก้)
+  // ใช้ Math.max(now, ค่าเดิม+1) — การแก้ในเครื่องต้อง "ใหม่กว่า" ค่าที่เห็นล่าสุดเสมอ
+  // แม้นาฬิกาเครื่องจะช้ากว่าเครื่องอื่น (ไม่งั้นเซิร์ฟเวอร์จะมองว่าของเดิมใหม่กว่าแล้วไม่ยอมรับการแก้)
   function stamp() {
     const now = Date.now();
     for (const o of get()) {
       if (!o || o.id == null) continue;
       const b = bodyOf(o);
-      if (snap.get(o.id) !== b) o.updatedAt = now;
+      if (snap.get(o.id) !== b) o.updatedAt = Math.max(now, (Number(o.updatedAt) || 0) + 1);
       snap.set(o.id, b);
     }
   }
@@ -2257,7 +2287,7 @@ function makeSyncStore({ key, api, respKey, get, set, onChange, debounce = 150 }
         // รับผลรวมจากเซิร์ฟเวอร์มาใช้ — เว้นตอนมีการแก้ใหม่แทรก (กันทับของที่เพิ่งพิมพ์)
         if (Array.isArray(d[respKey]) && !queued) {
           const before = JSON.stringify(get());
-          adopt(d[respKey]);
+          adopt(mergeServerList(get(), d[respKey], null)); // ของในเครื่องใหม่กว่า = ไม่ให้ค่าเก่าทับ
           if (onChange && before !== JSON.stringify(get())) onChange();
         }
       }
@@ -2276,7 +2306,8 @@ function makeSyncStore({ key, api, respKey, get, set, onChange, debounce = 150 }
       const d = await r.json();
       if (!Array.isArray(d[respKey])) return false;
       if (hasPending()) return false; // มีแก้ใหม่แทรกระหว่างดึง — อย่าทับ
-      adopt(d[respKey]);
+      // เซิร์ฟเวอร์อาจคืนก้อนเก่าจากแคช CDN → รวมทีละรายการ ของในเครื่องใหม่กว่าให้ชนะ
+      adopt(mergeServerList(get(), d[respKey], new Set(readDel().map(x => x && x.id))));
       return true;
     } catch (e) { return false; } // ออฟไลน์ — ใช้ค่าในเครื่อง
   }
@@ -6325,7 +6356,9 @@ function saveGachaBox() {
   const idxRaw = document.getElementById('g_idx').value;
   if (idxRaw !== '' && gachaBoxes[idxRaw]) {
     if (!confirm('ยืนยันการแก้ไขตู้จุ่ม "' + (gachaBoxes[idxRaw].name || '') + '" ?')) return;
-    box.id = gachaBoxes[idxRaw].id; box.shopId = gachaBoxes[idxRaw].shopId || ''; gachaBoxes[idxRaw] = box;
+    box.id = gachaBoxes[idxRaw].id; box.shopId = gachaBoxes[idxRaw].shopId || '';
+    box.updatedAt = gachaBoxes[idxRaw].updatedAt; // คงเวลาแก้ล่าสุดไว้ เพื่อให้ประทับเวลาใหม่ "ใหม่กว่า" ของเดิมเสมอ
+    gachaBoxes[idxRaw] = box;
   }
   else { box.id = uid(); box.shopId = viewShopId || ''; gachaBoxes.push(box); } // ผูกกับร้านที่เปิดอยู่
   saveGacha();
@@ -6985,8 +7018,11 @@ async function syncOnStart() {
       setSync('✓ ซิงก์แล้ว', 'ok');
       render();
     } else {
-      // เซิร์ฟเวอร์เป็นแหล่งข้อมูลหลัก — รวมถึงตอนว่าง (= ถูกล้าง) ก็ล้าง cache ตาม
-      adoptServerCards(res.cards);
+      // เซิร์ฟเวอร์เป็นแหล่งข้อมูลหลัก — แต่รวมทีละใบ กันก้อนเก่าจากแคช CDN ทับใบที่เพิ่งแก้ก่อน F5
+      // (ถ้าเซิร์ฟเวอร์ว่างจริง = ถูกล้าง ก็จะได้ค่าว่างตามนั้น เพราะไม่มีใบไหนในเครื่องใหม่กว่า)
+      adoptServerCards(res.cards.length || !cards.length
+        ? mergeServerList(cards, res.cards, new Set(deletions.map(d => d && d.id)))
+        : res.cards);
       setSync('✓ ซิงก์แล้ว', 'ok');
       render();
     }
