@@ -920,6 +920,48 @@
     #viewSales .topic-breakdown { grid-template-columns: repeat(2, minmax(0, 1fr)); } /* จอแคบมาก 2 ช่องอ่านง่ายกว่า */
   }
 
+  /* ===== หน้ายอดจุ่มบนมือถือ/จอสัมผัส: อัดส่วนหัว + กล่องสรุปให้เตี้ย ===== */
+  @media (max-width: 1024px), (max-width: 1366px) and (any-pointer: coarse) {
+    #viewGacha .view-title { font-size: 1rem; margin-bottom: 6px; }
+    #viewGacha .product-section { margin-bottom: 8px; }
+    #viewGacha .toolbar { margin-bottom: 8px; }
+    #viewGacha .toolbar .btn { padding: 8px 14px; font-size: .85rem; border-radius: 10px; }
+    /* แถบสถานะ + เลือกวัน: แถวเดียว เลื่อนแนวนอนได้ ไม่ตกบรรทัด */
+    #viewGacha .report-controls {
+      flex-wrap: nowrap; overflow-x: auto; gap: 6px; margin-bottom: 8px; padding-bottom: 2px;
+    }
+    #viewGacha .report-controls > label { flex: 0 0 auto; font-size: .78rem; }
+    #viewGacha .report-controls .btn { flex: 0 0 auto; padding: 6px 11px; font-size: .8rem; border-radius: 9px; }
+    #viewGacha .report-controls input[type=date],
+    #viewGacha .report-controls input[type=month] { flex: 0 0 auto; padding: 6px 9px; font-size: .8rem; }
+    /* กล่องสรุปรวมของแต่ละวัน: 4 ช่องเรียงแถวเดียว เตี้ย ๆ แทนที่จะเป็น 2x2 สูง ๆ */
+    #viewGacha .gacha-summary {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 4px; padding: 8px 8px; border-radius: 12px; margin-bottom: 8px;
+    }
+    #viewGacha .gacha-summary .gs-item { min-width: 0; overflow: hidden; }
+    #viewGacha .gacha-summary .gs-label { font-size: .62rem; margin-bottom: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    #viewGacha .gacha-summary .gs-val { font-size: .8rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    /* หัวข้อวัน + การ์ดตู้ */
+    #viewGacha .gacha-day { margin-bottom: 12px; }
+    #viewGacha .gd-head { padding: 2px 2px 6px; gap: 6px; }
+    #viewGacha .gd-date { font-size: .86rem; }
+    #viewGacha .gd-sub { font-size: .72rem; }
+    #viewGacha .gacha-box { padding: 10px 12px; border-radius: 13px; margin-bottom: 8px; }
+    #viewGacha .gb-name { font-size: .9rem; }
+    #viewGacha .gb-hp { font-size: .74rem; }
+    #viewGacha .gb-count { font-size: .7rem; padding: 1px 8px; }
+    #viewGacha .gb-stats { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 5px; margin-top: 8px; }
+    #viewGacha .gb-stat { padding: 6px 4px; border-radius: 9px; min-width: 0; overflow: hidden; }
+    #viewGacha .gb-stat .s-label { font-size: .62rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    #viewGacha .gb-stat .s-val { font-size: .8rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    #viewGacha .gb-meta { font-size: .74rem; }
+  }
+  /* จอแคบมาก: ยอดเงินหลักล้านจะเบียดจนอ่านไม่ออก → กลับไป 2 ช่องต่อแถว */
+  @media (max-width: 380px) {
+    #viewGacha .gacha-summary, #viewGacha .gb-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  }
+
   /* ===== หน้าสินค้าบนจอแคบ + iPad ทุกแนว (จอสัมผัส ≤1366): อัดส่วนหัวให้แน่นที่สุด เหลือที่ให้ตาราง ===== */
   @media (max-width: 1024px), (max-width: 1366px) and (any-pointer: coarse) {
     #viewProduct .view-title { font-size: .98rem; margin-bottom: 6px; }
