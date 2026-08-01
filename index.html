@@ -179,6 +179,10 @@
   .gacha-box { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 14px 18px; margin-bottom: 12px; }
   /* ใบที่เพิ่งกดจบงาน/เปิดใหม่ — จางลงทันทีเป็นฟีดแบ็ก แล้วค่อยจัดลิสต์ใหม่ */
   .gacha-box.gb-leaving { opacity: .4; pointer-events: none; transition: opacity .18s ease; }
+  /* กดค้างที่หัวตู้แล้วลากขึ้น/ลง เพื่อสลับลำดับ */
+  .gacha-box.gb-dragging { touch-action: none; border-color: var(--accent, #4a9eff); box-shadow: 0 10px 26px rgba(0, 0, 0, .38); opacity: .92; }
+  .gacha-box.gb-dragging .gb-head { cursor: grabbing; }
+  .gacha-day.gb-drag-on .gacha-box:not(.gb-dragging) { transition: transform .12s ease; }
   .gb-head { display: flex; align-items: center; gap: 10px; cursor: pointer; user-select: none; }
   .gb-caret { color: var(--muted); font-size: .8rem; transition: transform .15s; flex: none; }
   .gacha-box.open .gb-caret { transform: rotate(90deg); }
@@ -4027,7 +4031,10 @@ function saleGachaScopedBoxes() {
   const arr = (typeof gachaBoxes !== 'undefined' && Array.isArray(gachaBoxes)) ? gachaBoxes : [];
   return arr.map((b, i) => ({ b, i }))
     .filter(({ b }) => !viewShopId || b.shopId === viewShopId || !b.shopId)
-    .filter(({ b }) => !gachaIsDone(b)); // ยังไม่จบงาน = ใช้งานอยู่ (โชว์ในดรอปดาวน์)
+    .filter(({ b }) => !gachaIsDone(b)) // ยังไม่จบงาน = ใช้งานอยู่ (โชว์ในดรอปดาวน์)
+    // เรียงให้ตรงกับที่เห็นในหน้ายอดจุ่ม (วันใหม่อยู่บน · ในวันเดียวกันใช้ลำดับที่ลากจัดไว้)
+    // ตู้บนสุดของหน้ายอดจุ่มจึงเป็นตัวแรก = ตัวที่ถูกเลือกไว้ให้ตั้งแต่เปิดดรอปดาวน์
+    .sort((x, y) => (gachaDateKey(y.b) < gachaDateKey(x.b) ? -1 : gachaDateKey(y.b) > gachaDateKey(x.b) ? 1 : x.i - y.i));
 }
 function populateSaleGachaBoxes() {
   const sel = document.getElementById('saleGachaBox');
@@ -5808,6 +5815,7 @@ async function pullGacha() { return gachaStore.pull(); }
 async function refreshGacha() {
   if (!passcode) return;
   if (gachaPending.size) return; // กำลังเลือกติ๊กค้างอยู่ — อย่า re-render ทับ
+  if (gachaDrag || gachaHold) return; // กำลังลากสลับลำดับ — อย่า re-render ดึงใบที่ลากหายไป
   if (gachaStore.hasPending()) return; // มีของค้างในเครื่อง — ดันขึ้นก่อน อย่าดึงทับ
   const before = JSON.stringify(gachaBoxes);
   await pullGacha();
@@ -5968,7 +5976,7 @@ function gachaBoxStats(b) {
   return { realPrizes, prizeValue, slots, price, total, drawn, sales, cost, profit: sales - cost };
 }
 // HTML ของตู้หนึ่งใบ (i = index จริงใน gachaBoxes)
-function gachaBoxHTML(b, i, canUp, canDown) {
+function gachaBoxHTML(b, i) {
   const st = gachaBoxStats(b);
   const { realPrizes, prizeValue, slots, price, total, drawn, sales, cost, profit } = st;
   const pcls = profit >= 0 ? 'pos' : 'neg';
@@ -6003,15 +6011,13 @@ function gachaBoxHTML(b, i, canUp, canDown) {
           + `<td class="gb-pnum">${esc(String(noShow))}</td><td>${thumb}</td><td>${esc(p.name || '-')}</td><td class="num">${money(v)}</td></tr>`;
       }).join('')
     : '<tr><td colspan="5" style="color:var(--muted)">ยังไม่กำหนดรางวัล</td></tr>';
-  return `<div class="gacha-box">
-    <div class="gb-head" onclick="toggleGachaBox(this)">
+  return `<div class="gacha-box" data-i="${i}">
+    <div class="gb-head" onclick="toggleGachaBox(this)"${ro ? '' : ' title="กดค้างแล้วลากขึ้น/ลง เพื่อสลับลำดับตู้"'}>
       <span class="gb-caret">▶</span>
       <div class="gb-name">🎰 ${esc(b.name || '(ไม่มีชื่อ)')}</div>
       <span class="gb-hp ${pcls}">${profit >= 0 ? 'กำไร' : 'ขาดทุน'} ${money(profit)}</span>
       <span class="gb-count">${realPrizes.length} รางวัล</span>
       ${ro ? '' : `<div class="gb-actions">
-        <button class="icon-btn" onclick="event.stopPropagation();moveGachaBox(${i},-1)" title="เลื่อนขึ้น"${canUp ? '' : ' disabled'}>⬆️</button>
-        <button class="icon-btn" onclick="event.stopPropagation();moveGachaBox(${i},1)" title="เลื่อนลง"${canDown ? '' : ' disabled'}>⬇️</button>
         <button class="icon-btn" onclick="event.stopPropagation();copyGachaBox(${i})" title="ก็อปปี้ตู้นี้">📋</button>
         ${b.done
           ? `<button class="icon-btn" onclick="event.stopPropagation();markGachaDone(this,'${b.id}',false)" title="เปิดงานใหม่ (กลับไปใช้งานอยู่)">↩️</button>`
@@ -6033,10 +6039,10 @@ function gachaBoxHTML(b, i, canUp, canDown) {
 // สร้าง HTML กลุ่มตู้จุ่มของชุด index หนึ่ง ๆ พร้อมหัวข้อ + กล่องสรุป
 function gachaDayBlockHTML(idxs, label, subNote) {
   let d = 0, s = 0, c = 0;
-  const boxesHTML = idxs.map((i, pos) => {
+  const boxesHTML = idxs.map((i) => {
     const st = gachaBoxStats(gachaBoxes[i]);
     d += st.drawn; s += st.sales; c += st.cost;
-    return gachaBoxHTML(gachaBoxes[i], i, pos > 0, pos < idxs.length - 1);
+    return gachaBoxHTML(gachaBoxes[i], i);
   }).join('');
   return `<div class="gacha-day">
     <div class="gd-head"><span class="gd-date">📅 ${esc(label)}</span><span class="gd-sub">${idxs.length} ตู้${subNote ? ' · ' + subNote : ''}</span></div>
@@ -6110,6 +6116,7 @@ function renderGacha() {
   // ตู้ที่ยังไม่ระบุวันที่ (เก่า) — โชว์ด้านล่างเสมอ ไม่ให้ข้อมูลหาย
   if (undatedIdxs.length) html += gachaDayBlockHTML(undatedIdxs, 'ไม่ระบุวันที่', 'กดแก้ไขเพื่อใส่วันที่');
   area.innerHTML = html;
+  initGachaDrag(); // กดค้างที่หัวตู้แล้วลากสลับลำดับได้
 }
 // นับจำนวนใบจากช่องลำดับ: ช่วง "6-20" = 15 ใบ, ค่าเดี่ยว/ว่าง = 1 ใบ
 function gachaNoCount(no) {
@@ -6119,21 +6126,96 @@ function gachaNoCount(no) {
   return 1;
 }
 function toggleGachaBox(head) {
+  if (gachaDragJustEnded) return; // เพิ่งลากเสร็จ — อย่าให้กลายเป็นการกดเปิด/ปิดตู้
   const box = head.closest('.gacha-box');
   const open = box.classList.toggle('open');
   box.querySelector('.gb-body').style.display = open ? '' : 'none';
 }
-// สลับลำดับตู้จุ่มขึ้น/ลง — สลับเฉพาะภายในวันเดียวกัน (dir = -1 ขึ้น, +1 ลง)
-function moveGachaBox(i, dir) {
+
+// ================= ลากสลับลำดับตู้จุ่ม (กดค้างที่หัวตู้ แล้วเลื่อนขึ้น/ลง) =================
+// สลับได้เฉพาะภายในกลุ่มวันเดียวกัน · ตู้บนสุดของวันล่าสุด = ตัวแรกในดรอปดาวน์ "เลือกตู้จุ่ม" หน้าคลังสินค้า
+const GACHA_HOLD_MS = 320;   // กดค้างนานเท่านี้ถึงจะเริ่มลาก (สั้นกว่านี้ = แตะเปิด/ปิดตู้ตามปกติ)
+const GACHA_HOLD_SLOP = 10;  // ขยับเกินนี้ก่อนครบเวลา = ตั้งใจเลื่อนหน้าจอ ไม่ใช่จะลาก
+let gachaDrag = null;          // { box, day, pointerId, startY }
+let gachaHold = null;          // { timer, box, pointerId, x, y }
+let gachaDragJustEnded = false;
+
+function gachaDragCancelHold() {
+  if (gachaHold) { clearTimeout(gachaHold.timer); gachaHold = null; }
+}
+function gachaDragPointerDown(e) {
   if (!canEditGacha()) return;
-  const b = gachaBoxes[i]; if (!b) return;
-  const key = gachaDateKey(b);
-  let j = i + dir;
-  while (j >= 0 && j < gachaBoxes.length && gachaDateKey(gachaBoxes[j]) !== key) j += dir;
-  if (j < 0 || j >= gachaBoxes.length) return;
-  const t = gachaBoxes[i]; gachaBoxes[i] = gachaBoxes[j]; gachaBoxes[j] = t;
+  if (e.pointerType === 'mouse' && e.button !== 0) return;
+  if (e.target.closest('.icon-btn, button, input, select, a')) return; // กดปุ่มในหัวตู้ ไม่ใช่การลาก
+  const head = e.target.closest('.gb-head');
+  if (!head) return;
+  const box = head.closest('.gacha-box');
+  const day = box && box.closest('.gacha-day');
+  if (!box || !day || day.querySelectorAll('.gacha-box').length < 2) return; // มีตู้เดียว ไม่ต้องลาก
+  gachaDragCancelHold();
+  gachaHold = {
+    box, day, pointerId: e.pointerId, x: e.clientX, y: e.clientY,
+    timer: setTimeout(() => { gachaHold = null; gachaDragBegin(box, day, e.pointerId); }, GACHA_HOLD_MS),
+  };
+}
+function gachaDragBegin(box, day, pointerId) {
+  gachaDrag = { box, day, pointerId };
+  box.classList.add('gb-dragging');
+  day.classList.add('gb-drag-on');
+  try { box.setPointerCapture(pointerId); } catch (e) {}
+  if (navigator.vibrate) { try { navigator.vibrate(15); } catch (e) {} } // ฟีดแบ็กว่าเริ่มลากได้แล้ว
+}
+function gachaDragPointerMove(e) {
+  if (gachaHold && e.pointerId === gachaHold.pointerId) {
+    if (Math.abs(e.clientX - gachaHold.x) > GACHA_HOLD_SLOP || Math.abs(e.clientY - gachaHold.y) > GACHA_HOLD_SLOP) gachaDragCancelHold();
+    return;
+  }
+  if (!gachaDrag || e.pointerId !== gachaDrag.pointerId) return;
+  e.preventDefault();
+  const { box, day } = gachaDrag;
+  const y = e.clientY;
+  const sibs = [...day.querySelectorAll('.gacha-box')];
+  const pos = sibs.indexOf(box);
+  const prev = sibs[pos - 1], next = sibs[pos + 1];
+  // เลยครึ่งของใบข้างบน → สลับขึ้น · เลยครึ่งของใบข้างล่าง → สลับลง
+  if (prev) { const r = prev.getBoundingClientRect(); if (y < r.top + r.height / 2) { day.insertBefore(box, prev); return; } }
+  if (next) { const r = next.getBoundingClientRect(); if (y > r.top + r.height / 2) { day.insertBefore(next, box); return; } }
+}
+function gachaDragPointerUp(e) {
+  gachaDragCancelHold();
+  if (!gachaDrag || (e && e.pointerId !== gachaDrag.pointerId)) return;
+  const { box, day, pointerId } = gachaDrag;
+  gachaDrag = null;
+  box.classList.remove('gb-dragging');
+  day.classList.remove('gb-drag-on');
+  try { box.releasePointerCapture(pointerId); } catch (err) {}
+  // กันคลิกที่เกิดหลังปล่อยนิ้วไปเปิด/ปิดตู้
+  gachaDragJustEnded = true;
+  setTimeout(() => { gachaDragJustEnded = false; }, 60);
+  gachaApplyDayOrder(day);
+}
+// เอาลำดับใหม่บนหน้าจอกลับไปใส่ใน gachaBoxes (สลับเฉพาะช่องของกลุ่มวันนี้ ไม่ยุ่งกับวันอื่น)
+function gachaApplyDayOrder(day) {
+  const newOrder = [...day.querySelectorAll('.gacha-box')].map(el => Number(el.dataset.i));
+  if (newOrder.some(n => !Number.isInteger(n) || !gachaBoxes[n])) { renderGacha(); return; }
+  const slots = newOrder.slice().sort((a, b) => a - b); // ตำแหน่งจริงในอาร์เรย์ที่กลุ่มนี้ครองอยู่
+  if (slots.every((s, k) => s === newOrder[k])) return; // ลำดับเหมือนเดิม — ไม่ต้องบันทึก
+  const moved = newOrder.map(n => gachaBoxes[n]);
+  slots.forEach((slot, k) => { gachaBoxes[slot] = moved[k]; });
   saveGacha();
   renderGacha();
+}
+function initGachaDrag() {
+  const list = document.getElementById('gachaList');
+  if (!list || list.dataset.dragReady === '1') return;
+  list.dataset.dragReady = '1';
+  list.addEventListener('pointerdown', gachaDragPointerDown);
+  list.addEventListener('pointermove', gachaDragPointerMove);
+  list.addEventListener('pointerup', gachaDragPointerUp);
+  list.addEventListener('pointercancel', gachaDragPointerUp);
+  // กันหน้าจอเลื่อนตามนิ้วระหว่างลากบนมือถือ
+  list.addEventListener('touchmove', (e) => { if (gachaDrag) e.preventDefault(); }, { passive: false });
+  list.addEventListener('contextmenu', (e) => { if (gachaDrag) e.preventDefault(); });
 }
 // แตะเลือก/ยกเลิกเลือกรางวัลที่จะทำเครื่องหมาย "ออกแล้ว" (ยังไม่บันทึก — รอกดยืนยันทีเดียว)
 function togglePendingPrize(el, boxIdx, prizeIdx) {
