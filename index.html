@@ -1072,6 +1072,9 @@
       <option value="profit_desc">กำไร มาก→น้อย</option>
       <option value="buyDate_desc">วันที่ซื้อ ล่าสุด</option>
     </select>
+    <select class="filter" id="stockShopFilter" onchange="render()">
+      <option value="">ทุกร้าน</option>
+    </select>
     <button type="button" class="filter fbtn" id="priceBtn" onclick="openPricePop()">💰 ราคาขาย</button>
   </div>
 
@@ -2443,10 +2446,12 @@ function render() {
   const pMaxRaw = document.getElementById('priceMax').value;
   const pMin = pMinRaw !== '' ? Number(pMinRaw) : null; // กรองราคาขาย: อย่างน้อย
   const pMax = pMaxRaw !== '' ? Number(pMaxRaw) : null; // กรองราคาขาย: อย่างมาก
+  const shopVal = populateShopFilter('stockShopFilter');
   const area = document.getElementById('tableArea');
 
   // หน้าคลังสินค้า: ไม่รวมใบที่ขายแล้ว + ไม่รวม "ข้อมูลสินค้าอย่างเดียว"
   let list = cards.map((c, i) => ({ ...c, _i: i })).filter(c => c.status !== 'sold' && !c.productOnly);
+  if (shopVal) list = list.filter(c => matchShopFilter(c, shopVal)); // กรองตามร้านที่เลือก
   if (kf === 'set') list = list.filter(isSetCard);
   else if (kf === 'single') list = list.filter(c => !isSetCard(c) && c.type !== 'collect'); // ใบเดี่ยว = ไม่ใช่เซต และไม่ใช่ของสะสม
   else if (kf === 'collect') list = list.filter(c => c.type === 'collect');
@@ -3642,30 +3647,36 @@ function renderSoldStock() {
 
 // ---- แถบ "สินค้าขาย" ----
 // โชว์เฉพาะการ์ดที่ "รอขาย" (ใบที่ขายแล้วไม่แสดงในหน้านี้ — ดูได้ที่รายงานการขาย)
-// ตัวกรองร้านค้าในหน้าสินค้าขาย — เติมรายชื่อร้านให้ตรงกับข้อมูลล่าสุด (คงค่าที่เลือกไว้)
-// เปิดอยู่ในร้านไหนอยู่แล้ว = ข้อมูลถูกกรองด้วยร้านนั้นอยู่แล้ว → ซ่อนตัวกรองไป ไม่ให้ซ้ำซ้อน
-function populateSalesShopFilter() {
-  const sel = document.getElementById('salesShopFilter');
+// ---- ตัวกรองร้านค้า (ใช้ร่วมกันหน้าคลังสินค้า + หน้าสินค้าขาย) ----
+// เติมรายชื่อร้านให้ตรงกับข้อมูลล่าสุดโดยคงค่าที่เลือกไว้ แล้วคืนค่าที่เลือกอยู่
+// เปิดอยู่ในร้านไหนอยู่แล้ว = ข้อมูลถูกกรองด้วยร้านนั้นแล้ว → ซ่อนตัวกรองไป ไม่ให้ซ้ำซ้อน
+function populateShopFilter(selId) {
+  const sel = document.getElementById(selId);
   if (!sel) return '';
   if (viewShopId) { sel.style.display = 'none'; sel.value = ''; return ''; }
   sel.style.display = '';
   const keep = sel.value;
-  const opts = ['<option value="">ทุกร้าน</option>']
+  const html = ['<option value="">ทุกร้าน</option>']
     .concat((Array.isArray(shops) ? shops : []).map(s => `<option value="${esc(s.id)}">${esc(s.name || 'ร้าน')}</option>`))
-    .concat('<option value="__none__">ไม่ได้ผูกร้าน</option>');
-  const html = opts.join('');
+    .concat('<option value="__none__">ไม่ได้ผูกร้าน</option>')
+    .join('');
   if (sel.innerHTML !== html) sel.innerHTML = html;
   sel.value = [...sel.options].some(o => o.value === keep) ? keep : ''; // ร้านที่เลือกไว้ถูกลบ → กลับไปทุกร้าน
   return sel.value;
+}
+// ของที่ตั้งเป็น "ทุกร้าน" (__all__) ให้เห็นในทุกร้าน เหมือนหลักของเมนูร้าน
+function matchShopFilter(c, shopVal) {
+  if (!shopVal) return true;
+  if (shopVal === '__none__') return !(c && c.shopId);
+  return !!c && (c.shopId === shopVal || c.shopId === '__all__');
 }
 function renderSales() {
   const area = document.getElementById('salesTableArea');
   if (!area) return;
   const q = (document.getElementById('salesSearch').value || '').trim().toLowerCase();
-  const shopVal = populateSalesShopFilter();
+  const shopVal = populateShopFilter('salesShopFilter');
   let list = cards.filter(c => c.status === 'wait' && !c.productOnly && !c.gachaBoxId && inShopScope(c));
-  // กรองตามร้านที่เลือก (ของที่ตั้งเป็น "ทุกร้าน" ให้เห็นในทุกร้าน เหมือนเมนูของร้าน)
-  if (shopVal) list = list.filter(c => shopVal === '__none__' ? !c.shopId : (c.shopId === shopVal || c.shopId === '__all__'));
+  if (shopVal) list = list.filter(c => matchShopFilter(c, shopVal)); // กรองตามร้านที่เลือก
   // กรองตามหน่วยที่คลิกจากชิป "รอขาย" → เหลือเฉพาะของที่รอขายของหน่วยนั้น
   if (salesUnitFilter) {
     list = list.filter(c => c.status === 'wait' && stockUnitOf(c) === salesUnitFilter);
@@ -3838,8 +3849,7 @@ function unsoldChipsHTML() {
   for (const c of cards) {
     if (c.status !== 'wait') continue;
     if (!inShopScope(c)) continue;
-    // ให้ชิปสรุปตรงกับตัวกรองร้านค้าที่เลือกอยู่ในหน้าเดียวกัน
-    if (shopVal && (shopVal === '__none__' ? !!c.shopId : !(c.shopId === shopVal || c.shopId === '__all__'))) continue;
+    if (!matchShopFilter(c, shopVal)) continue; // ให้ชิปสรุปตรงกับตัวกรองร้านค้าในหน้าเดียวกัน
     const unit = stockUnitOf(c);
     if (!buckets[unit]) buckets[unit] = { qty: 0, value: 0 };
     buckets[unit].qty += Number(c.qty) || 1;
