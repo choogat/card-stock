@@ -752,6 +752,11 @@
   .po-card .po-note { font-size: .78rem; color: var(--text); font-weight: 600; background: var(--bg); border-radius: 7px; padding: 5px 8px; }
 
   /* ---- พรีออเดอร์: มุมมองตาราง (ค่าเริ่มต้น) ---- */
+  /* หัวตารางกดเรียงลำดับได้ — ลูกศรบอกคอลัมน์+ทิศที่เรียงอยู่ */
+  .po-table th.po-th { cursor: pointer; user-select: none; transition: color .12s; }
+  .po-table th.po-th:hover { color: var(--accent); }
+  .po-table th.po-th.sorted { color: var(--accent); }
+  .po-table .po-th-ar { font-size: .9em; margin-left: 3px; }
   .po-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
   .po-table { min-width: 720px; }
   .po-table td { border-top-color: var(--border); }
@@ -1253,7 +1258,7 @@
       <select class="filter" id="poSourceFilter" onchange="renderPreorder()">
         <option value="">ทุกร้าน</option>
       </select>
-      <select class="filter" id="poSortSel" onchange="renderPreorder()">
+      <select class="filter" id="poSortSel" onchange="poSortSelChanged()">
         <option value="">เรียง: ค่าเริ่มต้น</option>
         <option value="date_desc">วันที่ล่าสุด</option>
         <option value="date_asc">วันที่เก่าสุด</option>
@@ -5801,13 +5806,35 @@ const PO_COLS = [
 // ลำดับสถานะตอนเรียง: รอส่งของ(สูงสุด) > ยกเลิก > รับสินค้าแล้ว(ต่ำสุด)
 // กดครั้งแรก(desc) = รอส่งของ→ยกเลิก→รับแล้ว · กดอีกครั้ง(asc) = รับแล้ว→ยกเลิก→รอส่งของ
 const PO_STATUS_RANK = { wait: 2, cancel: 1, received: 0 };
-// poSort.key = คอลัมน์ที่กำลังเรียง (null = เรียงตามค่าเริ่มต้น: รอส่งของก่อน + วันล่าสุด)
+// ---- กดหัวตารางเพื่อเรียงลำดับ ----
+// poSort.key = คอลัมน์ที่กำลังเรียง (null = ลำดับตั้งต้น: รอส่งของก่อน + วันล่าสุด)
+// กดครั้งแรก = ค่าเริ่มต้นของคอลัมน์นั้น · ครั้งที่สอง = กลับด้าน · ครั้งที่สาม = เลิกเรียง กลับเป็นลำดับตั้งต้น
 let poSort = { key: null, dir: 'desc' };
+const PO_SORT_DESC_FIRST = ['qty', 'price', 'deposit', 'remaining', 'avg', 'date', 'recvDate', 'status']; // ตัวเลข/วันที่/สถานะ = มาก→น้อยก่อน
 let poLastList = []; // รายการที่แสดงอยู่ล่าสุด (ไว้ใช้ตอน Download)
 function poSortBy(key) {
-  if (poSort.key === key) poSort.dir = (poSort.dir === 'desc' ? 'asc' : 'desc');
-  else { poSort.key = key; poSort.dir = 'desc'; } // กดครั้งแรก = สูงไปต่ำ
+  const first = PO_SORT_DESC_FIRST.includes(key) ? 'desc' : 'asc';
+  if (poSort.key === key) {
+    if (poSort.dir === first) poSort.dir = (first === 'desc' ? 'asc' : 'desc');
+    else poSort.key = null; // ครบรอบ → เลิกเรียง
+  } else {
+    poSort = { key, dir: first };
+  }
+  // ดรอปดาวน์เรียงลำดับ: ตั้งให้ตรงกันถ้ามีตัวเลือกนั้น ไม่งั้นเคลียร์ (กันโชว์ค่าที่ไม่ตรงกับตาราง)
+  const sel = document.getElementById('poSortSel');
+  if (sel) {
+    const want = poSort.key ? poSort.key + '_' + poSort.dir : '';
+    sel.value = [...sel.options].some(o => o.value === want) ? want : '';
+  }
   renderPreorder();
+}
+// เลือกจากดรอปดาวน์ = ยกเลิกการเรียงที่กดจากหัวตาราง (ให้เหลือแหล่งเดียว ไม่ขัดกัน)
+function poSortSelChanged() { poSort.key = null; renderPreorder(); }
+function poThHTML(key, label, cls) {
+  const on = poSort.key === key;
+  const arrow = on ? (poSort.dir === 'asc' ? '▲' : '▼') : '';
+  return `<th class="po-th${cls ? ' ' + cls : ''}${on ? ' sorted' : ''}" onclick="poSortBy('${key}')" title="กดเพื่อเรียงลำดับตาม ${esc(label)}">`
+    + `${esc(label)}<span class="po-th-ar">${arrow}</span></th>`;
 }
 function poCellValue(o, key) {
   switch (key) {
@@ -5864,7 +5891,8 @@ function renderPreorder() {
       return terms.every(t => hay.includes(t));
     });
   }
-  const sortVal = document.getElementById('poSortSel')?.value || '';
+  // กดหัวตารางเรียงลำดับ (poSort) มาก่อนดรอปดาวน์ — ไม่มีทั้งคู่ = ใช้ลำดับตั้งต้นด้านล่าง
+  const sortVal = poSort.key ? (poSort.key + '_' + poSort.dir) : (document.getElementById('poSortSel')?.value || '');
   if (sortVal) {
     // เรียงตามที่เลือกในดรอปดาวน์ (key_dir) — เลขนับเป็นเลข, ตัวอักษรนับเป็นอักษร (รองรับไทย)
     const us = sortVal.lastIndexOf('_');
@@ -6009,10 +6037,11 @@ function poListHTML(list) {
   }).join('');
   return `<div class="po-table-wrap"><table class="po-table">
     <thead><tr>
-      <th>สถานะ</th><th>สินค้า</th>
-      <th class="hide-sm">สั่งจาก</th><th class="hide-sm">วันที่สั่ง</th>
-      <th class="hide-sm">รับของ</th><th class="num hide-sm">จำนวน</th>
-      <th class="num hide-sm">ราคา</th><th class="num hide-sm">มัดจำ</th><th class="num">ค้าง</th><th></th>
+      ${poThHTML('status', 'สถานะ')}${poThHTML('name', 'สินค้า')}
+      ${poThHTML('source', 'สั่งจาก', 'hide-sm')}${poThHTML('date', 'วันที่สั่ง', 'hide-sm')}
+      ${poThHTML('recvDate', 'รับของ', 'hide-sm')}${poThHTML('qty', 'จำนวน', 'num hide-sm')}
+      ${poThHTML('price', 'ราคา', 'num hide-sm')}${poThHTML('deposit', 'มัดจำ', 'num hide-sm')}
+      ${poThHTML('remaining', 'ค้าง', 'num')}<th></th>
     </tr></thead>
     <tbody>${rows}
       <tr class="po-total-row">
