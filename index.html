@@ -389,14 +389,13 @@
   .btn-sold { padding: 4px 10px; font-size: .72rem; border-radius: 7px; line-height: 1.3; min-width: 46px; }
   .sale-check { width: 20px; height: 20px; accent-color: var(--accent); cursor: pointer; }
   .sale-check:disabled { cursor: not-allowed; opacity: .6; }
-  /* ช่อง "สินค้าขาย": ติ๊กแล้วทั้งช่องเป็นสีเขียว + ป้ายบอกสถานะใต้ช่องติ๊ก */
-  td.sale-cell { white-space: nowrap; }
-  td.sale-cell .sale-lbl { display: block; margin-top: 3px; font-size: .68rem; font-weight: 700; line-height: 1; }
-  td.sale-cell.on { background: rgba(46, 204, 113, .16); }
-  td.sale-cell.on .sale-check { accent-color: var(--green); }
-  td.sale-cell.on .sale-lbl { color: var(--green); }
-  td.sale-cell.off .sale-lbl { color: var(--muted); }
-  td.sale-cell.done .sale-lbl { color: var(--muted); }
+  /* ช่อง "เช็คของ": ติ๊กแล้วทั้งช่องเป็นสีเขียว + ป้ายบอกสถานะใต้ช่องติ๊ก */
+  .stock-check { width: 20px; height: 20px; accent-color: var(--green); cursor: pointer; }
+  td.stock-cell { white-space: nowrap; }
+  td.stock-cell .stock-lbl { display: block; margin-top: 3px; font-size: .68rem; font-weight: 700; line-height: 1; }
+  td.stock-cell.on { background: rgba(46, 204, 113, .16); }
+  td.stock-cell.on .stock-lbl { color: var(--green); }
+  td.stock-cell.off .stock-lbl { color: var(--muted); }
   .pay-tag { display: inline-block; padding: 3px 9px; border-radius: 999px; font-size: .74rem; font-weight: 600; background: var(--card2); color: var(--muted); }
   .pay-tag.cash { background: rgba(24,165,88,.15); color: var(--green); }
   .pay-tag.transfer { background: rgba(47,111,237,.14); color: var(--accent); }
@@ -2626,6 +2625,7 @@ function render() {
       ${canSeeProfit() ? '<th class="num">กำไร</th>' : ''}
       <th class="center">สถานะ</th>
       <th class="center">สินค้าขาย</th>
+      <th class="center">เช็คของ</th>
       <th class="center">ร้านค้า</th>
       <th></th>
     </tr></thead>
@@ -2701,7 +2701,7 @@ function setCardsRow(c) {
     return `<div class="sc-card">${pic}<div class="sc-name">${i + 1}. ${esc(name)}</div></div>`;
   }).join('');
   const body = cells || '<span class="muted">ยังไม่มีรายการการ์ดในชุด</span>';
-  return `<tr class="set-cards-row"><td colspan="11"><div class="set-cards">${body}</div></td></tr>`;
+  return `<tr class="set-cards-row"><td colspan="12"><div class="set-cards">${body}</div></td></tr>`;
 }
 // สรุปสถานะเป็นป้ายสี (เหมือนป้ายชำระเงิน)
 function statPills(cnt) {
@@ -2750,8 +2750,8 @@ function stockRow(c, isChild) {
     : `<div class="thumb-empty">🃏</div>`;
   const p = cardProfit(c);
   const profitCell = `<span class="${p > 0 ? 'profit-pos' : p < 0 ? 'profit-neg' : 'muted'}">${p > 0 ? '+' : ''}${money(p)}</span>`;
-  // ติ๊ก "สินค้าขาย" = ส่งไปขายแล้ว (หรือเลือกไว้รอกดยืนยันปลายทาง) → ช่องเป็นสีเขียว + ป้าย "มีของ"
   const forSale = c.status !== 'show' || saleSelection.has(c.id);
+  const hasStock = cardHasStock(c); // ช่อง "เช็คของ" — ติ๊ก = มีของอยู่จริง
   return `<tr class="${isChild ? 'child-row' : ''}">
     <td>${img}</td>
     <td class="name">${c.topic ? `<div class="topic">${esc(c.topic)}</div>` : ''}${esc(c.name)}${c.lang ? ` <span class="lang-badge">${esc(c.lang)}</span>` : ''}${gradeTag(c)}${(c.qty && c.qty > 1) ? ` <span class="qty-badge">×${c.qty}${c.unit ? ' ' + esc(c.unit) : ''}</span>` : ''}${setMetaHTML(c)}${c.set ? `<div class="cardset">รุ่น: ${esc(c.set)}</div>` : ''}${c.detail ? `<div class="detail">${esc(c.detail)}</div>` : ''}</td>
@@ -2761,10 +2761,14 @@ function stockRow(c, isChild) {
     <td class="center muted hide-sm" style="white-space:nowrap;font-size:.8rem">${c.buyDate ? fmtDate(c.buyDate) + (c.buyTime ? ' ' + c.buyTime : '') : '-'}</td>
     ${canSeeProfit() ? `<td class="num">${profitCell}</td>` : ''}
     <td class="center"><span class="badge ${st.cls}">${st.label}</span></td>
-    <td class="center sale-cell ${c.status === 'sold' ? 'done' : forSale ? 'on' : 'off'}">
+    <td class="center">
       <input type="checkbox" class="sale-check" ${forSale ? 'checked' : ''} ${c.status === 'sold' ? 'disabled' : ''}
         onchange="toggleForSale('${c.id}')" title="${c.status === 'sold' ? 'ขายแล้ว (ล็อก)' : 'ติ๊กเพื่อย้ายไปแถบสินค้าขาย'}">
-      <span class="sale-lbl">${c.status === 'sold' ? 'ขายแล้ว' : forSale ? 'มีของ' : 'ของไม่มี'}</span>
+    </td>
+    <td class="center stock-cell ${hasStock ? 'on' : 'off'}">
+      <input type="checkbox" class="stock-check" ${hasStock ? 'checked' : ''}
+        onchange="toggleInStock('${c.id}', this)" title="ติ๊ก = มีของอยู่จริง · เอาติ๊กออก = ของไม่มี">
+      <span class="stock-lbl">${hasStock ? 'มีของ' : 'ของไม่มี'}</span>
     </td>
     <td class="center">${esc(stockShopName(c))}</td>
     <td>
@@ -2805,6 +2809,7 @@ function groupRow(g) {
     <td class="center muted hide-sm" style="white-space:nowrap;font-size:.8rem">${rep.buyDate ? fmtDate(rep.buyDate) + (rep.buyTime ? ' ' + rep.buyTime : '') : '—'}</td>
     ${canSeeProfit() ? `<td class="num"><span class="${pCls}">${totProfit > 0 ? '+' : ''}${money(totProfit)}</span></td>` : ''}
     <td class="center">${stSummary}</td>
+    <td class="center">—</td>
     <td class="center">—</td>
     <td class="center">—</td>
     <td></td>
@@ -4123,6 +4128,23 @@ let pendingSaleShopId = '';  // ร้านที่เลือกตอนก
 let saleShopCardId = null;
 let saleSelection = new Set();   // การ์ดที่ติ๊กไว้ รอเลือกร้านทีเดียว (status ยังเป็น 'show')
 let splitQueue = [];             // คิวของสะสม qty>1 ที่ต้องแยกจำนวนทีละใบ
+// ---- ช่อง "เช็คของ" (แยกจากช่องสินค้าขาย) — ติ๊กว่าของอยู่ครบจริงไหม ----
+// ใบเก่าที่ยังไม่เคยเช็ค (ไม่มีฟิลด์นี้) นับเป็น "มีของ" ไว้ก่อน แล้วค่อยเอาติ๊กออกเฉพาะใบที่ของหาย
+function cardHasStock(c) { return !c || c.inStock !== false; }
+function toggleInStock(id, el) {
+  const c = cards.find(x => x.id === id);
+  if (!c) return;
+  c.inStock = !!el.checked;
+  // อัปเดตเฉพาะช่องนี้ ไม่ re-render ทั้งตาราง (กันกลุ่มที่กางไว้ยุบ + เร็วกว่ามากตอนมีการ์ดเยอะ)
+  const td = el.closest('td');
+  if (td) {
+    td.classList.toggle('on', c.inStock);
+    td.classList.toggle('off', !c.inStock);
+    const lbl = td.querySelector('.stock-lbl');
+    if (lbl) lbl.textContent = c.inStock ? 'มีของ' : 'ของไม่มี';
+  }
+  save();
+}
 function toggleForSale(id) {
   const c = cards.find(x => x.id === id);
   if (!c) return;
