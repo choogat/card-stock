@@ -4171,7 +4171,17 @@ function cardHasStock(c) { return !!c && c.inStock === true; }
 function toggleInStock(id, el) {
   const c = cards.find(x => x.id === id);
   if (!c) return;
-  c.inStock = !!el.checked;
+  const want = !!el.checked;
+  // ยืนยันก่อน พร้อมบอกว่ากดแล้วยอดเช็คของจะกลายเป็นเท่าไหร่ (นับชุดเดียวกับกล่องสรุปด้านบน)
+  const scope = cards.filter(x => !x.productOnly && x.status !== 'sold');
+  const total = scope.length;
+  const next = scope.filter(cardHasStock).length + (want ? 1 : -1);
+  const msg = (want ? 'เพิ่มเช็คของ' : 'เอาเช็คของออก')
+    + '\n\n' + (c.name || '(ไม่มีชื่อ)')
+    + '\n\n' + (want ? 'จะเพิ่มเป็น ' : 'จะเหลือ ')
+    + next.toLocaleString('th-TH') + ' / ' + total.toLocaleString('th-TH') + ' ใบ';
+  if (!confirm(msg)) { el.checked = !want; return; } // ไม่ยืนยัน → คืนติ๊กกลับเหมือนเดิม
+  c.inStock = want;
   // อัปเดตเฉพาะช่องนี้ ไม่ re-render ทั้งตาราง (กันกลุ่มที่กางไว้ยุบ + เร็วกว่ามากตอนมีการ์ดเยอะ)
   const td = el.closest('td');
   if (td) {
