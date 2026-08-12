@@ -1171,6 +1171,11 @@
       <div class="value num" id="statSell">฿0</div>
       <div class="sub" id="statProfit">กำไรคาดการณ์ ฿0</div>
     </div>
+    <div class="stat" id="cardStockCheck">
+      <div class="label">เช็คของแล้ว (มีของ)</div>
+      <div class="value num" id="statStockHave">0</div>
+      <div class="sub" id="statStockSub">ยังไม่ติ๊ก 0 ใบ</div>
+    </div>
   </div>
 
   <div class="topic-breakdown" id="topicBreakdown"></div>
@@ -2513,6 +2518,14 @@ function updateStats() {
   const profitEl = document.getElementById('statProfit');
   profitEl.textContent = 'กำไรที่ขายได้จริง ' + money(realized);
   profitEl.className = 'sub ' + (realized > 0 ? 'profit-pos' : realized < 0 ? 'profit-neg' : '');
+
+  // เช็คของ — นับจากใบที่โผล่ในตารางคลังสินค้าจริง (ไม่รวมที่ขายแล้ว) ให้ตรงกับช่องติ๊ก
+  const nHave = inStock.filter(cardHasStock).length;
+  const nNone = inStock.length - nHave;
+  const shEl = document.getElementById('statStockHave');
+  if (shEl) shEl.textContent = nHave.toLocaleString('th-TH') + ' / ' + inStock.length.toLocaleString('th-TH') + ' ใบ';
+  const ssEl = document.getElementById('statStockSub');
+  if (ssEl) ssEl.textContent = nNone > 0 ? `ยังไม่ติ๊ก ${nNone.toLocaleString('th-TH')} ใบ` : '✓ ติ๊กครบทุกใบแล้ว';
 }
 
 // กำไรต่อใบ — นับเฉพาะใบที่ "ขายแล้ว" เท่านั้น (โชว์/รอขาย = 0 เพราะยังขายไม่ได้)
@@ -4167,6 +4180,7 @@ function toggleInStock(id, el) {
     const lbl = td.querySelector('.stock-lbl');
     if (lbl) lbl.textContent = c.inStock ? 'มีของ' : 'ของไม่มี';
   }
+  updateStats(); // อัปเดตกล่อง "เช็คของแล้ว" ด้านบนให้ตรงทันที
   save();
 }
 function toggleForSale(id) {
