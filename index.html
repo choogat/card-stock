@@ -4153,8 +4153,8 @@ function sortByStockCheck() {
   render();
 }
 // ---- ช่อง "เช็คของ" (แยกจากช่องสินค้าขาย) — ติ๊กว่าของอยู่ครบจริงไหม ----
-// ใบเก่าที่ยังไม่เคยเช็ค (ไม่มีฟิลด์นี้) นับเป็น "มีของ" ไว้ก่อน แล้วค่อยเอาติ๊กออกเฉพาะใบที่ของหาย
-function cardHasStock(c) { return !c || c.inStock !== false; }
+// เริ่มต้นทุกใบยังไม่ติ๊ก (= "ของไม่มี") ต้องมาไล่ติ๊กเองตอนเช็คของจริง
+function cardHasStock(c) { return !!c && c.inStock === true; }
 function toggleInStock(id, el) {
   const c = cards.find(x => x.id === id);
   if (!c) return;
