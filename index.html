@@ -750,6 +750,44 @@
   .poc-foot { display: flex; flex-wrap: wrap; gap: 3px 11px; font-size: .74rem; color: var(--muted); }
   .poc-foot b { color: var(--text); font-weight: 600; }
   .po-card .po-note { font-size: .78rem; color: var(--text); font-weight: 600; background: var(--bg); border-radius: 7px; padding: 5px 8px; }
+
+  /* ---- พรีออเดอร์: มุมมองตาราง (ค่าเริ่มต้น) ---- */
+  .po-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .po-table { min-width: 720px; }
+  .po-table td { border-top-color: var(--border); }
+  .po-table .po-c-st { width: 1%; }
+  .po-table .po-c-st .po-status { width: auto; padding: 4px 7px; font-size: .76rem; }
+  .po-table .po-c-name { max-width: 340px; }
+  .po-table .po-n-title { font-weight: 700; font-size: .88rem; line-height: 1.25; }
+  .po-table .po-n-sub { color: var(--muted); font-size: .74rem; margin-top: 2px; }
+  .po-table .po-n-note {
+    font-size: .73rem; color: var(--text); margin-top: 3px;
+    background: var(--bg); border-radius: 6px; padding: 3px 7px; display: -webkit-box;
+  }
+  .po-table .po-dash { color: var(--muted); }
+  .po-table .po-due-tag { color: #b8860b; font-weight: 700; }
+  .po-table .po-prog-sm { height: 3px; margin-top: 4px; }
+  .po-table .po-c-act { width: 1%; white-space: nowrap; }
+  /* แถบสีซ้ายบอกสถานะ — กวาดตาหาแถวที่ต้องจัดการได้เร็ว */
+  .po-table .po-row td:first-child { border-left: 3px solid var(--border); }
+  .po-table .po-r-due td { background: rgba(230, 178, 58, .09); }
+  .po-table .po-r-due td:first-child { border-left-color: var(--yellow); }
+  .po-table .po-r-received td:first-child { border-left-color: #54b878; }
+  .po-table .po-r-cancel td { opacity: .58; }
+  .po-table .po-r-cancel td:first-child { border-left-color: #e8707b; }
+  .po-table .po-total-row td { background: var(--card2); font-size: .86rem; border-top: 1px solid var(--border); }
+  .po-table .po-total-row td:first-child { border-left: 3px solid transparent; }
+  /* บรรทัดสรุปเงิน — โผล่เฉพาะจอเล็กที่ซ่อนคอลัมน์ ราคา/มัดจำ/รับของ ไป */
+  .po-table .po-n-mob { display: none; }
+  @media (max-width: 640px) {
+    .po-table { min-width: 0; }
+    .po-table td { padding: 7px 8px; }
+    .po-table .po-c-name { max-width: none; }
+    .po-table .po-n-title { font-size: .84rem; }
+    .po-table .po-n-sub { font-size: .7rem; }
+    .po-table .po-n-mob { display: block; font-size: .72rem; color: var(--muted); margin-top: 2px; font-variant-numeric: tabular-nums; }
+    .po-table .po-c-st .po-status { padding: 3px 4px; font-size: .7rem; }
+  }
   .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
   .grid-topic-lang { display: grid; grid-template-columns: 3fr 1fr; gap: 12px; }
   .grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
@@ -1224,6 +1262,7 @@
         <option value="deposit_desc">มัดจำ มาก→น้อย</option>
         <option value="name_asc">ชื่อ ก→ฮ</option>
       </select>
+      <button type="button" class="filter fbtn" id="poViewBtn" onclick="togglePoView()" title="สลับมุมมอง ตาราง / การ์ด">☰ ตาราง</button>
       <button class="btn btn-ghost" onclick="document.getElementById('poExcelFile').click()">📥 โหลดจาก Excel</button>
       <button class="btn btn-ghost" onclick="downloadPreorderExcel()">⬇️ Download</button>
       <input type="file" id="poExcelFile" accept=".xlsx,.xls,.csv" style="display:none" onchange="onPickPreorderExcel(event)">
@@ -5863,6 +5902,10 @@ function renderPreorder() {
   }
 
   poLastList = list.map(x => x.o); // เก็บไว้ใช้ตอน Download
+
+  // มุมมองตาราง — อ่านง่ายกว่าเวลามีหลายรายการ เทียบราคา/มัดจำ/ยอดค้างได้ในคอลัมน์เดียวกัน
+  if (poView === 'list') { area.innerHTML = poListHTML(list); poBindNotes(area); return; }
+
   const cardsHtml = list.map(({ o }) => {
     const st = o.status || 'wait';
     // รอส่งของ + ถึง/เลย "วันที่ได้รับของ" แล้ว → การ์ดขึ้นแถบเหลือง (เตือนของถึงกำหนดแต่ยังไม่รับ)
@@ -5901,8 +5944,10 @@ function renderPreorder() {
   }).join('');
 
   area.innerHTML = `<div class="po-grid">${cardsHtml}</div>`;
-
-  // หมายเหตุยาวเกิน 2 บรรทัด → ตัดโชว์ 2 บรรทัด กดแล้วเปิด popup ดูเต็ม
+  poBindNotes(area);
+}
+// หมายเหตุยาวเกิน 2 บรรทัด → ตัดโชว์ 2 บรรทัด กดแล้วเปิด popup ดูเต็ม
+function poBindNotes(area) {
   area.querySelectorAll('.po-note').forEach(el => {
     if (el.scrollHeight - el.clientHeight > 1) {
       el.classList.add('more');
@@ -5910,6 +5955,79 @@ function renderPreorder() {
       el.onclick = () => openNotePopup(el.getAttribute('data-full'));
     }
   });
+}
+
+// ---- มุมมองตาราง (ค่าเริ่มต้น) / มุมมองการ์ด ----
+let poView = (() => { try { return localStorage.getItem('app_po_view') || 'list'; } catch (e) { return 'list'; } })();
+function updatePoViewBtn() {
+  const b = document.getElementById('poViewBtn');
+  if (b) b.textContent = poView === 'list' ? '☰ ตาราง' : '▦ การ์ด';
+}
+function togglePoView() {
+  poView = poView === 'list' ? 'card' : 'list';
+  try { localStorage.setItem('app_po_view', poView); } catch (e) {}
+  updatePoViewBtn();
+  renderPreorder();
+}
+// ตารางพรีออเดอร์ — คอลัมน์เงินชิดขวาเรียงตรงกัน อ่านเทียบกันได้ + แถวรวมท้ายตาราง
+function poListHTML(list) {
+  let tPrice = 0, tDep = 0, tRem = 0, nActive = 0;
+  const rows = list.map(({ o }) => {
+    const st = o.status || 'wait';
+    const due = st === 'wait' && o.recvDate && o.recvDate <= todayStr();
+    const cls = st === 'received' ? 'po-r-received' : st === 'cancel' ? 'po-r-cancel' : due ? 'po-r-due' : '';
+    const opts = Object.keys(PO_STATUS).map(k => `<option value="${k}"${k === st ? ' selected' : ''}>${PO_STATUS[k]}</option>`).join('');
+    const price = Number(o.price) || 0, dep = Number(o.deposit) || 0, rem = poRemaining(o), qty = Number(o.qty) || 1;
+    const pct = price > 0 ? Math.min(100, Math.round(dep / price * 100)) : (dep > 0 ? 100 : 0);
+    // รวมยอดเฉพาะรายการที่ยังไม่ยกเลิก (ใบยกเลิกไม่ใช่ยอดจริง)
+    if (st !== 'cancel') { tPrice += price; tDep += dep; tRem += rem; nActive++; }
+    // บรรทัดรองใต้ชื่อ — ข้อมูลที่ซ่อนคอลัมน์ไปบนจอเล็กจะยังเห็นตรงนี้
+    const sub = [
+      o.set ? esc(o.set) : '',
+      o.size ? esc(o.size) : '',
+      qty > 1 ? `× ${qty} (เฉลี่ย ${money(poAvg(o))})` : '',
+      o.source ? `<span class="po-sub-shop">🏪 ${esc(o.source)}</span>` : '',
+      o.date ? `<span class="po-sub-date">📅 ${esc(poDateLabel(o.date))}</span>` : '',
+    ].filter(Boolean).join(' · ');
+    return `<tr class="po-row ${cls}">
+      <td class="po-c-st"><select class="po-status po-status-${st}" onchange="updatePreorderStatus('${o.id}', this.value)">${opts}</select></td>
+      <td class="name po-c-name">
+        <div class="po-n-title">${esc(o.name)}${o.lang ? ` <span class="lang-badge">${esc(o.lang)}</span>` : ''}</div>
+        ${sub ? `<div class="po-n-sub">${sub}</div>` : ''}
+        <div class="po-n-mob">ราคา ${money(price)} · มัดจำ ${money(dep)}${o.recvDate ? ` · <span class="${due ? 'po-due-tag' : ''}">📦 ${esc(poDateLabel(o.recvDate))}</span>` : ''}</div>
+        ${o.note ? `<div class="po-note po-n-note" data-full="${esc(o.note)}">📝 ${esc(o.note)}</div>` : ''}
+      </td>
+      <td class="hide-sm">${o.source ? esc(o.source) : '<span class="po-dash">—</span>'}</td>
+      <td class="hide-sm">${o.date ? esc(poDateLabel(o.date)) : '<span class="po-dash">—</span>'}</td>
+      <td class="hide-sm">${o.recvDate ? `<span class="${due ? 'po-due-tag' : ''}">${esc(poDateLabel(o.recvDate))}</span>` : '<span class="po-dash">—</span>'}</td>
+      <td class="num hide-sm">${qty}</td>
+      <td class="num hide-sm">${money(price)}</td>
+      <td class="num hide-sm">${money(dep)}<div class="po-prog po-prog-sm" title="จ่ายมัดจำแล้ว ${pct}%"><i style="width:${pct}%"></i></div></td>
+      <td class="num"><span class="poc-due ${rem <= 0 ? 'clear' : 'owed'}">${money(rem)}</span></td>
+      <td class="po-c-act"><button class="po-icon" title="แก้ไข" onclick="openPreorderForm('${o.id}')">✏️</button><button class="po-icon" title="ลบ" onclick="deletePreorder('${o.id}')">🗑️</button></td>
+    </tr>`;
+  }).join('');
+  return `<div class="po-table-wrap"><table class="po-table">
+    <thead><tr>
+      <th>สถานะ</th><th>สินค้า</th>
+      <th class="hide-sm">สั่งจาก</th><th class="hide-sm">วันที่สั่ง</th>
+      <th class="hide-sm">รับของ</th><th class="num hide-sm">จำนวน</th>
+      <th class="num hide-sm">ราคา</th><th class="num hide-sm">มัดจำ</th><th class="num">ค้าง</th><th></th>
+    </tr></thead>
+    <tbody>${rows}
+      <tr class="po-total-row">
+        <td colspan="2">
+          <b>รวม ${nActive} รายการ</b> <span class="po-dash">(ไม่นับที่ยกเลิก)</span>
+          <div class="po-n-mob">ราคา ${money(tPrice)} · มัดจำ ${money(tDep)}</div>
+        </td>
+        <td class="hide-sm"></td><td class="hide-sm"></td><td class="hide-sm"></td><td class="num hide-sm"></td>
+        <td class="num hide-sm"><b>${money(tPrice)}</b></td>
+        <td class="num hide-sm"><b>${money(tDep)}</b></td>
+        <td class="num"><b class="poc-due ${tRem <= 0 ? 'clear' : 'owed'}">${money(tRem)}</b></td>
+        <td></td>
+      </tr>
+    </tbody>
+  </table></div>`;
 }
 
 // ---- popup แสดงหมายเหตุพรีออเดอร์แบบเต็ม ----
@@ -7512,6 +7630,7 @@ document.getElementById('saleShopOverlay').addEventListener('click', e => {
 document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeLogin(); closePSASearch(); closeSale(); closeSplit(); closeProductEdit(); closeBuyConfirm(); closeBuyPopup(); closeGachaForm(); closeBuyEdit(); closeNewBuy(); closeSaleEdit(); closePreorderForm(); closeShopForm(); closeSaleShop(); closeNotePopup(); } });
 
 render();
+updatePoViewBtn();  // ปุ่มสลับมุมมองพรีออเดอร์ให้ตรงกับที่เลือกไว้ครั้งก่อน
 applyPermissions(); // ตั้งเมนู/แถบตามสิทธิ์ + คงแถบ/ร้านล่าสุดหลัง F5 (รวมคืนหน้าร้านจากแคชทันที)
 gachaBooting = false; // คืนหน้าล่าสุด (F5) เสร็จแล้ว — จากนี้กดเมนูอื่นกลับเข้ายอดจุ่ม = รีเซ็ตเป็น "ใช้งานอยู่"
 updateAuthGate();   // ยังไม่ล็อกอิน → ล็อกหน้าจอ เหลือแต่หน้าล็อกอิน
