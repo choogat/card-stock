@@ -389,6 +389,14 @@
   .btn-sold { padding: 4px 10px; font-size: .72rem; border-radius: 7px; line-height: 1.3; min-width: 46px; }
   .sale-check { width: 20px; height: 20px; accent-color: var(--accent); cursor: pointer; }
   .sale-check:disabled { cursor: not-allowed; opacity: .6; }
+  /* ช่อง "สินค้าขาย": ติ๊กแล้วทั้งช่องเป็นสีเขียว + ป้ายบอกสถานะใต้ช่องติ๊ก */
+  td.sale-cell { white-space: nowrap; }
+  td.sale-cell .sale-lbl { display: block; margin-top: 3px; font-size: .68rem; font-weight: 700; line-height: 1; }
+  td.sale-cell.on { background: rgba(46, 204, 113, .16); }
+  td.sale-cell.on .sale-check { accent-color: var(--green); }
+  td.sale-cell.on .sale-lbl { color: var(--green); }
+  td.sale-cell.off .sale-lbl { color: var(--muted); }
+  td.sale-cell.done .sale-lbl { color: var(--muted); }
   .pay-tag { display: inline-block; padding: 3px 9px; border-radius: 999px; font-size: .74rem; font-weight: 600; background: var(--card2); color: var(--muted); }
   .pay-tag.cash { background: rgba(24,165,88,.15); color: var(--green); }
   .pay-tag.transfer { background: rgba(47,111,237,.14); color: var(--accent); }
@@ -2742,6 +2750,8 @@ function stockRow(c, isChild) {
     : `<div class="thumb-empty">🃏</div>`;
   const p = cardProfit(c);
   const profitCell = `<span class="${p > 0 ? 'profit-pos' : p < 0 ? 'profit-neg' : 'muted'}">${p > 0 ? '+' : ''}${money(p)}</span>`;
+  // ติ๊ก "สินค้าขาย" = ส่งไปขายแล้ว (หรือเลือกไว้รอกดยืนยันปลายทาง) → ช่องเป็นสีเขียว + ป้าย "มีของ"
+  const forSale = c.status !== 'show' || saleSelection.has(c.id);
   return `<tr class="${isChild ? 'child-row' : ''}">
     <td>${img}</td>
     <td class="name">${c.topic ? `<div class="topic">${esc(c.topic)}</div>` : ''}${esc(c.name)}${c.lang ? ` <span class="lang-badge">${esc(c.lang)}</span>` : ''}${gradeTag(c)}${(c.qty && c.qty > 1) ? ` <span class="qty-badge">×${c.qty}${c.unit ? ' ' + esc(c.unit) : ''}</span>` : ''}${setMetaHTML(c)}${c.set ? `<div class="cardset">รุ่น: ${esc(c.set)}</div>` : ''}${c.detail ? `<div class="detail">${esc(c.detail)}</div>` : ''}</td>
@@ -2751,9 +2761,10 @@ function stockRow(c, isChild) {
     <td class="center muted hide-sm" style="white-space:nowrap;font-size:.8rem">${c.buyDate ? fmtDate(c.buyDate) + (c.buyTime ? ' ' + c.buyTime : '') : '-'}</td>
     ${canSeeProfit() ? `<td class="num">${profitCell}</td>` : ''}
     <td class="center"><span class="badge ${st.cls}">${st.label}</span></td>
-    <td class="center">
-      <input type="checkbox" class="sale-check" ${(c.status !== 'show' || saleSelection.has(c.id)) ? 'checked' : ''} ${c.status === 'sold' ? 'disabled' : ''}
+    <td class="center sale-cell ${c.status === 'sold' ? 'done' : forSale ? 'on' : 'off'}">
+      <input type="checkbox" class="sale-check" ${forSale ? 'checked' : ''} ${c.status === 'sold' ? 'disabled' : ''}
         onchange="toggleForSale('${c.id}')" title="${c.status === 'sold' ? 'ขายแล้ว (ล็อก)' : 'ติ๊กเพื่อย้ายไปแถบสินค้าขาย'}">
+      <span class="sale-lbl">${c.status === 'sold' ? 'ขายแล้ว' : forSale ? 'มีของ' : 'ของไม่มี'}</span>
     </td>
     <td class="center">${esc(stockShopName(c))}</td>
     <td>
