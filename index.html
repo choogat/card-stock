@@ -389,6 +389,11 @@
   .btn-sold { padding: 4px 10px; font-size: .72rem; border-radius: 7px; line-height: 1.3; min-width: 46px; }
   .sale-check { width: 20px; height: 20px; accent-color: var(--accent); cursor: pointer; }
   .sale-check:disabled { cursor: not-allowed; opacity: .6; }
+  /* หัวคอลัมน์ "เช็คของ" กดเรียงลำดับได้ */
+  th.stock-th { cursor: pointer; user-select: none; transition: color .12s; }
+  th.stock-th:hover { color: var(--accent); }
+  th.stock-th.sorted { color: var(--green); }
+  th.stock-th .stock-th-ar { margin-left: 3px; }
   /* ช่อง "เช็คของ": ติ๊กแล้วทั้งช่องเป็นสีเขียว + ป้ายบอกสถานะใต้ช่องติ๊ก */
   .stock-check { width: 20px; height: 20px; accent-color: var(--green); cursor: pointer; }
   td.stock-cell { white-space: nowrap; }
@@ -1197,6 +1202,8 @@
       <option value="median_asc">ราคากลาง น้อย→มาก</option>
       <option value="profit_desc">กำไร มาก→น้อย</option>
       <option value="buyDate_desc">วันที่ซื้อ ล่าสุด</option>
+      <option value="stock_have">เช็คของ: มีของก่อน</option>
+      <option value="stock_none">เช็คของ: ของไม่มีก่อน</option>
     </select>
     <select class="filter" id="stockShopFilter" onchange="render()">
       <option value="">ทุกร้าน</option>
@@ -2603,6 +2610,9 @@ function render() {
     median_asc: (a, b) => (Number(a.median) || 0) - (Number(b.median) || 0),
     profit_desc: (a, b) => cardProfit(b) - cardProfit(a),
     buyDate_desc: (a, b) => (b.buyDate || '').localeCompare(a.buyDate || ''),
+    // เช็คของ — ในกลุ่มเดียวกันคงลำดับเดิม (ใหม่สุดก่อน) ไว้
+    stock_have: (a, b) => (cardHasStock(b) - cardHasStock(a)) || (b._i - a._i),
+    stock_none: (a, b) => (cardHasStock(a) - cardHasStock(b)) || (b._i - a._i),
   };
   list.sort(sorters[sortBy] || sorters.newest);
 
@@ -2625,7 +2635,7 @@ function render() {
       ${canSeeProfit() ? '<th class="num">กำไร</th>' : ''}
       <th class="center">สถานะ</th>
       <th class="center">สินค้าขาย</th>
-      <th class="center">เช็คของ</th>
+      ${stockCheckThHTML()}
       <th class="center">ร้านค้า</th>
       <th></th>
     </tr></thead>
@@ -4128,6 +4138,20 @@ let pendingSaleShopId = '';  // ร้านที่เลือกตอนก
 let saleShopCardId = null;
 let saleSelection = new Set();   // การ์ดที่ติ๊กไว้ รอเลือกร้านทีเดียว (status ยังเป็น 'show')
 let splitQueue = [];             // คิวของสะสม qty>1 ที่ต้องแยกจำนวนทีละใบ
+// หัวคอลัมน์ "เช็คของ" — กดเพื่อเรียง มีของก่อน → ของไม่มีก่อน → กลับเป็นลำดับเดิม
+function stockCheckThHTML() {
+  const cur = document.getElementById('sortBy')?.value || '';
+  const arrow = cur === 'stock_have' ? '✓' : cur === 'stock_none' ? '✕' : '';
+  const on = arrow ? ' sorted' : '';
+  return `<th class="center stock-th${on}" onclick="sortByStockCheck()" title="กดเพื่อเรียง มีของ / ของไม่มี">`
+    + `เช็คของ<span class="stock-th-ar">${arrow}</span></th>`;
+}
+function sortByStockCheck() {
+  const sel = document.getElementById('sortBy');
+  if (!sel) return;
+  sel.value = sel.value === 'stock_have' ? 'stock_none' : sel.value === 'stock_none' ? 'newest' : 'stock_have';
+  render();
+}
 // ---- ช่อง "เช็คของ" (แยกจากช่องสินค้าขาย) — ติ๊กว่าของอยู่ครบจริงไหม ----
 // ใบเก่าที่ยังไม่เคยเช็ค (ไม่มีฟิลด์นี้) นับเป็น "มีของ" ไว้ก่อน แล้วค่อยเอาติ๊กออกเฉพาะใบที่ของหาย
 function cardHasStock(c) { return !c || c.inStock !== false; }
