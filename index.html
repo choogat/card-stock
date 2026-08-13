@@ -406,39 +406,22 @@
   td.stock-sum.full { color: var(--green); background: rgba(46, 204, 113, .16); }
   td.stock-sum.part { color: var(--yellow); }
   td.stock-sum.none { color: var(--muted); }
-  /* ===== หน้ารายงานการใช้งาน (activity log) — ไทม์ไลน์ ใหม่→เก่า ===== */
-  .act-day { display: flex; align-items: center; gap: 10px; margin: 22px 0 10px; font-weight: 800; font-size: .92rem; color: var(--text); }
-  .act-day:first-child { margin-top: 4px; }
-  .act-day .act-day-n { font-weight: 600; font-size: .78rem; color: var(--muted); white-space: nowrap; }
-  .act-day::after { content: ''; flex: 1; height: 1px; background: var(--border); }
-  .act-item { display: flex; gap: 11px; align-items: flex-start; padding: 10px 13px; margin-bottom: 8px; background: var(--card); border: 1px solid var(--border); border-radius: 12px; }
-  .act-item.has-sub { cursor: pointer; }
-  .act-item.has-sub:hover { border-color: var(--accent); }
-  .act-time { flex: 0 0 42px; padding-top: 5px; font-size: .82rem; font-weight: 700; color: var(--muted); font-variant-numeric: tabular-nums; }
-  .act-ico { flex: 0 0 32px; width: 32px; height: 32px; border-radius: 10px; display: grid; place-items: center; font-size: 1rem; background: var(--card2); }
-  .act-ico.add { background: rgba(47,111,237,.14); }
-  .act-ico.edit { background: rgba(108,92,231,.14); }
-  .act-ico.tosale { background: rgba(192,138,0,.16); }
-  .act-ico.sell { background: rgba(24,165,88,.16); }
-  .act-ico.stock { background: rgba(24,165,88,.12); }
-  .act-ico.del { background: rgba(226,59,78,.14); }
-  .act-body { flex: 1; min-width: 0; }
-  .act-head { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; }
-  .act-tag { font-size: .71rem; font-weight: 800; padding: 2px 9px; border-radius: 999px; background: var(--card2); color: var(--muted); white-space: nowrap; }
+  /* ===== หน้ารายงานการใช้งาน (activity log) — ตารางไล่จากใหม่ → เก่า ===== */
+  #actTable td { vertical-align: middle; }
+  #actTable td.act-time { font-size: .82rem; font-weight: 700; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; width: 52px; }
+  .act-tag { display: inline-block; font-size: .72rem; font-weight: 800; padding: 3px 10px; border-radius: 999px; background: var(--card2); color: var(--muted); white-space: nowrap; }
   .act-tag.add { background: rgba(47,111,237,.14); color: var(--accent); }
   .act-tag.edit { background: rgba(108,92,231,.14); color: var(--accent2); }
-  .act-tag.tosale, .act-tag.untosale { background: rgba(192,138,0,.16); color: var(--yellow); }
-  .act-tag.sell { background: rgba(24,165,88,.16); color: var(--green); }
+  .act-tag.tosale, .act-tag.untosale { background: rgba(192,138,0,.16); color: #92600a; }
+  .act-tag.sell { background: rgba(24,165,88,.16); color: #0f7a3d; }
   .act-tag.unsell { background: rgba(226,59,78,.12); color: var(--danger); }
-  .act-tag.stock { background: rgba(24,165,88,.13); color: var(--green); }
+  .act-tag.stock { background: rgba(24,165,88,.13); color: #0f7a3d; }
   .act-tag.del { background: rgba(226,59,78,.14); color: var(--danger); }
-  .act-name { font-weight: 700; font-size: .93rem; overflow-wrap: anywhere; }
-  .act-name .act-topic { color: var(--muted); font-weight: 600; font-size: .8rem; margin-right: 5px; }
-  .act-who { margin-left: auto; display: inline-flex; align-items: center; gap: 5px; font-size: .75rem; font-weight: 700; color: var(--muted); background: var(--card2); padding: 2px 9px; border-radius: 999px; white-space: nowrap; }
-  /* สถานะ + เช็คของ = หัวข้อจริง ไม่ใช่หมายเหตุ → แยกออกมาเป็นชิปสีของตัวเอง */
-  .act-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 7px; }
-  .act-chip { display: inline-flex; align-items: center; gap: 6px; padding: 4px 11px; border-radius: 999px; font-size: .79rem; font-weight: 800; background: var(--card2); color: var(--text); border: 1px solid var(--border); }
-  .act-chip .act-chip-k { font-size: .7rem; font-weight: 700; opacity: .72; }
+  .act-name { font-weight: 700; font-size: .9rem; overflow-wrap: anywhere; }
+  .act-name .act-topic { display: block; color: var(--muted); font-weight: 600; font-size: .78rem; }
+  .act-who { display: inline-flex; align-items: center; gap: 5px; font-size: .76rem; font-weight: 700; color: var(--muted); background: var(--card2); padding: 3px 10px; border-radius: 999px; white-space: nowrap; }
+  /* สถานะ + เช็คของ = คอลัมน์ของตัวเอง ไม่ใช่หมายเหตุท้ายแถว */
+  .act-chip { display: inline-flex; align-items: center; gap: 5px; padding: 4px 11px; border-radius: 999px; font-size: .78rem; font-weight: 800; background: var(--card2); color: var(--text); border: 1px solid var(--border); white-space: nowrap; }
   .act-chip .act-chip-from { font-weight: 600; opacity: .6; text-decoration: line-through; }
   .act-chip .act-chip-ar { opacity: .5; font-weight: 600; }
   .act-chip.show { background: rgba(47,111,237,.16); border-color: transparent; color: #1d4ed8; }
@@ -446,23 +429,25 @@
   .act-chip.sold { background: rgba(24,165,88,.22); border-color: transparent; color: #0f7a3d; }
   .act-chip.have { background: rgba(24,165,88,.16); border-color: transparent; color: var(--green); }
   .act-chip.none { background: var(--card2); color: var(--muted); }
-  .act-chg { margin-top: 5px; font-size: .83rem; color: var(--muted); line-height: 1.7; overflow-wrap: anywhere; }
+  .act-tally { margin-top: 3px; font-size: .78rem; font-weight: 800; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .act-chg { margin-top: 4px; font-size: .82rem; color: var(--muted); line-height: 1.65; overflow-wrap: anywhere; font-weight: 400; }
   .act-chg .act-f { font-weight: 700; color: var(--text); }
   .act-chg .act-from { text-decoration: line-through; opacity: .75; }
   .act-chg .act-to { font-weight: 700; color: var(--text); }
   .act-chg .act-dot { padding: 0 7px; opacity: .5; }
-  .act-thumb { width: 30px; height: 42px; object-fit: cover; border-radius: 6px; border: 1px solid var(--border); flex: 0 0 30px; }
-  .act-caret { font-size: .72rem; color: var(--muted); transition: transform .15s; }
-  .act-item.open .act-caret { transform: rotate(90deg); }
-  .act-sub { display: none; margin-top: 9px; padding-top: 9px; border-top: 1px dashed var(--border); }
-  .act-item.open .act-sub { display: block; }
-  .act-sub-row { display: flex; gap: 8px; align-items: baseline; padding: 3px 0; font-size: .82rem; }
-  .act-sub-row .act-sub-name { font-weight: 600; min-width: 0; overflow-wrap: anywhere; }
-  .act-seed { font-size: .71rem; font-weight: 700; color: var(--muted); background: var(--card2); border: 1px dashed var(--border); padding: 1px 8px; border-radius: 999px; }
+  .act-thumb { width: 32px; height: 44px; object-fit: cover; border-radius: 6px; border: 1px solid var(--border); cursor: zoom-in; display: block; }
+  .act-thumb:hover { border-color: var(--accent); }
+  .act-thumb-empty { width: 32px; height: 44px; border-radius: 6px; background: var(--card2); display: grid; place-items: center; font-size: .9rem; opacity: .5; }
+  tr.act-batch { cursor: pointer; }
+  tr.act-batch:hover td { background: var(--card2); }
+  .act-caret { display: inline-block; font-size: .7rem; color: var(--muted); transition: transform .15s; margin-right: 5px; }
+  tr.act-batch.open .act-caret { transform: rotate(90deg); }
+  tr.act-sub-tr td { background: var(--card2); }
+  tr.act-sub-tr td:first-child { box-shadow: inset 3px 0 0 var(--border); }
+  .act-seed { font-size: .7rem; font-weight: 700; color: var(--muted); background: var(--card2); border: 1px dashed var(--border); padding: 1px 8px; border-radius: 999px; white-space: nowrap; }
   @media (max-width: 640px) {
-    .act-time { flex-basis: 38px; font-size: .76rem; }
-    .act-who { margin-left: 0; }
-    .act-item { padding: 9px 10px; gap: 9px; }
+    #actTable td.act-time { width: 44px; font-size: .75rem; }
+    .act-chip { padding: 3px 9px; font-size: .74rem; }
   }
   .pay-tag { display: inline-block; padding: 3px 9px; border-radius: 999px; font-size: .74rem; font-weight: 600; background: var(--card2); color: var(--muted); }
   .pay-tag.cash { background: rgba(24,165,88,.15); color: var(--green); }
@@ -2742,8 +2727,15 @@ function logCardChange(prevBody, c) {
   }
   const ch = actDiff(prev, c);
   if (!ch.length) return false; // เปลี่ยนแต่ฟิลด์ภายใน — ไม่ต้องรบกวนรายงาน
-  actPush(actKindOf(prev, c, ch), c, ch);
+  // ติ๊กเช็คของ → เก็บยอดรวม ณ ตอนนั้นไว้ด้วย (เช่น 178/1118) จะได้ย้อนดูได้ว่าวันนั้นเช็คไปถึงไหน
+  const extra = ch.some(x => x.k === 'inStock') ? { stockTally: actStockTally() } : null;
+  actPush(actKindOf(prev, c, ch), c, ch, extra);
   return true;
+}
+// ยอด "เช็คของแล้ว / ทั้งหมด" — นับชุดเดียวกับกล่องสรุปด้านบนหน้าคลังสินค้า (ไม่รวมที่ขายแล้ว/ข้อมูลสินค้าอย่างเดียว)
+function actStockTally() {
+  const scope = cards.filter(x => x && !x.productOnly && x.status !== 'sold');
+  return scope.filter(cardHasStock).length + '/' + scope.length;
 }
 
 function logCardDeleted(id) {
@@ -4205,14 +4197,13 @@ function actChipCls(x) {
   if (x.k === 'inStock') return x.to === 'มีของ' ? 'have' : 'none';
   return ACT_STATUS_CLS[x.to] || '';
 }
-function actChipsHTML(ch) {
-  const chips = (ch || []).filter(x => ACT_CHIP_KEYS.includes(x.k));
-  if (!chips.length) return '';
-  return '<div class="act-chips">' + chips.map(x => {
-    const from = (x.from !== undefined && x.from !== null && x.from !== x.to)
-      ? `<span class="act-chip-from">${esc(x.from)}</span><span class="act-chip-ar">→</span>` : '';
-    return `<span class="act-chip ${actChipCls(x)}"><span class="act-chip-k">${esc(x.label)}</span>${from}<span>${esc(x.to)}</span></span>`;
-  }).join('') + '</div>';
+// ชิปของคอลัมน์เดียว (สถานะ / เช็คของ) — ไม่มีก็ปล่อยช่องว่างไว้ ให้ตารางยังอ่านเป็นแนวตั้งได้
+function actChipHTML(ch, key) {
+  const x = (ch || []).find(y => y.k === key);
+  if (!x) return '<span class="muted">—</span>';
+  const from = (x.from !== undefined && x.from !== null && x.from !== x.to)
+    ? `<span class="act-chip-from">${esc(x.from)}</span><span class="act-chip-ar">→</span>` : '';
+  return `<span class="act-chip ${actChipCls(x)}">${from}<span>${esc(x.to)}</span></span>`;
 }
 function actChangesHTML(ch) {
   const rest = (ch || []).filter(x => !ACT_CHIP_KEYS.includes(x.k));
@@ -4228,39 +4219,63 @@ function actCommonChanges(g) {
   const sig = x => x.k + '|' + x.from + '|' + x.to;
   return (g[0].changes || []).filter(x => g.every(e => (e.changes || []).some(y => sig(y) === sig(x))));
 }
-function actItemHTML(g) {
+// ช่อง "เช็คของ" — ชิปสถานะ + ยอดรวมตอนนั้น เช่น 178/1118 (มีเฉพาะรายการที่บันทึกหลังเพิ่มฟีเจอร์นี้)
+function actStockCellHTML(e, ch) {
+  const tally = e.stockTally ? `<div class="act-tally" title="เช็คของแล้วทั้งหมดตอนนั้น">${esc(e.stockTally)}</div>` : '';
+  return actChipHTML(ch, 'inStock') + tally;
+}
+function actThumbHTML(e) {
+  return e.image
+    ? `<img class="act-thumb" loading="lazy" decoding="async" src="${esc(e.image)}" onclick="event.stopPropagation();openImgUrl('${esc(e.image)}')" title="กดเพื่อดูรูปเต็ม" alt="">`
+    : '<div class="act-thumb-empty">🃏</div>';
+}
+function actRowHTML(g) {
   const e = g[0];
   const m = ACT_META[e.act] || ACT_META.edit;
-  const thumb = e.image ? `<img class="act-thumb" loading="lazy" decoding="async" src="${esc(e.image)}" alt="">` : '';
-  const grade = (e.psa || e.grader) ? `<span class="lang-badge">${esc((e.grader || 'PSA') + ' ' + (e.psa || ''))}</span>` : '';
-  const cert = e.cert ? ` <span class="muted" style="font-size:.78rem">cert ${esc(e.cert)}</span>` : '';
   const who = `<span class="act-who">👤 ${esc(e.who || '—')}</span>`;
-  const seed = e.seed ? ' <span class="act-seed">ย้อนหลัง</span>' : '';
   if (g.length > 1) {
     // แก้ทีเดียวโดนหลายใบ (เช่นซิงก์ราคาทั้งกลุ่ม / นำเข้าไฟล์) → ยุบเป็นแถวเดียว กดกางดูรายใบได้
     const common = actCommonChanges(g);
-    const sub = g.map(x => `<div class="act-sub-row"><span class="act-sub-name">${x.topic ? `<span class="act-topic">${esc(x.topic)}</span>` : ''}${esc(x.name)}</span>${actChipsHTML(x.changes)}${actChangesHTML(x.changes)}</div>`).join('');
-    return `<div class="act-item has-sub" onclick="this.classList.toggle('open')">
-      <div class="act-time">${actTimeLabel(e.at)}</div>
-      <div class="act-ico ${e.act}">${m.icon}</div>
-      <div class="act-body">
-        <div class="act-head"><span class="act-tag ${e.act}">${m.label}</span>
-          <span class="act-name">${g.length} ใบ</span><span class="act-caret">▶</span>${who}</div>
-        ${actChipsHTML(common)}${actChangesHTML(common)}
-        <div class="act-sub">${sub}</div>
-      </div>
-    </div>`;
+    const b = esc(e.batchId);
+    let html = `<tr class="act-batch" data-b="${b}" onclick="toggleActBatch('${b}')">
+      <td class="act-time">${actTimeLabel(e.at)}</td>
+      <td><span class="act-tag ${e.act}">${m.label}</span></td>
+      <td></td>
+      <td class="name"><span class="act-name"><span class="act-caret">▶</span>${g.length} ใบ</span>${actChangesHTML(common)}</td>
+      <td class="hide-sm muted"></td>
+      <td class="center">${actChipHTML(common, 'status')}</td>
+      <td class="center">${actChipHTML(common, 'inStock')}</td>
+      <td class="hide-sm">${who}</td>
+    </tr>`;
+    for (const x of g) html += actLeafRowHTML(x, b);
+    return html;
   }
-  return `<div class="act-item">
-    <div class="act-time">${actTimeLabel(e.at)}</div>
-    <div class="act-ico ${e.act}">${m.icon}</div>
-    ${thumb}
-    <div class="act-body">
-      <div class="act-head"><span class="act-tag ${e.act}">${m.label}</span>
-        <span class="act-name">${e.topic ? `<span class="act-topic">${esc(e.topic)}</span>` : ''}${esc(e.name)}${grade}${cert}${seed}</span>${who}</div>
-      ${actChipsHTML(e.changes)}${actChangesHTML(e.changes)}
-    </div>
-  </div>`;
+  return actLeafRowHTML(e, null);
+}
+function actLeafRowHTML(e, batch) {
+  const m = ACT_META[e.act] || ACT_META.edit;
+  const grade = (e.psa || e.grader) ? ` <span class="lang-badge">${esc((e.grader || 'PSA') + ' ' + (e.psa || ''))}</span>` : '';
+  const seed = e.seed ? ' <span class="act-seed">ย้อนหลัง</span>' : '';
+  const ch = e.changes || [];
+  return `<tr${batch ? ` class="act-sub-tr" data-b="${batch}" style="display:none"` : ''}>
+    <td class="act-time">${batch ? '' : actTimeLabel(e.at)}</td>
+    <td>${batch ? '' : `<span class="act-tag ${e.act}">${m.label}</span>`}</td>
+    <td>${actThumbHTML(e)}</td>
+    <td class="name"><span class="act-name">${e.topic ? `<span class="act-topic">${esc(e.topic)}</span>` : ''}${esc(e.name)}${grade}${seed}</span>${actChangesHTML(ch)}</td>
+    <td class="hide-sm muted">${e.cert ? esc(e.cert) : '—'}</td>
+    <td class="center">${actChipHTML(ch, 'status')}</td>
+    <td class="center">${actStockCellHTML(e, ch)}</td>
+    <td class="hide-sm">${batch ? '' : `<span class="act-who">👤 ${esc(e.who || '—')}</span>`}</td>
+  </tr>`;
+}
+// กาง/พับรายใบของกลุ่มที่ยุบไว้
+function toggleActBatch(id) {
+  const rows = document.querySelectorAll(`tr.act-sub-tr[data-b="${id}"]`);
+  if (!rows.length) return;
+  const open = rows[0].style.display === 'none';
+  rows.forEach(r => { r.style.display = open ? '' : 'none'; });
+  const head = document.querySelector(`tr.act-batch[data-b="${id}"]`);
+  if (head) head.classList.toggle('open', open);
 }
 function renderActivity() {
   const area = document.getElementById('actArea');
@@ -4337,17 +4352,23 @@ function renderActivity() {
   }
 
   // แบ่งหัวข้อตามวัน (ใหม่ → เก่า)
-  let html = '', curDay = null;
+  let body = '', curDay = null;
   for (const g of groups) {
     const day = actDayKey(g[0].at);
     if (day !== curDay) {
       curDay = day;
       const n = groups.filter(x => actDayKey(x[0].at) === day).reduce((s, x) => s + x.length, 0);
-      html += `<div class="act-day">📅 ${actDayLabel(day)}<span class="act-day-n">${n.toLocaleString('th-TH')} รายการ</span></div>`;
+      body += `<tr class="group-head sold-date-head"><td colspan="8">📅 ${actDayLabel(day)}<span class="sdh-meta"> · ${n.toLocaleString('th-TH')} รายการ</span></td></tr>`;
     }
-    html += actItemHTML(g);
+    body += actRowHTML(g);
   }
-  area.innerHTML = html;
+  area.innerHTML = `<table id="actTable">
+      <thead><tr>
+        <th>เวลา</th><th>ประเภท</th><th>รูป</th><th>ชื่อการ์ด</th>
+        <th class="hide-sm">Cert</th><th class="center">สถานะ</th><th class="center">เช็คของ</th><th class="hide-sm">ผู้ทำรายการ</th>
+      </tr></thead>
+      <tbody>${body}</tbody>
+    </table>`;
 }
 
 // ---- แถบ "สินค้าขาย" ----

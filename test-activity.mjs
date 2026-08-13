@@ -20,6 +20,7 @@ function fmtDate(d){ return d ? d.split('-').reverse().join('/') : ''; }
 function money(n){ return '฿' + (Number(n)||0).toLocaleString('th-TH',{maximumFractionDigits:0}); }
 let _uid = 0;
 function uid(){ return 'u' + (++_uid); }
+function cardHasStock(c){ return !!c && c.inStock === true; }
 function isViewVisible(){ return false; }
 function renderActivity(){}
 let passcode = 'x', loginId = 'Cielcard';
@@ -62,12 +63,36 @@ t('ติ๊กเช็คของอย่างเดียว = เช็�
   mod.resetLogs();
   const prev = { id: 'c1', name: 'Luffy', status: 'show' };
   const cur = { ...prev, inStock: true };
+  mod.setCards([cur]);
   mod.logCardChange(body(prev), cur);
   const e = last();
   assert.equal(e.act, 'stock');
   assert.equal(e.changes.length, 1);
   assert.equal(e.changes[0].from, 'ของไม่มี');
   assert.equal(e.changes[0].to, 'มีของ');
+});
+
+t('เช็คของบันทึกยอดรวมตอนนั้นด้วย (เช่น 2/4) — ไม่นับใบที่ขายแล้ว/ข้อมูลสินค้า', () => {
+  mod.resetLogs();
+  const target = { id: 'c1', name: 'Luffy', status: 'show', inStock: true };
+  mod.setCards([
+    target,
+    { id: 'c2', name: 'B', status: 'show', inStock: true },
+    { id: 'c3', name: 'C', status: 'wait' },
+    { id: 'c4', name: 'D', status: 'show' },
+    { id: 'c5', name: 'ขายแล้ว', status: 'sold', inStock: true },   // ไม่นับ
+    { id: 'c6', name: 'ข้อมูลสินค้า', status: 'show', productOnly: true }, // ไม่นับ
+  ]);
+  mod.logCardChange(body({ id: 'c1', name: 'Luffy', status: 'show' }), target);
+  assert.equal(last().stockTally, '2/4');
+});
+
+t('การแก้อย่างอื่นไม่ต้องมียอดเช็คของติดมาด้วย', () => {
+  mod.resetLogs();
+  const prev = { id: 'c1', name: 'Luffy', status: 'show', sell: 500 };
+  mod.setCards([{ ...prev, sell: 600 }]);
+  mod.logCardChange(body(prev), { ...prev, sell: 600 });
+  assert.equal(last().stockTally, undefined);
 });
 
 t('สะสม → รอขาย = เข้าสินค้าขาย พร้อมชื่อร้าน', () => {
