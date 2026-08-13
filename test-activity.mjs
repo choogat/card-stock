@@ -180,26 +180,53 @@ t('เก็บไม่เกิน ' + mod.ACT_MAX + ' รายการ', ()
 
 console.log('\nเติมข้อมูลย้อนหลัง 1 วัน');
 
-t('เอาเฉพาะ 24 ชม.ล่าสุด + ใช้ id ตายตัวกันซ้ำข้ามเครื่อง', () => {
-  mod.resetLogs();
-  mod.ls.removeItem('activity_seed_v1');
+const seedCards = () => {
   const now = Date.now();
   const d = new Date(now);
   const iso = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
-  mod.setCards([
+  return [
     { id: 'a', name: 'ขายวันนี้', status: 'sold', sell: 3000, payment: 'cash', seller: 'ผู้ช่วยเอ', sellDate: iso, sellTime: '10:30', updatedAt: now },
-    { id: 'b', name: 'แก้เมื่อกี้', status: 'show', updatedAt: now - 3600000 },
+    { id: 'b', name: 'แก้เมื่อกี้', status: 'show', editedBy: 'ผู้ช่วยบี', updatedAt: now - 3600000 },
     { id: 'c', name: 'เก่าเกิน', status: 'show', updatedAt: now - 5 * 86400000 },
-  ]);
+    { id: 'd', name: 'ไม่รู้คนแก้', status: 'wait', updatedAt: now - 7200000 },
+  ];
+};
+
+t('เอาเฉพาะ 24 ชม.ล่าสุด + ใช้ id ตายตัวกันซ้ำข้ามเครื่อง', () => {
+  mod.resetLogs();
+  mod.ls.removeItem('activity_seed_v2');
+  mod.setCards(seedCards());
   mod.seedActivityFromCards();
   const ids = mod.getLogs().map(e => e.id).sort();
-  assert.deepEqual(ids, ['seed-edit-b', 'seed-sell-a']);
+  assert.deepEqual(ids, ['seed-edit-b', 'seed-edit-d', 'seed-sell-a']);
   assert.ok(mod.getLogs().every(e => e.seed === true));
-  assert.equal(mod.getLogs().find(e => e.id === 'seed-sell-a').who, 'ผู้ช่วยเอ');
-  // เรียกซ้ำต้องไม่เพิ่มอีก (ทั้งจากธง localStorage และจาก id ที่ซ้ำ)
-  mod.ls.removeItem('activity_seed_v1');
+  // เรียกซ้ำต้องไม่เพิ่มรายการ (id ซ้ำ = ทับของเดิม ไม่ใช่ต่อท้าย)
+  mod.ls.removeItem('activity_seed_v2');
   mod.seedActivityFromCards();
-  assert.equal(mod.getLogs().length, 2, 'เติมซ้ำไม่ได้');
+  assert.equal(mod.getLogs().length, 3, 'เติมซ้ำแล้วต้องไม่บวมขึ้น');
+});
+
+t('ชื่อคนทำของรายการย้อนหลัง — ไม่มีคำว่า "ไม่ทราบ" อีกแล้ว', () => {
+  mod.resetLogs();
+  mod.ls.removeItem('activity_seed_v2');
+  mod.setCards(seedCards());
+  mod.seedActivityFromCards();
+  const by = Object.fromEntries(mod.getLogs().map(e => [e.id, e.who]));
+  assert.equal(by['seed-sell-a'], 'ผู้ช่วยเอ', 'ใบที่ขายแล้ว = คนขายที่บันทึกไว้');
+  assert.equal(by['seed-edit-b'], 'ผู้ช่วยบี', 'ใบที่รู้คนแก้ล่าสุด = คนนั้น');
+  assert.equal(by['seed-edit-d'], 'Cielcard', 'ใบที่ไม่มีข้อมูลเลย = คนที่เปิดแอปอยู่');
+  assert.ok(mod.getLogs().every(e => e.who && e.who !== 'ไม่ทราบ'));
+});
+
+t('รายการย้อนหลังรอบเก่าที่ขึ้น "ไม่ทราบ" ถูกทับด้วยชื่อจริง', () => {
+  mod.resetLogs();
+  mod.getLogs().push({ id: 'seed-edit-b', at: 1, who: 'ไม่ทราบ', act: 'edit', seed: true, changes: [] });
+  mod.ls.removeItem('activity_seed_v2');
+  mod.setCards(seedCards());
+  mod.seedActivityFromCards();
+  const rows = mod.getLogs().filter(e => e.id === 'seed-edit-b');
+  assert.equal(rows.length, 1, 'ต้องไม่เกิดรายการซ้ำ');
+  assert.equal(rows[0].who, 'ผู้ช่วยบี');
 });
 
 console.log(`\n${fail ? '✗' : '✓'} ผ่าน ${pass} / ${pass + fail}\n`);

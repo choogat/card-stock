@@ -435,7 +435,18 @@
   .act-name { font-weight: 700; font-size: .93rem; overflow-wrap: anywhere; }
   .act-name .act-topic { color: var(--muted); font-weight: 600; font-size: .8rem; margin-right: 5px; }
   .act-who { margin-left: auto; display: inline-flex; align-items: center; gap: 5px; font-size: .75rem; font-weight: 700; color: var(--muted); background: var(--card2); padding: 2px 9px; border-radius: 999px; white-space: nowrap; }
-  .act-chg { margin-top: 4px; font-size: .83rem; color: var(--muted); line-height: 1.7; overflow-wrap: anywhere; }
+  /* สถานะ + เช็คของ = หัวข้อจริง ไม่ใช่หมายเหตุ → แยกออกมาเป็นชิปสีของตัวเอง */
+  .act-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 7px; }
+  .act-chip { display: inline-flex; align-items: center; gap: 6px; padding: 4px 11px; border-radius: 999px; font-size: .79rem; font-weight: 800; background: var(--card2); color: var(--text); border: 1px solid var(--border); }
+  .act-chip .act-chip-k { font-size: .7rem; font-weight: 700; opacity: .72; }
+  .act-chip .act-chip-from { font-weight: 600; opacity: .6; text-decoration: line-through; }
+  .act-chip .act-chip-ar { opacity: .5; font-weight: 600; }
+  .act-chip.show { background: rgba(47,111,237,.16); border-color: transparent; color: #1d4ed8; }
+  .act-chip.wait { background: rgba(192,138,0,.22); border-color: transparent; color: #92600a; }
+  .act-chip.sold { background: rgba(24,165,88,.22); border-color: transparent; color: #0f7a3d; }
+  .act-chip.have { background: rgba(24,165,88,.16); border-color: transparent; color: var(--green); }
+  .act-chip.none { background: var(--card2); color: var(--muted); }
+  .act-chg { margin-top: 5px; font-size: .83rem; color: var(--muted); line-height: 1.7; overflow-wrap: anywhere; }
   .act-chg .act-f { font-weight: 700; color: var(--text); }
   .act-chg .act-from { text-decoration: line-through; opacity: .75; }
   .act-chg .act-to { font-weight: 700; color: var(--text); }
@@ -2319,11 +2330,13 @@ function stampUpdated() {
   let logged = 0;
   for (const c of cards) {
     if (!c || c.id == null) continue;
-    const body = cardBody(c);
+    let body = cardBody(c);
     const prevBody = _cardSnap.get(c.id);
     // ใบใหม่หรือแก้จริง → ประทับเวลา (ต้องใหม่กว่าค่าที่เห็นล่าสุดเสมอ เผื่อนาฬิกาเครื่องช้ากว่าเครื่องอื่น)
     if (prevBody !== body) {
       c.updatedAt = Math.max(now, (Number(c.updatedAt) || 0) + 1);
+      c.editedBy = actWho();  // จำคนที่แตะใบนี้ล่าสุดไว้กับตัวการ์ด (ใช้ตอนเครื่องอื่นเติมประวัติย้อนหลัง)
+      body = cardBody(c);     // คิด snapshot ใหม่หลังใส่ชื่อคนแก้ ไม่งั้นรอบหน้าจะถูกนับเป็น "เปลี่ยน" อีกครั้ง
       _actBatch = batch;
       if (logCardChange(prevBody, c)) logged++;  // บันทึกลง "รายงานการใช้งาน" ไปในตัว
       _actBatch = '';
@@ -2610,7 +2623,7 @@ function makeSyncStore({ key, api, respKey, get, set, onChange, debounce = 150 }
 const ACT_KEY = 'psa_activity_v1';
 const ACT_KEEP_MS = 180 * 24 * 60 * 60 * 1000; // เก็บย้อนหลัง 180 วัน
 const ACT_MAX = 3000;                          // หรือ 3,000 รายการ แล้วแต่ถึงก่อน
-const ACT_SEED_KEY = 'activity_seed_v1';       // เติมย้อนหลังจากข้อมูลการ์ดครั้งเดียวพอ
+const ACT_SEED_KEY = 'activity_seed_v2';       // เติมย้อนหลังจากข้อมูลการ์ดครั้งเดียวพอ (v2 = เติมชื่อคนทำแทน "ไม่ทราบ")
 let activityLogs = (() => { try { return JSON.parse(localStorage.getItem(ACT_KEY)) || []; } catch (e) { return []; } })();
 let _actBatch = '';
 const actStore = makeSyncStore({
@@ -2703,9 +2716,11 @@ function actCardInfo(c) {
   };
 }
 
+// ชื่อคนที่กำลังทำรายการ — ไม่ล็อกอิน = เปิดจากเครื่องเจ้าของเอง
+function actWho() { return loginId || 'เจ้าของเครื่อง'; }
 function actPush(kind, card, changes, extra) {
   activityLogs.push(Object.assign(
-    { id: uid(), at: Date.now(), who: loginId || 'เจ้าของเครื่อง', act: kind, batchId: _actBatch, changes: changes || [] },
+    { id: uid(), at: Date.now(), who: actWho(), act: kind, batchId: _actBatch, changes: changes || [] },
     actCardInfo(card), extra || {},
   ));
 }
@@ -2772,38 +2787,42 @@ function actSoldAt(c) {
   return isNaN(t) ? 0 : t;
 }
 
+// ชื่อคนทำของรายการย้อนหลัง — ไล่จากหลักฐานที่แน่นอนที่สุดก่อน:
+// ผู้ขายที่บันทึกไว้ตอนขาย → คนที่แตะการ์ดใบนี้ล่าสุด (editedBy) → คนที่กำลังเปิดแอปอยู่
+function actSeedWho(c, preferSeller) {
+  if (preferSeller && c.seller) return c.seller;
+  return c.editedBy || c.seller || actWho();
+}
 // เติมประวัติย้อนหลัง 1 วันจากข้อมูลการ์ดที่มีอยู่ (ทำครั้งเดียวตอนใช้ฟีเจอร์นี้ครั้งแรก)
 // ใช้ id แบบตายตัว (seed-<ชนิด>-<cardId>) เครื่องอื่นเติมซ้ำก็ถูกเซิร์ฟเวอร์รวมเป็นรายการเดียว
 function seedActivityFromCards() {
   if (localStorage.getItem(ACT_SEED_KEY) === '1') return;
   const since = Date.now() - 24 * 60 * 60 * 1000;
-  const have = new Set(activityLogs.map(e => e && e.id));
-  const add = [];
+  const seeds = [];
   for (const c of cards) {
     if (!c || c.id == null) continue;
     const soldAt = actSoldAt(c);
     if (soldAt && soldAt >= since) {
-      const id = 'seed-sell-' + c.id;
-      if (have.has(id)) continue;
       const ch = [{ k: 'sell', label: ACT_FIELDS.sell, to: actVal('sell', c.sell) }];
       if (Number(c.discount)) ch.push({ k: 'discount', label: ACT_FIELDS.discount, to: actVal('discount', c.discount) });
       if (c.payment) ch.push({ k: 'payment', label: ACT_FIELDS.payment, to: actVal('payment', c.payment) });
-      add.push(Object.assign({ id, at: soldAt, who: c.seller || 'ไม่ทราบ', act: 'sell', batchId: '', seed: true, changes: ch }, actCardInfo(c)));
+      ch.push({ k: 'status', label: ACT_FIELDS.status, to: actVal('status', c.status) });
+      seeds.push(Object.assign({ id: 'seed-sell-' + c.id, at: soldAt, who: actSeedWho(c, true), act: 'sell', batchId: '', seed: true, changes: ch }, actCardInfo(c)));
       continue;
     }
     const at = Number(c.updatedAt) || 0;
     if (at < since) continue;
-    const id = 'seed-edit-' + c.id;
-    if (have.has(id)) continue;
-    // ข้อมูลเก่าไม่ได้เก็บว่าแก้ฟิลด์ไหน — บอกได้แค่ "มีการเพิ่ม/แก้ใบนี้" พร้อมสถานะล่าสุด
-    add.push(Object.assign({ id, at, who: 'ไม่ทราบ', act: 'edit', batchId: '', seed: true, changes: [
+    // ข้อมูลเก่าไม่ได้เก็บว่าแก้ฟิลด์ไหน — บอกได้แค่ "มีการเพิ่ม/แก้ใบนี้" พร้อมสถานะ + เช็คของล่าสุด
+    seeds.push(Object.assign({ id: 'seed-edit-' + c.id, at, who: actSeedWho(c, false), act: 'edit', batchId: '', seed: true, changes: [
       { k: 'status', label: ACT_FIELDS.status, to: actVal('status', c.status) },
       { k: 'inStock', label: ACT_FIELDS.inStock, to: actVal('inStock', c.inStock === true) },
     ] }, actCardInfo(c)));
   }
   try { localStorage.setItem(ACT_SEED_KEY, '1'); } catch (e) {}
-  if (!add.length) return;
-  activityLogs = activityLogs.concat(add);
+  if (!seeds.length) return;
+  // ทับรายการย้อนหลังรอบก่อนที่ id เดียวกัน (รอบแรกยังไม่รู้ชื่อคนทำ) แล้วค่อยต่อของใหม่
+  const byId = new Map(seeds.map(e => [e.id, e]));
+  activityLogs = activityLogs.filter(e => !(e && byId.has(e.id))).concat(seeds);
   actCommit();
 }
 
@@ -4170,9 +4189,27 @@ function actDayLabel(k) {
   return fmtDate(k);
 }
 function actTimeLabel(t) { const d = new Date(Number(t) || 0); return pad2(d.getHours()) + ':' + pad2(d.getMinutes()); }
+// "สถานะ" กับ "เช็คของ" เป็นเรื่องที่คนดูมองหาก่อนเพื่อน — ดึงออกมาเป็นชิปสีแยกต่างหาก
+// ไม่ให้จมอยู่ในบรรทัดรายละเอียดจนดูเหมือนหมายเหตุ ที่เหลือค่อยไล่เป็นข้อความตามเดิม
+const ACT_CHIP_KEYS = ['status', 'inStock'];
+const ACT_STATUS_CLS = { 'สะสม': 'show', 'รอขาย': 'wait', 'ขายแล้ว': 'sold' };
+function actChipCls(x) {
+  if (x.k === 'inStock') return x.to === 'มีของ' ? 'have' : 'none';
+  return ACT_STATUS_CLS[x.to] || '';
+}
+function actChipsHTML(ch) {
+  const chips = (ch || []).filter(x => ACT_CHIP_KEYS.includes(x.k));
+  if (!chips.length) return '';
+  return '<div class="act-chips">' + chips.map(x => {
+    const from = (x.from !== undefined && x.from !== null && x.from !== x.to)
+      ? `<span class="act-chip-from">${esc(x.from)}</span><span class="act-chip-ar">→</span>` : '';
+    return `<span class="act-chip ${actChipCls(x)}"><span class="act-chip-k">${esc(x.label)}</span>${from}<span>${esc(x.to)}</span></span>`;
+  }).join('') + '</div>';
+}
 function actChangesHTML(ch) {
-  if (!ch || !ch.length) return '';
-  return '<div class="act-chg">' + ch.map(x => {
+  const rest = (ch || []).filter(x => !ACT_CHIP_KEYS.includes(x.k));
+  if (!rest.length) return '';
+  return '<div class="act-chg">' + rest.map(x => {
     const from = (x.from !== undefined && x.from !== null && x.from !== x.to)
       ? `<span class="act-from">${esc(x.from)}</span> → ` : '';
     return `<span class="act-f">${esc(x.label)}</span> ${from}<span class="act-to">${esc(x.to)}</span>`;
@@ -4193,14 +4230,15 @@ function actItemHTML(g) {
   const seed = e.seed ? ' <span class="act-seed">ย้อนหลัง</span>' : '';
   if (g.length > 1) {
     // แก้ทีเดียวโดนหลายใบ (เช่นซิงก์ราคาทั้งกลุ่ม / นำเข้าไฟล์) → ยุบเป็นแถวเดียว กดกางดูรายใบได้
-    const sub = g.map(x => `<div class="act-sub-row"><span class="act-sub-name">${x.topic ? `<span class="act-topic">${esc(x.topic)}</span>` : ''}${esc(x.name)}</span>${actChangesHTML(x.changes)}</div>`).join('');
+    const common = actCommonChanges(g);
+    const sub = g.map(x => `<div class="act-sub-row"><span class="act-sub-name">${x.topic ? `<span class="act-topic">${esc(x.topic)}</span>` : ''}${esc(x.name)}</span>${actChipsHTML(x.changes)}${actChangesHTML(x.changes)}</div>`).join('');
     return `<div class="act-item has-sub" onclick="this.classList.toggle('open')">
       <div class="act-time">${actTimeLabel(e.at)}</div>
       <div class="act-ico ${e.act}">${m.icon}</div>
       <div class="act-body">
         <div class="act-head"><span class="act-tag ${e.act}">${m.label}</span>
           <span class="act-name">${g.length} ใบ</span><span class="act-caret">▶</span>${who}</div>
-        ${actChangesHTML(actCommonChanges(g))}
+        ${actChipsHTML(common)}${actChangesHTML(common)}
         <div class="act-sub">${sub}</div>
       </div>
     </div>`;
@@ -4212,7 +4250,7 @@ function actItemHTML(g) {
     <div class="act-body">
       <div class="act-head"><span class="act-tag ${e.act}">${m.label}</span>
         <span class="act-name">${e.topic ? `<span class="act-topic">${esc(e.topic)}</span>` : ''}${esc(e.name)}${grade}${cert}${seed}</span>${who}</div>
-      ${actChangesHTML(e.changes)}
+      ${actChipsHTML(e.changes)}${actChangesHTML(e.changes)}
     </div>
   </div>`;
 }
