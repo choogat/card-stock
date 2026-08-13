@@ -218,6 +218,24 @@ t('ชื่อคนทำของรายการย้อนหลัง �
   assert.ok(mod.getLogs().every(e => e.who && e.who !== 'ไม่ทราบ'));
 });
 
+t('รายการ "ไม่ทราบ" ที่เลย 24 ชม.ไปแล้ว (เติมซ้ำไม่ถึง) ก็ต้องถูกซ่อม', () => {
+  mod.resetLogs();
+  const cards = seedCards();
+  const old = Date.now() - 5 * 86400000; // เก่ากว่า 24 ชม. แต่ยังไม่ถึงอายุที่ถูกตัดทิ้ง
+  // ใบ c เก่าเกิน 24 ชม. → ไม่เข้าเงื่อนไขเติมซ้ำ แต่มีแถวเก่าค้างอยู่
+  mod.getLogs().push({ id: 'seed-edit-c', at: old, who: 'ไม่ทราบ', act: 'edit', seed: true, cardId: 'c', changes: [] });
+  // ใบที่ถูกลบไปแล้ว — หาการ์ดไม่เจอ ก็ยังต้องไม่เหลือคำว่า "ไม่ทราบ"
+  mod.getLogs().push({ id: 'seed-edit-zz', at: old, who: 'ไม่ทราบ', act: 'edit', seed: true, cardId: 'zz', changes: [] });
+  mod.ls.removeItem('activity_seed_v2');
+  cards[2].editedBy = 'ผู้ช่วยซี';
+  mod.setCards(cards);
+  mod.seedActivityFromCards();
+  const by = Object.fromEntries(mod.getLogs().map(e => [e.id, e.who]));
+  assert.equal(by['seed-edit-c'], 'ผู้ช่วยซี');
+  assert.equal(by['seed-edit-zz'], 'Cielcard');
+  assert.ok(mod.getLogs().every(e => e.who !== 'ไม่ทราบ'));
+});
+
 t('รายการย้อนหลังรอบเก่าที่ขึ้น "ไม่ทราบ" ถูกทับด้วยชื่อจริง', () => {
   mod.resetLogs();
   mod.getLogs().push({ id: 'seed-edit-b', at: 1, who: 'ไม่ทราบ', act: 'edit', seed: true, changes: [] });

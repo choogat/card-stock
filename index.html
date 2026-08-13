@@ -2797,6 +2797,14 @@ function actSeedWho(c, preferSeller) {
 // ใช้ id แบบตายตัว (seed-<ชนิด>-<cardId>) เครื่องอื่นเติมซ้ำก็ถูกเซิร์ฟเวอร์รวมเป็นรายการเดียว
 function seedActivityFromCards() {
   if (localStorage.getItem(ACT_SEED_KEY) === '1') return;
+  // ซ่อมรายการย้อนหลังรอบก่อนที่ยังขึ้น "ไม่ทราบ" — รวมถึงใบที่ตอนนี้เลย 24 ชม.ไปแล้วจนไม่ถูกเติมซ้ำ
+  let fixed = 0;
+  for (const e of activityLogs) {
+    if (!e || !e.seed || e.who !== 'ไม่ทราบ') continue;
+    const c = cards.find(x => x && x.id === e.cardId);
+    e.who = c ? actSeedWho(c, e.act === 'sell') : actWho();
+    fixed++;
+  }
   const since = Date.now() - 24 * 60 * 60 * 1000;
   const seeds = [];
   for (const c of cards) {
@@ -2819,7 +2827,7 @@ function seedActivityFromCards() {
     ] }, actCardInfo(c)));
   }
   try { localStorage.setItem(ACT_SEED_KEY, '1'); } catch (e) {}
-  if (!seeds.length) return;
+  if (!seeds.length) { if (fixed) actCommit(); return; }
   // ทับรายการย้อนหลังรอบก่อนที่ id เดียวกัน (รอบแรกยังไม่รู้ชื่อคนทำ) แล้วค่อยต่อของใหม่
   const byId = new Map(seeds.map(e => [e.id, e]));
   activityLogs = activityLogs.filter(e => !(e && byId.has(e.id))).concat(seeds);
