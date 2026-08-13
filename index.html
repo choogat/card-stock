@@ -401,6 +401,11 @@
   td.stock-cell.on { background: rgba(46, 204, 113, .16); }
   td.stock-cell.on .stock-lbl { color: var(--green); }
   td.stock-cell.off .stock-lbl { color: var(--muted); }
+  /* แถวหัวข้อใหญ่ (การ์ดหลายใบรวมกลุ่ม): สรุปเป็น "ติ๊กแล้ว/ทั้งหมด" แทนช่องติ๊ก */
+  td.stock-sum { font-weight: 800; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  td.stock-sum.full { color: var(--green); background: rgba(46, 204, 113, .16); }
+  td.stock-sum.part { color: var(--yellow); }
+  td.stock-sum.none { color: var(--muted); }
   .pay-tag { display: inline-block; padding: 3px 9px; border-radius: 999px; font-size: .74rem; font-weight: 600; background: var(--card2); color: var(--muted); }
   .pay-tag.cash { background: rgba(24,165,88,.15); color: var(--green); }
   .pay-tag.transfer { background: rgba(47,111,237,.14); color: var(--accent); }
@@ -2867,6 +2872,9 @@ function groupRow(g) {
     ? `<img class="thumb" loading="lazy" decoding="async" src="${rep.image}" onclick="event.stopPropagation();openLightbox('${rep.id}')" alt="">`
     : `<div class="thumb-empty">🃏</div>`;
   const pCls = totProfit > 0 ? 'profit-pos' : totProfit < 0 ? 'profit-neg' : 'muted';
+  // เช็คของของทั้งกลุ่ม — นับเป็น "ใบ" ตามจำนวนรายการที่ติ๊กได้จริง (ครบ = เขียว · บางส่วน = เหลือง · ยังไม่ติ๊ก = เทา)
+  const nHaveG = items.filter(cardHasStock).length;
+  const stockSumCls = nHaveG === items.length ? 'full' : nHaveG > 0 ? 'part' : 'none';
   const k = encodeURIComponent(g.key).replace(/'/g, '%27');
   return `<tr class="group-head" onclick="toggleGroup('${k}')">
     <td>${img}</td>
@@ -2878,7 +2886,7 @@ function groupRow(g) {
     ${canSeeProfit() ? `<td class="num"><span class="${pCls}">${totProfit > 0 ? '+' : ''}${money(totProfit)}</span></td>` : ''}
     <td class="center">${stSummary}</td>
     <td class="center">—</td>
-    <td class="center">—</td>
+    <td class="center stock-sum ${stockSumCls}" title="เช็คของแล้ว ${nHaveG} จาก ${items.length} ใบในกลุ่มนี้">${nHaveG}/${items.length}</td>
     <td class="center">—</td>
     <td></td>
   </tr>`;
@@ -4238,9 +4246,29 @@ async function toggleInStock(id, el) {
     td.classList.toggle('off', !c.inStock);
     const lbl = td.querySelector('.stock-lbl');
     if (lbl) lbl.textContent = c.inStock ? 'มีของ' : 'ของไม่มี';
+    refreshGroupStockSum(td.closest('tr')); // ใบย่อยในกลุ่ม → อัปเดตเลข x/y ที่หัวข้อใหญ่ด้วย
   }
   updateStats(); // อัปเดตกล่อง "เช็คของแล้ว" ด้านบนให้ตรงทันที
   save();
+}
+// นับใหม่จากแถวที่แสดงอยู่จริง ให้เลขสรุปตรงกับที่ตาเห็น (รวมตอนมีตัวกรองเปิดอยู่)
+function refreshGroupStockSum(tr) {
+  if (!tr || !tr.classList.contains('child-row')) return; // ไม่ใช่ใบในกลุ่ม = ไม่มีหัวข้อใหญ่ให้อัปเดต
+  let head = tr.previousElementSibling;
+  while (head && !head.classList.contains('group-head')) head = head.previousElementSibling;
+  const cell = head && head.querySelector('td.stock-sum');
+  if (!cell) return;
+  let n = 0, tot = 0;
+  for (let r = head.nextElementSibling; r && !r.classList.contains('group-head'); r = r.nextElementSibling) {
+    const c = r.querySelector('td.stock-cell');
+    if (!c) continue; // ข้ามแถวแถบรูปการ์ดในชุด
+    tot++;
+    if (c.classList.contains('on')) n++;
+  }
+  if (!tot) return;
+  cell.textContent = n + '/' + tot;
+  cell.className = 'center stock-sum ' + (n === tot ? 'full' : n > 0 ? 'part' : 'none');
+  cell.title = `เช็คของแล้ว ${n} จาก ${tot} ใบในกลุ่มนี้`;
 }
 async function toggleForSale(id) {
   const c = cards.find(x => x.id === id);
