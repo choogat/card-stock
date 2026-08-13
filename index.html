@@ -406,6 +406,53 @@
   td.stock-sum.full { color: var(--green); background: rgba(46, 204, 113, .16); }
   td.stock-sum.part { color: var(--yellow); }
   td.stock-sum.none { color: var(--muted); }
+  /* ===== หน้ารายงานการใช้งาน (activity log) — ไทม์ไลน์ ใหม่→เก่า ===== */
+  .act-day { display: flex; align-items: center; gap: 10px; margin: 22px 0 10px; font-weight: 800; font-size: .92rem; color: var(--text); }
+  .act-day:first-child { margin-top: 4px; }
+  .act-day .act-day-n { font-weight: 600; font-size: .78rem; color: var(--muted); white-space: nowrap; }
+  .act-day::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+  .act-item { display: flex; gap: 11px; align-items: flex-start; padding: 10px 13px; margin-bottom: 8px; background: var(--card); border: 1px solid var(--border); border-radius: 12px; }
+  .act-item.has-sub { cursor: pointer; }
+  .act-item.has-sub:hover { border-color: var(--accent); }
+  .act-time { flex: 0 0 42px; padding-top: 5px; font-size: .82rem; font-weight: 700; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .act-ico { flex: 0 0 32px; width: 32px; height: 32px; border-radius: 10px; display: grid; place-items: center; font-size: 1rem; background: var(--card2); }
+  .act-ico.add { background: rgba(47,111,237,.14); }
+  .act-ico.edit { background: rgba(108,92,231,.14); }
+  .act-ico.tosale { background: rgba(192,138,0,.16); }
+  .act-ico.sell { background: rgba(24,165,88,.16); }
+  .act-ico.stock { background: rgba(24,165,88,.12); }
+  .act-ico.del { background: rgba(226,59,78,.14); }
+  .act-body { flex: 1; min-width: 0; }
+  .act-head { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; }
+  .act-tag { font-size: .71rem; font-weight: 800; padding: 2px 9px; border-radius: 999px; background: var(--card2); color: var(--muted); white-space: nowrap; }
+  .act-tag.add { background: rgba(47,111,237,.14); color: var(--accent); }
+  .act-tag.edit { background: rgba(108,92,231,.14); color: var(--accent2); }
+  .act-tag.tosale, .act-tag.untosale { background: rgba(192,138,0,.16); color: var(--yellow); }
+  .act-tag.sell { background: rgba(24,165,88,.16); color: var(--green); }
+  .act-tag.unsell { background: rgba(226,59,78,.12); color: var(--danger); }
+  .act-tag.stock { background: rgba(24,165,88,.13); color: var(--green); }
+  .act-tag.del { background: rgba(226,59,78,.14); color: var(--danger); }
+  .act-name { font-weight: 700; font-size: .93rem; overflow-wrap: anywhere; }
+  .act-name .act-topic { color: var(--muted); font-weight: 600; font-size: .8rem; margin-right: 5px; }
+  .act-who { margin-left: auto; display: inline-flex; align-items: center; gap: 5px; font-size: .75rem; font-weight: 700; color: var(--muted); background: var(--card2); padding: 2px 9px; border-radius: 999px; white-space: nowrap; }
+  .act-chg { margin-top: 4px; font-size: .83rem; color: var(--muted); line-height: 1.7; overflow-wrap: anywhere; }
+  .act-chg .act-f { font-weight: 700; color: var(--text); }
+  .act-chg .act-from { text-decoration: line-through; opacity: .75; }
+  .act-chg .act-to { font-weight: 700; color: var(--text); }
+  .act-chg .act-dot { padding: 0 7px; opacity: .5; }
+  .act-thumb { width: 30px; height: 42px; object-fit: cover; border-radius: 6px; border: 1px solid var(--border); flex: 0 0 30px; }
+  .act-caret { font-size: .72rem; color: var(--muted); transition: transform .15s; }
+  .act-item.open .act-caret { transform: rotate(90deg); }
+  .act-sub { display: none; margin-top: 9px; padding-top: 9px; border-top: 1px dashed var(--border); }
+  .act-item.open .act-sub { display: block; }
+  .act-sub-row { display: flex; gap: 8px; align-items: baseline; padding: 3px 0; font-size: .82rem; }
+  .act-sub-row .act-sub-name { font-weight: 600; min-width: 0; overflow-wrap: anywhere; }
+  .act-seed { font-size: .71rem; font-weight: 700; color: var(--muted); background: var(--card2); border: 1px dashed var(--border); padding: 1px 8px; border-radius: 999px; }
+  @media (max-width: 640px) {
+    .act-time { flex-basis: 38px; font-size: .76rem; }
+    .act-who { margin-left: 0; }
+    .act-item { padding: 9px 10px; gap: 9px; }
+  }
   .pay-tag { display: inline-block; padding: 3px 9px; border-radius: 999px; font-size: .74rem; font-weight: 600; background: var(--card2); color: var(--muted); }
   .pay-tag.cash { background: rgba(24,165,88,.15); color: var(--green); }
   .pay-tag.transfer { background: rgba(47,111,237,.14); color: var(--accent); }
@@ -1130,6 +1177,7 @@
       <div class="nav-group" id="navGrpInventory">คลังสินค้าทั้งหมด</div>
       <button class="nav-item active" data-view="stock" onclick="switchView('stock')">📦 คลังสินค้า</button>
       <button class="nav-sub" id="navSoldStock" onclick="switchView('soldstock')" style="display:none">↳ คลังสินค้าขายแล้ว</button>
+      <button class="nav-sub" id="navActivity" onclick="switchView('activity')" style="display:none">↳ รายงานการใช้งาน</button>
       <button class="nav-item" data-view="preorder" onclick="switchView('preorder')">📝 พรีออเดอร์</button>
       <button class="nav-item" data-view="sales" onclick="switchView('sales')">🏷️ สินค้าขาย</button>
       <button class="nav-item" data-view="product" onclick="switchView('product')">📋 ข้อมูลสินค้า</button>
@@ -1278,6 +1326,25 @@
     </div>
     <div id="soldStockArea"></div>
   </div><!-- /viewSoldStock -->
+
+  <div id="viewActivity" style="display:none">
+    <h2 class="view-title">📜 รายงานการใช้งาน</h2>
+    <div class="stats" id="actStats"></div>
+    <div class="toolbar">
+      <input class="search" id="actSearch" placeholder="ค้นหา ชื่อการ์ด / เรื่อง / cert / ผู้ใช้..." oninput="renderActivity()" style="flex:1;min-width:200px">
+      <select class="filter" id="actTypeFilter" onchange="renderActivity()"></select>
+      <select class="filter" id="actUserFilter" onchange="renderActivity()">
+        <option value="">ทุกคน</option>
+      </select>
+      <select class="filter" id="actRangeFilter" onchange="renderActivity()">
+        <option value="1">วันนี้</option>
+        <option value="7">7 วัน</option>
+        <option value="30">30 วัน</option>
+        <option value="" selected>ทั้งหมด</option>
+      </select>
+    </div>
+    <div id="actArea"></div>
+  </div><!-- /viewActivity -->
 
   <div id="viewPreorder" style="display:none">
     <h2 class="view-title">📝 พรีออเดอร์</h2>
@@ -2189,6 +2256,7 @@ const OPIMG_API = API_BASE + '/opimg';
 const GACHA_API = API_BASE + '/gacha';
 const PREORDER_API = API_BASE + '/preorder';
 const SHOPS_API = API_BASE + '/shops';
+const ACTIVITY_API = API_BASE + '/activity';
 function opImgUrl(u) { return `${OPIMG_API}?url=${encodeURIComponent(u)}`; }
 const ALL_TABS = ['stock', 'preorder', 'sales', 'report', 'buy', 'product', 'gacha', 'shop'];
 let passcode = localStorage.getItem('app_pass') || '';
@@ -2247,19 +2315,29 @@ function snapshotCards() {
 // ปั๊ม updatedAt ให้เฉพาะใบที่เนื้อหาเปลี่ยนไปจาก snapshot (จุดเดียว ครอบคลุมทุกฟังก์ชันที่แก้การ์ด)
 function stampUpdated() {
   const now = Date.now();
+  const batch = uid();  // การแก้ที่เกิดจากการกดครั้งเดียวกัน (เช่นซิงก์ราคาทั้งกลุ่ม) ใช้รหัสชุดเดียวกัน
+  let logged = 0;
   for (const c of cards) {
     if (!c || c.id == null) continue;
     const body = cardBody(c);
+    const prevBody = _cardSnap.get(c.id);
     // ใบใหม่หรือแก้จริง → ประทับเวลา (ต้องใหม่กว่าค่าที่เห็นล่าสุดเสมอ เผื่อนาฬิกาเครื่องช้ากว่าเครื่องอื่น)
-    if (_cardSnap.get(c.id) !== body) c.updatedAt = Math.max(now, (Number(c.updatedAt) || 0) + 1);
+    if (prevBody !== body) {
+      c.updatedAt = Math.max(now, (Number(c.updatedAt) || 0) + 1);
+      _actBatch = batch;
+      if (logCardChange(prevBody, c)) logged++;  // บันทึกลง "รายงานการใช้งาน" ไปในตัว
+      _actBatch = '';
+    }
     _cardSnap.set(c.id, body);
   }
+  if (logged) actCommit();
 }
 // log การลบ (tombstone ฝั่ง client) — ส่งไปให้เซิร์ฟเวอร์รวม กันใบที่ลบฟื้นข้ามเครื่อง
 const DEL_KEY = 'cards_deletions';
 let deletions = (() => { try { return JSON.parse(localStorage.getItem(DEL_KEY)) || []; } catch { return []; } })();
 function recordDeletion(id) {
   if (id == null) return;
+  logCardDeleted(id);  // บันทึกลงรายงานการใช้งานก่อน — ต้องทำตอนใบนี้ยังอยู่ ไม่งั้นไม่รู้ว่าลบใบไหน
   deletions.push({ id, at: Date.now() });
   try { localStorage.setItem(DEL_KEY, JSON.stringify(deletions)); } catch (e) {}
 }
@@ -2519,6 +2597,226 @@ function makeSyncStore({ key, api, respKey, get, set, onChange, debounce = 150 }
   snapshot();
   return { save, push, pull, flush, hasPending, recordDeletion, snapshot };
 }
+
+// ================= รายงานการใช้งาน (activity log) =================
+// บันทึกทุกความเคลื่อนไหวของการ์ด: เพิ่ม / แก้ไข / เข้า-ออกสินค้าขาย / ขาย / เช็คของ / ลบ
+//
+// วิธีดัก: เกาะจุดเดียวคือ stampUpdated() ใน save() — ตรงนั้นรู้อยู่แล้วว่า "ใบไหนเนื้อหาเปลี่ยนจริง"
+// (เทียบกับ _cardSnap) เลยครอบคลุมทุกฟังก์ชันที่แก้การ์ดโดยไม่ต้องไล่แก้ทีละจุด และฟังก์ชันที่
+// เขียนเพิ่มทีหลังก็ถูกบันทึกอัตโนมัติ ส่วนการลบดักที่ recordDeletion()
+//
+// ข้อมูลที่ดึงจากเซิร์ฟเวอร์ (adoptServerCards/pull) จะรีเซ็ต _cardSnap อยู่แล้ว → การแก้ของ
+// เครื่องอื่นจะไม่ถูกบันทึกซ้ำเป็นชื่อเรา แต่ละเครื่องบันทึกเฉพาะสิ่งที่ตัวเองทำ แล้วมารวมกันบนเซิร์ฟเวอร์
+const ACT_KEY = 'psa_activity_v1';
+const ACT_KEEP_MS = 180 * 24 * 60 * 60 * 1000; // เก็บย้อนหลัง 180 วัน
+const ACT_MAX = 3000;                          // หรือ 3,000 รายการ แล้วแต่ถึงก่อน
+const ACT_SEED_KEY = 'activity_seed_v1';       // เติมย้อนหลังจากข้อมูลการ์ดครั้งเดียวพอ
+let activityLogs = (() => { try { return JSON.parse(localStorage.getItem(ACT_KEY)) || []; } catch (e) { return []; } })();
+let _actBatch = '';
+const actStore = makeSyncStore({
+  key: ACT_KEY, api: ACTIVITY_API, respKey: 'logs',
+  get: () => activityLogs, set: (a) => { activityLogs = a; },
+  onChange: () => { try { if (isViewVisible('viewActivity')) renderActivity(); } catch (e) {} },
+});
+
+const ACT_META = {
+  add:      { icon: '➕', label: 'เพิ่มการ์ด' },
+  edit:     { icon: '✏️', label: 'แก้ไขการ์ด' },
+  tosale:   { icon: '🏷️', label: 'เข้าสินค้าขาย' },
+  untosale: { icon: '↩️', label: 'ออกจากสินค้าขาย' },
+  sell:     { icon: '💰', label: 'ขายแล้ว' },
+  unsell:   { icon: '🔓', label: 'ยกเลิกการขาย' },
+  stock:    { icon: '📦', label: 'เช็คของ' },
+  del:      { icon: '🗑️', label: 'ลบการ์ด' },
+};
+const ACT_ORDER = ['add', 'edit', 'tosale', 'untosale', 'sell', 'unsell', 'stock', 'del'];
+// ชื่อฟิลด์ที่คนอ่านรู้เรื่อง — ฟิลด์ที่ไม่อยู่ในนี้ถือว่าเป็นข้อมูลภายใน ไม่ต้องขึ้นรายงาน
+const ACT_FIELDS = {
+  name: 'ชื่อสินค้า', topic: 'เรื่อง', set: 'รุ่น/ชุด', lang: 'ภาษา', psa: 'เกรด', grader: 'ผู้จัดเกรด',
+  cert: 'เลข cert', detail: 'รายละเอียด', image: 'รูป', type: 'ประเภท', setItems: 'รายการในชุด',
+  status: 'สถานะ', inStock: 'เช็คของ', qty: 'จำนวน', unit: 'หน่วย',
+  median: 'ราคากลาง', buy: 'ราคารับซื้อ', sell: 'ราคาขาย',
+  unitMedian: 'ราคากลาง/หน่วย', unitBuy: 'ราคารับซื้อ/หน่วย', unitSell: 'ราคาขาย/หน่วย',
+  discount: 'ส่วนลด', payment: 'ชำระโดย', buyDate: 'วันที่ซื้อ', sellDate: 'วันที่ขาย', sellTime: 'เวลาขาย',
+  seller: 'ผู้ขาย', shopId: 'ร้านค้า', soldShopId: 'ร้านที่ขาย', gachaBoxId: 'ตู้จุ่ม', gachaNo: 'เบอร์ในตู้',
+  snkr: 'ราคา SNKRDUNK', namCode: 'รหัส NamTCG', namRaw: 'ราคา RAW', namPsa10: 'ราคา PSA10',
+  viaBuy: 'มาจากการรับซื้อ', productOnly: 'ข้อมูลสินค้าอย่างเดียว', cancelled: 'ยกเลิกการขาย',
+};
+const ACT_MONEY = new Set(['median', 'buy', 'sell', 'unitMedian', 'unitBuy', 'unitSell', 'discount', 'snkr', 'namRaw', 'namPsa10']);
+const ACT_BOOL = new Set(['inStock', 'viaBuy', 'productOnly', 'cancelled']);
+
+// แปลงค่าดิบให้อ่านออก (เก็บเป็นข้อความตั้งแต่ตอนบันทึก — ประวัติจะได้ไม่เพี้ยนถ้าร้าน/ตู้ถูกเปลี่ยนชื่อทีหลัง)
+function actVal(k, v) {
+  // ฟิลด์ใช่/ไม่ใช่ ต้องเช็คก่อน "ค่าว่าง" — ใบเก่าที่ยังไม่มีฟิลด์นี้เลย ต้องอ่านว่า "ไม่" ไม่ใช่ "—"
+  if (k === 'inStock') return v === true ? 'มีของ' : 'ของไม่มี';
+  if (ACT_BOOL.has(k)) return v === true ? 'ใช่' : 'ไม่';
+  if (v === undefined || v === null || v === '') return '—';
+  if (k === 'status') return (STATUS[v] || {}).label || v;
+  if (k === 'payment') return PAYMENT[v] || v;
+  if (k === 'shopId' || k === 'soldShopId') { const s = shopById(v); return s ? (s.name || 'ร้านไม่มีชื่อ') : 'ส่วนกลาง'; }
+  if (k === 'gachaBoxId') {
+    const list = (typeof gachaBoxes !== 'undefined' && Array.isArray(gachaBoxes)) ? gachaBoxes : [];
+    const b = list.find(x => x && x.id === v);
+    return b ? (b.name || 'ตู้จุ่ม') : 'ตู้จุ่ม';
+  }
+  if (k === 'image') return 'มีรูป';
+  if (k === 'setItems') return (Array.isArray(v) ? v.length : 0) + ' รายการ';
+  if (k === 'buyDate' || k === 'sellDate') return fmtDate(v);
+  if (ACT_MONEY.has(k)) return money(v);
+  if (typeof v === 'boolean') return v ? 'ใช่' : 'ไม่';
+  if (typeof v === 'number') return v.toLocaleString('th-TH');
+  return String(v);
+}
+
+// เทียบการ์ดก่อน/หลัง → รายการเปลี่ยนแปลงทีละฟิลด์ (เฉพาะฟิลด์ที่คนอ่านรู้เรื่อง)
+function actDiff(prev, cur) {
+  const out = [];
+  const same = (a, b) => JSON.stringify(a === undefined ? null : a) === JSON.stringify(b === undefined ? null : b);
+  for (const k of Object.keys(ACT_FIELDS)) {
+    const a = prev ? prev[k] : undefined, b = cur ? cur[k] : undefined;
+    if (same(a, b)) continue;
+    // base64 → URL เกิดจากระบบย้ายรูปขึ้น Blob เอง ไม่ใช่คนแก้ → ไม่ต้องขึ้นรายงาน
+    if (k === 'image' && String(a || '').startsWith('data:')) continue;
+    out.push({ k, label: ACT_FIELDS[k], from: actVal(k, a), to: actVal(k, b) });
+  }
+  return out;
+}
+
+// อ่านจากฟิลด์ที่เปลี่ยน ว่านี่คือ "เหตุการณ์" อะไรในสายตาคนใช้
+function actKindOf(prev, cur, ch) {
+  if (!prev) return 'add';
+  if (ch.some(x => x.k === 'status')) {
+    if (cur.status === 'sold') return 'sell';
+    if (prev.status === 'sold') return 'unsell';
+    if (cur.status === 'wait') return 'tosale';
+    return 'untosale';
+  }
+  if (ch.length === 1 && ch[0].k === 'inStock') return 'stock';
+  return 'edit';
+}
+
+function actCardInfo(c) {
+  const img = String((c && c.image) || '');
+  return {
+    cardId: c.id, name: c.name || '(ไม่มีชื่อ)', topic: c.topic || '', cert: c.cert || '',
+    psa: c.psa || '', grader: c.grader || '', image: img.startsWith('data:') ? '' : img,
+  };
+}
+
+function actPush(kind, card, changes, extra) {
+  activityLogs.push(Object.assign(
+    { id: uid(), at: Date.now(), who: loginId || 'เจ้าของเครื่อง', act: kind, batchId: _actBatch, changes: changes || [] },
+    actCardInfo(card), extra || {},
+  ));
+}
+
+// บันทึก 1 ใบที่เพิ่ง "เปลี่ยนจริง" — prevBody = undefined แปลว่าเป็นใบใหม่
+function logCardChange(prevBody, c) {
+  const isNew = prevBody === undefined;
+  let prev = null;
+  if (!isNew) { try { prev = JSON.parse(prevBody); } catch (e) { prev = null; } }
+  if (isNew) {
+    // ใบใหม่ไม่ต้องไล่ทุกฟิลด์ — เอาแค่ที่คนอยากเห็นตอนเพิ่มของ
+    const ch = [];
+    if (Number(c.buy)) ch.push({ k: 'buy', label: ACT_FIELDS.buy, to: actVal('buy', c.buy) });
+    if (Number(c.sell)) ch.push({ k: 'sell', label: ACT_FIELDS.sell, to: actVal('sell', c.sell) });
+    if ((Number(c.qty) || 1) > 1) ch.push({ k: 'qty', label: ACT_FIELDS.qty, to: actVal('qty', c.qty) });
+    ch.push({ k: 'status', label: ACT_FIELDS.status, to: actVal('status', c.status) });
+    actPush('add', c, ch);
+    return true;
+  }
+  const ch = actDiff(prev, c);
+  if (!ch.length) return false; // เปลี่ยนแต่ฟิลด์ภายใน — ไม่ต้องรบกวนรายงาน
+  actPush(actKindOf(prev, c, ch), c, ch);
+  return true;
+}
+
+function logCardDeleted(id) {
+  const body = _cardSnap.get(id);
+  let c = null;
+  if (body !== undefined) { try { c = JSON.parse(body); } catch (e) { c = null; } }
+  if (!c) c = cards.find(x => x && x.id === id) || null;
+  _cardSnap.delete(id);
+  if (!c) return;
+  const ch = [{ k: 'status', label: ACT_FIELDS.status, to: actVal('status', c.status) }];
+  if (Number(c.sell)) ch.unshift({ k: 'sell', label: ACT_FIELDS.sell, to: actVal('sell', c.sell) });
+  actPush('del', Object.assign({ id }, c), ch);
+  actCommit();
+}
+
+// ตัดของเก่าทิ้งตามอายุ/จำนวนสูงสุด (ส่ง tombstone ไปให้เซิร์ฟเวอร์ กันของที่ตัดแล้วฟื้นข้ามเครื่อง)
+function actPrune() {
+  const cut = Date.now() - ACT_KEEP_MS;
+  const sorted = activityLogs.slice().sort((a, b) => (Number(b && b.at) || 0) - (Number(a && a.at) || 0));
+  const keep = [], drop = [];
+  sorted.forEach((e, i) => { (e && (Number(e.at) || 0) >= cut && i < ACT_MAX) ? keep.push(e) : drop.push(e); });
+  if (!drop.length) return;
+  drop.forEach(e => { if (e && e.id != null) actStore.recordDeletion(e.id); });
+  activityLogs = keep;
+}
+
+function actCommit() {
+  actPrune();
+  actStore.save();
+  try { if (isViewVisible('viewActivity')) renderActivity(); } catch (e) {}
+}
+
+async function pullActivity() { return actStore.pull(); }
+
+// เวลาที่ขายจริงของการ์ดใบหนึ่ง (จาก sellDate + sellTime) — ใช้ตอนเติมข้อมูลย้อนหลัง
+function actSoldAt(c) {
+  if (!c || c.status !== 'sold' || !c.sellDate) return 0;
+  const [y, m, d] = String(c.sellDate).split('-').map(Number);
+  const [hh, mm] = String(c.sellTime || '00:00').split(':').map(Number);
+  const t = new Date(y || 1970, (m || 1) - 1, d || 1, hh || 0, mm || 0).getTime();
+  return isNaN(t) ? 0 : t;
+}
+
+// เติมประวัติย้อนหลัง 1 วันจากข้อมูลการ์ดที่มีอยู่ (ทำครั้งเดียวตอนใช้ฟีเจอร์นี้ครั้งแรก)
+// ใช้ id แบบตายตัว (seed-<ชนิด>-<cardId>) เครื่องอื่นเติมซ้ำก็ถูกเซิร์ฟเวอร์รวมเป็นรายการเดียว
+function seedActivityFromCards() {
+  if (localStorage.getItem(ACT_SEED_KEY) === '1') return;
+  const since = Date.now() - 24 * 60 * 60 * 1000;
+  const have = new Set(activityLogs.map(e => e && e.id));
+  const add = [];
+  for (const c of cards) {
+    if (!c || c.id == null) continue;
+    const soldAt = actSoldAt(c);
+    if (soldAt && soldAt >= since) {
+      const id = 'seed-sell-' + c.id;
+      if (have.has(id)) continue;
+      const ch = [{ k: 'sell', label: ACT_FIELDS.sell, to: actVal('sell', c.sell) }];
+      if (Number(c.discount)) ch.push({ k: 'discount', label: ACT_FIELDS.discount, to: actVal('discount', c.discount) });
+      if (c.payment) ch.push({ k: 'payment', label: ACT_FIELDS.payment, to: actVal('payment', c.payment) });
+      add.push(Object.assign({ id, at: soldAt, who: c.seller || 'ไม่ทราบ', act: 'sell', batchId: '', seed: true, changes: ch }, actCardInfo(c)));
+      continue;
+    }
+    const at = Number(c.updatedAt) || 0;
+    if (at < since) continue;
+    const id = 'seed-edit-' + c.id;
+    if (have.has(id)) continue;
+    // ข้อมูลเก่าไม่ได้เก็บว่าแก้ฟิลด์ไหน — บอกได้แค่ "มีการเพิ่ม/แก้ใบนี้" พร้อมสถานะล่าสุด
+    add.push(Object.assign({ id, at, who: 'ไม่ทราบ', act: 'edit', batchId: '', seed: true, changes: [
+      { k: 'status', label: ACT_FIELDS.status, to: actVal('status', c.status) },
+      { k: 'inStock', label: ACT_FIELDS.inStock, to: actVal('inStock', c.inStock === true) },
+    ] }, actCardInfo(c)));
+  }
+  try { localStorage.setItem(ACT_SEED_KEY, '1'); } catch (e) {}
+  if (!add.length) return;
+  activityLogs = activityLogs.concat(add);
+  actCommit();
+}
+
+let actPollTimer = null;
+async function refreshActivity() {
+  if (!passcode) return;
+  if (actStore.hasPending()) return; // มีของค้างในเครื่อง — ดันขึ้นก่อน อย่าดึงทับ
+  const before = activityLogs.length;
+  await pullActivity();
+  if (activityLogs.length !== before && isViewVisible('viewActivity')) renderActivity();
+}
+function startActivityPoll() { stopActivityPoll(); actPollTimer = setInterval(refreshActivity, 10000); }
+function stopActivityPoll() { if (actPollTimer) { clearInterval(actPollTimer); actPollTimer = null; } }
 
 function money(n) {
   const v = Number(n) || 0;
@@ -2921,7 +3219,7 @@ function buildStockRows(list) {
 // "soldstock" (คลังสินค้าขายแล้ว) เป็นเมนูย่อยของ stock — ใครเข้า stock ได้ก็เข้าได้
 function canViewTab(v) {
   const allowed = allowedTabs();
-  return allowed.includes(v) || (v === 'soldstock' && allowed.includes('stock'));
+  return allowed.includes(v) || ((v === 'soldstock' || v === 'activity') && allowed.includes('stock'));
 }
 function toggleNav() { document.body.classList.toggle('nav-open'); }
 function closeNav() { document.body.classList.remove('nav-open'); }
@@ -2946,6 +3244,7 @@ function switchView(view) {
   document.getElementById('viewDashboard').style.display = view === 'dashboard' ? '' : 'none';
   document.getElementById('viewStock').style.display = view === 'stock' ? '' : 'none';
   document.getElementById('viewSoldStock').style.display = view === 'soldstock' ? '' : 'none';
+  document.getElementById('viewActivity').style.display = view === 'activity' ? '' : 'none';
   document.getElementById('viewPreorder').style.display = view === 'preorder' ? '' : 'none';
   document.getElementById('viewSales').style.display = view === 'sales' ? '' : 'none';
   document.getElementById('viewReport').style.display = view === 'report' ? '' : 'none';
@@ -2961,19 +3260,25 @@ function switchView(view) {
   // ไฮไลต์เมนูย่อย "ผู้ใช้งาน" ตอนเข้าหน้าจัดการผู้ใช้
   const navUsers = document.getElementById('navUsers');
   if (navUsers) navUsers.classList.toggle('active', view === 'users');
-  // เมนูย่อย "คลังสินค้าขายแล้ว" → โผล่เมื่ออยู่ในกลุ่มสต็อก (กดคลังสินค้าก่อน)
+  // เมนูย่อย "คลังสินค้าขายแล้ว" + "รายงานการใช้งาน" → โผล่เมื่ออยู่ในกลุ่มสต็อก (กดคลังสินค้าก่อน)
+  const inStockSection = (view === 'stock' || view === 'soldstock' || view === 'activity');
   const navSold = document.getElementById('navSoldStock');
   if (navSold) {
-    const inStockSection = (view === 'stock' || view === 'soldstock');
     navSold.style.display = inStockSection ? '' : 'none';
     navSold.classList.toggle('active', view === 'soldstock');
-    if (view === 'soldstock') document.querySelector('.nav-item[data-view="stock"]').classList.add('active');
   }
+  const navAct = document.getElementById('navActivity');
+  if (navAct) {
+    navAct.style.display = inStockSection ? '' : 'none';
+    navAct.classList.toggle('active', view === 'activity');
+  }
+  if (inStockSection && view !== 'stock') document.querySelector('.nav-item[data-view="stock"]').classList.add('active');
   if (view === 'dashboard') renderDashboard();
   if (view === 'preorder') { renderPreorder(); refreshPreorder(); startPreorderPoll(); } else { stopPreorderPoll(); }
   if (view === 'sales') renderSales();
   if (view === 'report') renderReport();
   if (view === 'soldstock') renderSoldStock();
+  if (view === 'activity') { renderActivity(); refreshActivity(); startActivityPoll(); } else { stopActivityPoll(); }
   if (view === 'buy') { closeBuyPopup(); renderBuyList(); }
   if (view === 'product') { const ps = document.getElementById('productSearch'); if (ps) ps.value = ''; renderProductSearch(); }
   if (view === 'gacha') { enterGachaView(wasGacha || gachaBooting); } else { stopGachaPoll(); }
@@ -3855,6 +4160,148 @@ function renderSoldStock() {
       <thead><tr><th>รูป</th><th>ชื่อการ์ด</th><th class="num hide-sm">รับซื้อ</th><th class="num">ราคาขาย</th>${canSeeProfit() ? '<th class="num">กำไร</th>' : ''}${canEdit ? '<th></th>' : ''}</tr></thead>
       <tbody>${body}</tbody>
     </table>`;
+}
+
+// ---- หน้ารายงานการใช้งาน — ไทม์ไลน์ ใหม่ → เก่า ----
+function actDayKey(t) { const d = new Date(Number(t) || 0); return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate()); }
+function actDayLabel(k) {
+  if (k === todayStr()) return 'วันนี้';
+  if (k === yesterdayStr()) return 'เมื่อวาน';
+  return fmtDate(k);
+}
+function actTimeLabel(t) { const d = new Date(Number(t) || 0); return pad2(d.getHours()) + ':' + pad2(d.getMinutes()); }
+function actChangesHTML(ch) {
+  if (!ch || !ch.length) return '';
+  return '<div class="act-chg">' + ch.map(x => {
+    const from = (x.from !== undefined && x.from !== null && x.from !== x.to)
+      ? `<span class="act-from">${esc(x.from)}</span> → ` : '';
+    return `<span class="act-f">${esc(x.label)}</span> ${from}<span class="act-to">${esc(x.to)}</span>`;
+  }).join('<span class="act-dot">·</span>') + '</div>';
+}
+// หัวแถวของกลุ่มที่ยุบไว้ — โชว์เฉพาะการเปลี่ยนที่ "เหมือนกันทุกใบ" ไม่งั้นจะเข้าใจผิดว่าทุกใบเปลี่ยนแบบใบแรก
+function actCommonChanges(g) {
+  const sig = x => x.k + '|' + x.from + '|' + x.to;
+  return (g[0].changes || []).filter(x => g.every(e => (e.changes || []).some(y => sig(y) === sig(x))));
+}
+function actItemHTML(g) {
+  const e = g[0];
+  const m = ACT_META[e.act] || ACT_META.edit;
+  const thumb = e.image ? `<img class="act-thumb" loading="lazy" decoding="async" src="${esc(e.image)}" alt="">` : '';
+  const grade = (e.psa || e.grader) ? `<span class="lang-badge">${esc((e.grader || 'PSA') + ' ' + (e.psa || ''))}</span>` : '';
+  const cert = e.cert ? ` <span class="muted" style="font-size:.78rem">cert ${esc(e.cert)}</span>` : '';
+  const who = `<span class="act-who">👤 ${esc(e.who || '—')}</span>`;
+  const seed = e.seed ? ' <span class="act-seed">ย้อนหลัง</span>' : '';
+  if (g.length > 1) {
+    // แก้ทีเดียวโดนหลายใบ (เช่นซิงก์ราคาทั้งกลุ่ม / นำเข้าไฟล์) → ยุบเป็นแถวเดียว กดกางดูรายใบได้
+    const sub = g.map(x => `<div class="act-sub-row"><span class="act-sub-name">${x.topic ? `<span class="act-topic">${esc(x.topic)}</span>` : ''}${esc(x.name)}</span>${actChangesHTML(x.changes)}</div>`).join('');
+    return `<div class="act-item has-sub" onclick="this.classList.toggle('open')">
+      <div class="act-time">${actTimeLabel(e.at)}</div>
+      <div class="act-ico ${e.act}">${m.icon}</div>
+      <div class="act-body">
+        <div class="act-head"><span class="act-tag ${e.act}">${m.label}</span>
+          <span class="act-name">${g.length} ใบ</span><span class="act-caret">▶</span>${who}</div>
+        ${actChangesHTML(actCommonChanges(g))}
+        <div class="act-sub">${sub}</div>
+      </div>
+    </div>`;
+  }
+  return `<div class="act-item">
+    <div class="act-time">${actTimeLabel(e.at)}</div>
+    <div class="act-ico ${e.act}">${m.icon}</div>
+    ${thumb}
+    <div class="act-body">
+      <div class="act-head"><span class="act-tag ${e.act}">${m.label}</span>
+        <span class="act-name">${e.topic ? `<span class="act-topic">${esc(e.topic)}</span>` : ''}${esc(e.name)}${grade}${cert}${seed}</span>${who}</div>
+      ${actChangesHTML(e.changes)}
+    </div>
+  </div>`;
+}
+function renderActivity() {
+  const area = document.getElementById('actArea');
+  if (!area) return;
+
+  // ตัวกรอง "ประเภท" สร้างจาก ACT_META ครั้งเดียว (จะได้ไม่ต้องมาแก้ 2 ที่)
+  const tf = document.getElementById('actTypeFilter');
+  if (tf && !tf.dataset.filled) {
+    tf.innerHTML = '<option value="">ทุกประเภท</option>'
+      + ACT_ORDER.map(k => `<option value="${k}">${ACT_META[k].icon} ${ACT_META[k].label}</option>`).join('');
+    tf.dataset.filled = '1';
+  }
+  // ตัวกรอง "ผู้ใช้" เติมตามรายชื่อที่มีจริงใน log (คงค่าที่เลือกไว้)
+  const uf = document.getElementById('actUserFilter');
+  if (uf) {
+    const users = [...new Set(activityLogs.map(e => e && e.who).filter(Boolean))].sort();
+    const sig = users.join(',');
+    if (uf.dataset.sig !== sig) {
+      const cur = uf.value;
+      uf.innerHTML = '<option value="">ทุกคน</option>' + users.map(u => `<option value="${esc(u)}">${esc(u)}</option>`).join('');
+      if (users.includes(cur)) uf.value = cur;
+      uf.dataset.sig = sig;
+    }
+  }
+
+  // การ์ดสรุป "วันนี้" — นับจาก log ทั้งหมด ไม่ขึ้นกับตัวกรองด้านล่าง
+  const dayStart = new Date(); dayStart.setHours(0, 0, 0, 0);
+  const t0 = dayStart.getTime();
+  const cnt = k => activityLogs.filter(e => e && (Number(e.at) || 0) >= t0 && e.act === k).length;
+  const tiles = [
+    ['เพิ่มการ์ดวันนี้', cnt('add'), 'ใบ'],
+    ['แก้ไขวันนี้', cnt('edit'), 'ครั้ง'],
+    ['เช็คของวันนี้', cnt('stock'), 'ครั้ง'],
+    ['ขายวันนี้', cnt('sell'), 'ใบ'],
+  ];
+  const statsEl = document.getElementById('actStats');
+  if (statsEl) {
+    statsEl.innerHTML = tiles.map(([l, v, u]) => `<div class="stat"><div class="label">${l}</div><div class="value num">${v.toLocaleString('th-TH')} <span style="font-size:.55em;color:var(--muted);font-weight:600">${u}</span></div></div>`).join('');
+  }
+
+  const q = (document.getElementById('actSearch').value || '').trim().toLowerCase();
+  const type = document.getElementById('actTypeFilter').value;
+  const user = document.getElementById('actUserFilter').value;
+  const days = document.getElementById('actRangeFilter').value;
+  const since = days ? (t0 - (Number(days) - 1) * 86400000) : 0;
+
+  let list = activityLogs.filter(e => e && e.act);
+  if (since) list = list.filter(e => (Number(e.at) || 0) >= since);
+  if (type) list = list.filter(e => e.act === type);
+  if (user) list = list.filter(e => (e.who || '') === user);
+  if (q) {
+    const terms = q.split(/\s+/).filter(Boolean);
+    list = list.filter(e => {
+      const hay = [e.name, e.topic, e.cert, e.psa, e.grader, e.who, (ACT_META[e.act] || {}).label,
+        (e.changes || []).map(x => `${x.label} ${x.from || ''} ${x.to || ''}`).join(' ')].filter(Boolean).join(' ').toLowerCase();
+      return terms.every(t => hay.includes(t));
+    });
+  }
+  list.sort((a, b) => (Number(b.at) || 0) - (Number(a.at) || 0));
+
+  if (!list.length) {
+    const any = activityLogs.length > 0;
+    area.innerHTML = `<div class="empty"><div class="big">📜</div>${any ? 'ไม่พบรายการที่ตรงกับเงื่อนไข' : 'ยังไม่มีความเคลื่อนไหว'}
+      ${any ? '' : '<div class="sub-hint">ทุกการเพิ่ม/แก้ไข/ส่งขาย/เช็คของ จะถูกบันทึกไว้ที่นี่ตั้งแต่ตอนนี้เป็นต้นไป</div>'}</div>`;
+    return;
+  }
+
+  // รวมรายการที่เกิดจากการกดครั้งเดียวกัน (batchId เดียวกัน + ประเภทเดียวกัน) ให้เป็นแถวเดียว
+  const groups = [];
+  for (const e of list) {
+    const last = groups[groups.length - 1];
+    if (last && e.batchId && last[0].batchId === e.batchId && last[0].act === e.act) last.push(e);
+    else groups.push([e]);
+  }
+
+  // แบ่งหัวข้อตามวัน (ใหม่ → เก่า)
+  let html = '', curDay = null;
+  for (const g of groups) {
+    const day = actDayKey(g[0].at);
+    if (day !== curDay) {
+      curDay = day;
+      const n = groups.filter(x => actDayKey(x[0].at) === day).reduce((s, x) => s + x.length, 0);
+      html += `<div class="act-day">📅 ${actDayLabel(day)}<span class="act-day-n">${n.toLocaleString('th-TH')} รายการ</span></div>`;
+    }
+    html += actItemHTML(g);
+  }
+  area.innerHTML = html;
 }
 
 // ---- แถบ "สินค้าขาย" ----
@@ -5177,7 +5624,7 @@ const shopsStore = makeSyncStore({
 });
 let viewShopId = null;   // ร้านที่กำลังเปิดดูอยู่ (null = เมนูภาพรวมด้านบน)
 let expandedShop = null; // ร้านที่กางเมนูย่อยอยู่ใน sidebar
-const ALL_VIEW_IDS = ['viewDashboard', 'viewStock', 'viewSoldStock', 'viewPreorder', 'viewSales', 'viewReport', 'viewBuy', 'viewProduct', 'viewGacha', 'viewShop', 'viewShopHome', 'viewShopPlaceholder', 'viewShopReport', 'viewSettings', 'viewUsers'];
+const ALL_VIEW_IDS = ['viewDashboard', 'viewStock', 'viewSoldStock', 'viewActivity', 'viewPreorder', 'viewSales', 'viewReport', 'viewBuy', 'viewProduct', 'viewGacha', 'viewShop', 'viewShopHome', 'viewShopPlaceholder', 'viewShopReport', 'viewSettings', 'viewUsers'];
 const SHOP_FEATURES = [
   { key: 'sales', label: 'สินค้าขาย', view: 'viewSales' },
   { key: 'report', label: 'รายงานการขาย', view: 'viewReport' },
@@ -5359,7 +5806,7 @@ function openShopPlaceholder(shopId, key) {
   document.getElementById('shopPhTitle').textContent = '🚧 ' + shopFeatLabel(key) + ' — ' + (s.name || 'ร้าน');
   document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
   const shopBtn = document.querySelector('.nav-item[data-view="shop"]'); if (shopBtn) shopBtn.classList.add('active');
-  updateShopBanner(); renderShopNav(); stopGachaPoll();
+  updateShopBanner(); renderShopNav(); stopGachaPoll(); stopActivityPoll();
   localStorage.setItem('app_view', 'shop');
   localStorage.setItem('app_shopview', JSON.stringify({ shop: shopId, feat: 'ph:' + key }));
 }
@@ -5404,7 +5851,7 @@ function switchShopView(shopId, feature) {
   const shopBtn = document.querySelector('.nav-item[data-view="shop"]'); if (shopBtn) shopBtn.classList.add('active');
   updateShopBanner();
   renderShopNav();
-  stopGachaPoll();
+  stopGachaPoll(); stopActivityPoll();
   if (f.key === 'sales') renderSales();
   else if (f.key === 'report') renderReport();
   else if (f.key === 'buy') { closeBuyPopup(); renderBuyList(); }
@@ -5427,7 +5874,7 @@ function openShopHome(shopId) {
   document.getElementById('shopHomeTitle').textContent = '🏪 ' + (s.name || 'ร้านค้า');
   renderShopHomeStats(shopId);
   updateShopBanner();
-  stopGachaPoll();
+  stopGachaPoll(); stopActivityPoll();
   renderShopNav();
   localStorage.setItem('app_view', 'shop');
   localStorage.setItem('app_shopview', JSON.stringify({ shop: shopId, feat: '' }));
@@ -5484,7 +5931,7 @@ function openShopReport() {
   hideAllMainViews();
   document.getElementById('viewShopReport').style.display = '';
   document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
-  updateShopBanner(); renderShopNav(); stopGachaPoll(); renderShopReport();
+  updateShopBanner(); renderShopNav(); stopGachaPoll(); stopActivityPoll(); renderShopReport();
   localStorage.setItem('app_view', 'shop');
   localStorage.setItem('app_shopview', JSON.stringify({ shop: sid, feat: 'report2' }));
 }
@@ -7586,6 +8033,10 @@ async function syncOnStart() {
   // ดึงรายชื่อร้านค้าจากเซิร์ฟเวอร์ (เก็บแยกจาก cards.json)
   await pullShops();
   renderShopNav();
+  // ดึงรายงานการใช้งาน + เติมย้อนหลัง 1 วันจากข้อมูลการ์ดที่มีอยู่ (ครั้งแรกครั้งเดียว)
+  await pullActivity();
+  seedActivityFromCards();
+  if (isViewVisible('viewActivity')) renderActivity();
   // คืนหน้าร้านที่เปิดค้างไว้ก่อน F5 ก่อน — ถ้าคืนไม่ได้ค่อยใช้ค่าเริ่มต้น
   if (!restoreShopView()) {
     if (passcode && userRole !== 'admin' && userShops && userShops.length) applyPermissions(); // ผู้ใช้ถูกจำกัดร้าน → เปิดร้านให้
@@ -7781,9 +8232,13 @@ async function clearAllCards() {
   if (!confirm('⚠️ ล้างข้อมูลการ์ด/สินค้าทั้งหมด?\n\nลบทั้งสต็อก/สินค้าขาย/รายงาน/ข้อมูลสินค้า/รับซื้อ ออกหมด (กู้ไม่ได้)\nผู้ใช้งานไม่โดนลบ')) return;
   const p = prompt('พิมพ์  CLEAR  เพื่อยืนยันการล้างข้อมูล:');
   if (p !== 'CLEAR') { alert('ยกเลิก — ไม่ได้ล้างข้อมูล'); return; }
+  const nBefore = cards.length;
   cards = [];
   try { localStorage.setItem(KEY, JSON.stringify(cards)); } catch (e) {}
   snapshotCards();
+  // ลงรายงานการใช้งานเป็นรายการเดียว (ไม่ต้องไล่ทีละใบ) — เป็นการกระทำที่ต้องตามรอยได้
+  actPush('del', { id: 'all', name: 'ล้างข้อมูลการ์ดทั้งหมด' }, [{ k: 'qty', label: 'จำนวนที่ถูกลบ', to: nBefore.toLocaleString('th-TH') + ' ใบ' }]);
+  actCommit();
   await replaceOnServer(); // แทนที่ทั้งไฟล์ด้วยค่าว่าง + ล้าง tombstone (merge จะไม่ล้างให้)
   render();
   alert('✓ ล้างข้อมูลการ์ดทั้งหมดแล้ว');
@@ -7873,7 +8328,7 @@ window.addEventListener('hashchange', maybeOpenAdd);
 function flushPendingSave() {
   if (passcode && isDirty() && !pushing) { clearTimeout(syncTimer); pushToServer(); }
   // ชุดข้อมูลอื่นก็ต้องดันของค้างขึ้นด้วย ไม่งั้นแก้แล้วปิดหน้าเร็ว = หาย
-  if (passcode) { gachaStore.flush(); poStore.flush(); shopsStore.flush(); }
+  if (passcode) { gachaStore.flush(); poStore.flush(); shopsStore.flush(); actStore.flush(); }
 }
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'hidden') { flushPendingSave(); }
