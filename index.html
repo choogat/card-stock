@@ -3090,15 +3090,18 @@ function toggleSetCards(id) {
 // ชื่อ/รูป ของการ์ดในชุด — รองรับทั้งข้อมูลเก่า (string) และใหม่ ({name,cert,image})
 function setItemName(it) { return typeof it === 'string' ? it : (it && it.name) || ''; }
 function setItemImg(it) { return (it && typeof it === 'object') ? (it.image || '') : ''; }
-// ---- ค้นหา: ชุดรวมต้องหาเจอจาก "ชื่อการ์ดรายใบ" ที่อยู่ในชุดด้วย ----
+// ---- ค้นหา: ชุดรวมต้องหาเจอจาก "ชื่อการ์ด/เลข cert รายใบ" ที่อยู่ในชุดด้วย ----
 // ชุดถูกเก็บเป็นการ์ด 1 ใบ (type='set') แต่ข้างในมีหลายใบ — ถ้าค้นแล้วไม่เจอ คนใช้จะนึกว่าไม่มีของ
-function setItemNames(c) {
+function setItemCert(it) { return (it && typeof it === 'object') ? String(it.cert || '') : ''; }
+function setItemsOf(c) {
   if (!c || c.type !== 'set' || !Array.isArray(c.setItems)) return [];
-  return c.setItems.map(setItemName).filter(Boolean);
+  return c.setItems.filter(Boolean);
 }
+function setItemNames(c) { return setItemsOf(c).map(setItemName).filter(Boolean); }
 function cardHay(c, extra) {
+  const inner = setItemsOf(c).map(it => `${setItemName(it)} ${setItemCert(it)}`);
   return [c.topic, c.name, c.set, c.psa, c.grader, c.cert, c.detail, c.lang]
-    .concat(extra || [], setItemNames(c)).filter(Boolean).join(' ').toLowerCase();
+    .concat(extra || [], inner).filter(Boolean).join(' ').toLowerCase();
 }
 // คำค้นของหน้าที่กำลังวาดอยู่ — ใช้บอกว่า "เจอเพราะใบไหนในชุด"
 let curSearchTerms = [];
@@ -3110,9 +3113,10 @@ function setSearchHits(c, terms) {
   const ts = terms || curSearchTerms;
   if (!ts.length) return [];
   const hits = [];
-  setItemNames(c).forEach((n, i) => {
-    const low = n.toLowerCase();
-    if (ts.some(t => low.includes(t))) hits.push({ no: i + 1, name: n });
+  setItemsOf(c).forEach((it, i) => {
+    const name = setItemName(it), cert = setItemCert(it);
+    const low = `${name} ${cert}`.toLowerCase();
+    if (ts.some(t => low.includes(t))) hits.push({ no: i + 1, name, cert });
   });
   return hits;
 }
@@ -3150,10 +3154,11 @@ function setMetaHTML(c) {
   const n = c.setCount != null ? c.setCount : items.length;
   const open = expandedSets.has(c.id);
   const badge = ` <span class="set-badge clickable" onclick="event.stopPropagation();toggleSetCards('${c.id}')" title="คลิกดูรูปการ์ดทุกใบในชุด">📦 ชุด ${n} ใบ <span class="exp">${open ? '▾' : '▸'}</span></span>`;
-  // ค้นหาด้วยชื่อการ์ดใบเดียวแล้วมาเจอชุดนี้ → บอกให้ชัดว่าใบที่หาอยู่ "ขายรวมเป็นชุด" ไม่ได้แยกใบ
+  // ค้นหาด้วยชื่อ/เลข cert ของใบเดียวแล้วมาเจอชุดนี้ → บอกให้ชัดว่าใบที่หาอยู่ "ขายรวมเป็นชุด" ไม่ได้แยกใบ
   const hits = setSearchHits(c);
+  const hitTxt = h => `<b>${h.no}. ${esc(h.name)}</b>${h.cert ? ` <span class="muted">cert ${esc(h.cert)}</span>` : ''}`;
   const hit = hits.length
-    ? `<div class="set-hit"><span class="set-hit-tag">รวมเป็นชุด</span> ค้นเจอจากใบในชุดนี้ · ${hits.map(h => `<b>${h.no}. ${esc(h.name)}</b>`).join(' · ')}</div>`
+    ? `<div class="set-hit"><span class="set-hit-tag">รวมเป็นชุด</span> ค้นเจอจากใบในชุดนี้ · ${hits.map(hitTxt).join(' · ')}</div>`
     : '';
   const list = items.length ? `<div class="set-list">${items.map((s, i) => `${i + 1}. ${esc(setItemName(s))}`).join(' · ')}</div>` : '';
   return badge + hit + list;
