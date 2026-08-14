@@ -1183,11 +1183,11 @@
       <button class="nav-item active" data-view="stock" onclick="switchView('stock')">📦 คลังสินค้า</button>
       <button class="nav-sub" id="navSoldStock" onclick="switchView('soldstock')" style="display:none">↳ คลังสินค้าขายแล้ว</button>
       <button class="nav-item" data-view="preorder" onclick="switchView('preorder')">📝 พรีออเดอร์</button>
-      <button class="nav-item" data-view="sales" onclick="switchView('sales')">🏷️ สินค้าขาย</button>
       <button class="nav-item" data-view="product" onclick="switchView('product')">📋 ข้อมูลสินค้า</button>
 
       <div class="nav-group" id="navGrpTrade">การซื้อ-ขาย</div>
       <button class="nav-item" data-view="buy" onclick="switchView('buy')">🛒 รับซื้อสินค้า</button>
+      <button class="nav-item" data-view="sales" onclick="switchView('sales')">🏷️ สินค้าขาย</button>
       <button class="nav-item" data-view="report" onclick="switchView('report')">📊 การขายทั้งหมด</button>
       <button class="nav-item" data-view="gacha" onclick="switchView('gacha')">🎲 ยอดจุ่ม</button>
 
@@ -3423,8 +3423,8 @@ function applyPermissions() {
   // หัวข้อกลุ่ม — ซ่อนเมื่อไม่มีเมนูในกลุ่มนั้นให้เห็นเลย
   const has = (...vs) => vs.some(v => allowed.includes(v));
   setDisp('navGrpOverview', has('dashboard'));
-  setDisp('navGrpInventory', has('stock', 'preorder', 'sales', 'product'));
-  setDisp('navGrpTrade', has('buy', 'report', 'gacha'));
+  setDisp('navGrpInventory', has('stock', 'preorder', 'product'));
+  setDisp('navGrpTrade', has('buy', 'sales', 'report', 'gacha'));
   setDisp('navGrpPartners', has('shop') || canAddShop);
   setDisp('navGrpSettings', canUsers || canActivity);
   updateStats(); // รีเฟรชการซ่อน/โชว์การ์ดสรุปยอดรวมตามสิทธิ์ (เผื่อสิทธิ์เปลี่ยนสด)
