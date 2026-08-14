@@ -417,6 +417,9 @@
   .act-tag.unsell { background: rgba(226,59,78,.12); color: var(--danger); }
   .act-tag.stock { background: rgba(24,165,88,.13); color: #0f7a3d; }
   .act-tag.del { background: rgba(226,59,78,.14); color: var(--danger); }
+  /* แถวที่สร้างจากตัวการ์ด ไม่ใช่บันทึกจริง — ทำให้ต่างจากรายการจริงชัด ๆ */
+  .act-tag.info { background: var(--card2); color: var(--muted); border: 1px dashed var(--border); }
+  tr.act-cardrow > td { background: var(--card2); }
   .act-name { font-weight: 700; font-size: .9rem; overflow-wrap: anywhere; }
   .act-name .act-topic { display: block; color: var(--muted); font-weight: 600; font-size: .78rem; }
   .act-who { display: inline-flex; align-items: center; gap: 5px; font-size: .76rem; font-weight: 700; color: var(--muted); background: var(--card2); padding: 3px 10px; border-radius: 999px; white-space: nowrap; }
@@ -4277,6 +4280,37 @@ function actThumbHTML(e) {
     ? `<img class="act-thumb" loading="lazy" decoding="async" src="${esc(e.image)}" onclick="event.stopPropagation();openImgUrl('${esc(e.image)}')" title="กดเพื่อดูรูปเต็ม" alt="">`
     : '<div class="act-thumb-empty">🃏</div>';
 }
+// แถว "ข้อมูลการ์ด" — ไม่ใช่บันทึกจริง แต่สร้างสด ๆ จากตัวการ์ดตอนค้นหา
+// เพื่อให้ค้นเลข cert (รวมใบที่อยู่ในชุด) แล้วเจอการ์ดเสมอ แม้ใบนั้นจะยังไม่มีความเคลื่อนไหวในบันทึก
+function actCardRowHTML(c) {
+  const img = String(c.image || '');
+  const ch = [
+    { k: 'status', label: 'สถานะ', to: actVal('status', c.status) },
+    { k: 'inStock', label: 'เช็คของ', to: actVal('inStock', c.inStock === true) },
+  ];
+  const at = Number(c.updatedAt) || 0;
+  const grade = (c.psa || c.grader) ? ` <span class="lang-badge">${esc((c.grader || 'PSA') + ' ' + (c.psa || ''))}</span>` : '';
+  return `<tr class="act-cardrow">
+    <td class="act-time">${at ? esc(actDayLabel(actDayKey(at))) : '—'}</td>
+    <td><span class="act-tag info" title="ข้อมูลจากตัวการ์ด ไม่ใช่รายการที่บันทึกไว้">ข้อมูลการ์ด</span></td>
+    <td>${actThumbHTML({ image: img.startsWith('data:') ? '' : img })}</td>
+    <td class="name"><span class="act-name">${c.topic ? `<span class="act-topic">${esc(c.topic)}</span>` : ''}${esc(c.name || '(ไม่มีชื่อ)')}${grade}</span>
+      <div class="act-chg"><span class="act-f">แก้ไขล่าสุด</span> <span class="act-to">${at ? esc(actDayLabel(actDayKey(at))) : 'ไม่มีข้อมูล'}</span></div>${setHitHTML(c)}</td>
+    <td class="hide-sm muted">${c.cert ? esc(c.cert) : '—'}</td>
+    <td class="center">${actChipHTML(ch, 'status')}</td>
+    <td class="center">${actChipHTML(ch, 'inStock')}</td>
+    <td class="hide-sm">${c.editedBy ? `<span class="act-who">👤 ${esc(c.editedBy)}</span>` : '<span class="muted">—</span>'}</td>
+  </tr>`;
+}
+// การ์ดที่ตรงคำค้น แต่ยังไม่มีแถวไหนในบันทึกพูดถึงเลย — ใหม่ → เก่า ตามวันแก้ล่าสุด
+function actExtraCards(terms, rows) {
+  if (!terms.length) return [];
+  const shown = new Set(rows.map(e => e.cardId).filter(Boolean));
+  return (Array.isArray(cards) ? cards : [])
+    .filter(c => c && !shown.has(c.id))
+    .filter(c => { const hay = cardHay(c); return terms.every(t => hay.includes(t)); })
+    .sort((a, b) => (Number(b.updatedAt) || 0) - (Number(a.updatedAt) || 0));
+}
 function actRowHTML(g) {
   const e = g[0];
   const m = ACT_META[e.act] || ACT_META.edit;
@@ -4416,8 +4450,10 @@ function renderActivity() {
     list = list.filter(e => { const hay = actHay(e, byId.get(e.cardId)); return terms.every(t => hay.includes(t)); });
   }
   list.sort((a, b) => (Number(b.at) || 0) - (Number(a.at) || 0));
+  // ค้นแล้วเจอการ์ด แต่การ์ดใบนั้นไม่มีแถวในบันทึก → ต่อท้ายเป็นแถว "ข้อมูลการ์ด" ให้เห็นว่ามีของอยู่
+  const extras = actExtraCards(terms, list);
 
-  if (!list.length) {
+  if (!list.length && !extras.length) {
     const any = activityLogs.length > 0;
     area.innerHTML = `<div class="empty"><div class="big">📜</div>${any ? 'ไม่พบรายการที่ตรงกับเงื่อนไข' : 'ยังไม่มีความเคลื่อนไหว'}
       ${any ? actNoHitHint(terms) : '<div class="sub-hint">ทุกการเพิ่ม/แก้ไข/ส่งขาย/เช็คของ จะถูกบันทึกไว้ที่นี่ตั้งแต่ตอนนี้เป็นต้นไป</div>'}</div>`;
@@ -4442,6 +4478,10 @@ function renderActivity() {
       body += `<tr class="group-head sold-date-head"><td colspan="8">📅 ${actDayLabel(day)}<span class="sdh-meta"> · ${n.toLocaleString('th-TH')} รายการ</span></td></tr>`;
     }
     body += actRowHTML(g);
+  }
+  if (extras.length) {
+    body += `<tr class="group-head sold-date-head"><td colspan="8">🃏 การ์ดที่ตรงกับคำค้น แต่ยังไม่มีความเคลื่อนไหวในบันทึก<span class="sdh-meta"> · ${extras.length.toLocaleString('th-TH')} ใบ</span></td></tr>`;
+    body += extras.map(actCardRowHTML).join('');
   }
   area.innerHTML = `<table id="actTable">
       <thead><tr>

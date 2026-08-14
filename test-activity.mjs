@@ -310,7 +310,12 @@ let activityLogs = [];
 function cardById(id){ return cards.find(c => c && c.id === id) || null; }
 function cardHay(c){ return [c.name, c.cert, (c.setItems||[]).map(i => i.name + ' ' + i.cert).join(' ')].filter(Boolean).join(' ').toLowerCase(); }
 function setHitHTML(c){ return c && c.setItems ? '<div class="set-hit">รวมเป็นชุด</div>' : ''; }
-` + html.slice(rStart, rEnd) + '\nexport { actRowHTML, actLeafRowHTML, actChipHTML, actHay, actNoHitHint };'
+function actVal(k, v){
+  if (k === 'inStock') return v === true ? 'มีของ' : 'ของไม่มี';
+  if (k === 'status') return ({ show:'สะสม', wait:'รอขาย', sold:'ขายแล้ว' })[v] || v;
+  return v;
+}
+` + html.slice(rStart, rEnd) + '\nexport { actRowHTML, actLeafRowHTML, actChipHTML, actHay, actNoHitHint, actCardRowHTML, actExtraCards };'
   + '\nexport const setViewCards = (v) => { cards = v; };'
   + '\nexport const setViewLogs = (v) => { activityLogs = v; };').toString('base64'));
 
@@ -422,6 +427,22 @@ t('แถวในรายงานขึ้นป้าย "รวมเป็
   view.setViewCards([setCard]);
   assert.ok(view.actLeafRowHTML(actEntry, null).includes('set-hit'));
   assert.ok(!view.actLeafRowHTML({ ...actEntry, cardId: 'none' }, null).includes('set-hit'));
+});
+
+t('การ์ดที่ไม่มีบันทึก ถูกต่อท้ายเป็นแถว "ข้อมูลการ์ด" ช่องครบตามหัวตาราง', () => {
+  view.setViewCards([setCard]);
+  const row = view.actCardRowHTML(setCard);
+  assert.equal(cellsOf(row), COLS, 'แถวข้อมูลการ์ดต้องมีช่องเท่าหัวตาราง');
+  assert.ok(row.includes('act-tag info'), 'ต้องมีป้ายแยกว่าไม่ใช่บันทึกจริง');
+  assert.ok(row.includes('แก้ไขล่าสุด'));
+  assert.ok(row.includes('set-hit'), 'ค้นเจอจากใบในชุด = ต้องบอกด้วย');
+});
+
+t('การ์ดที่มีแถวในบันทึกอยู่แล้ว ไม่ถูกใส่ซ้ำเป็นแถวข้อมูลการ์ด', () => {
+  view.setViewCards([setCard]);
+  assert.equal(view.actExtraCards(['152750653'], []).length, 1, 'ไม่มีแถวในบันทึก = ต้องต่อท้ายให้');
+  assert.equal(view.actExtraCards(['152750653'], [{ cardId: 'set1' }]).length, 0, 'มีแถวแล้ว = ไม่ซ้ำ');
+  assert.equal(view.actExtraCards([], []).length, 0, 'ไม่ได้ค้นอะไร = ไม่ต่อท้ายอะไรเลย');
 });
 
 console.log(`\n${fail ? '✗' : '✓'} ผ่าน ${pass} / ${pass + fail}\n`);
