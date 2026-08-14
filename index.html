@@ -1182,7 +1182,6 @@
       <div class="nav-group" id="navGrpInventory">คลังสินค้าทั้งหมด</div>
       <button class="nav-item active" data-view="stock" onclick="switchView('stock')">📦 คลังสินค้า</button>
       <button class="nav-sub" id="navSoldStock" onclick="switchView('soldstock')" style="display:none">↳ คลังสินค้าขายแล้ว</button>
-      <button class="nav-sub" id="navActivity" onclick="switchView('activity')" style="display:none">↳ รายงานการใช้งาน</button>
       <button class="nav-item" data-view="preorder" onclick="switchView('preorder')">📝 พรีออเดอร์</button>
       <button class="nav-item" data-view="sales" onclick="switchView('sales')">🏷️ สินค้าขาย</button>
       <button class="nav-item" data-view="product" onclick="switchView('product')">📋 ข้อมูลสินค้า</button>
@@ -1199,6 +1198,7 @@
 
       <div class="nav-group" id="navGrpSettings" style="display:none">ตั้งค่า</div>
       <button class="nav-sub" id="navUsers" onclick="switchView('users')" style="display:none">👥 ผู้ใช้งาน</button>
+      <button class="nav-sub" id="navActivity" onclick="switchView('activity')" style="display:none">📜 รายงานการใช้งาน</button>
     </nav>
     <div class="sidebar-foot">
       <div id="footUser"></div>
@@ -1582,6 +1582,7 @@
     <p style="color:var(--muted);font-size:.88rem;margin-bottom:16px">เลือกหัวข้อจากเมนูย่อยด้านซ้าย หรือปุ่มด้านล่าง</p>
     <div class="toolbar">
       <button class="btn btn-primary" onclick="switchView('users')">👥 จัดการผู้ใช้งาน</button>
+      <button class="btn btn-ghost" onclick="switchView('activity')">📜 รายงานการใช้งาน</button>
       <button class="btn btn-ghost" onclick="openShopForm()">➕ เพิ่มร้านค้า</button>
     </div>
   </div><!-- /viewSettings -->
@@ -3339,18 +3340,16 @@ function switchView(view) {
   // ไฮไลต์เมนูย่อย "ผู้ใช้งาน" ตอนเข้าหน้าจัดการผู้ใช้
   const navUsers = document.getElementById('navUsers');
   if (navUsers) navUsers.classList.toggle('active', view === 'users');
-  // เมนูย่อย "คลังสินค้าขายแล้ว" + "รายงานการใช้งาน" → โผล่เมื่ออยู่ในกลุ่มสต็อก (กดคลังสินค้าก่อน)
-  const inStockSection = (view === 'stock' || view === 'soldstock' || view === 'activity');
+  // เมนูย่อย "คลังสินค้าขายแล้ว" → โผล่เมื่ออยู่ในกลุ่มสต็อก (กดคลังสินค้าก่อน)
+  const inStockSection = (view === 'stock' || view === 'soldstock');
   const navSold = document.getElementById('navSoldStock');
   if (navSold) {
     navSold.style.display = inStockSection ? '' : 'none';
     navSold.classList.toggle('active', view === 'soldstock');
   }
+  // "รายงานการใช้งาน" ย้ายไปอยู่กลุ่มตั้งค่าถัดจากผู้ใช้งาน — โชว์ตลอดตามสิทธิ์ (ดู applyPermissions)
   const navAct = document.getElementById('navActivity');
-  if (navAct) {
-    navAct.style.display = inStockSection ? '' : 'none';
-    navAct.classList.toggle('active', view === 'activity');
-  }
+  if (navAct) navAct.classList.toggle('active', view === 'activity');
   if (inStockSection && view !== 'stock') document.querySelector('.nav-item[data-view="stock"]').classList.add('active');
   if (view === 'dashboard') renderDashboard();
   if (view === 'preorder') { renderPreorder(); refreshPreorder(); startPreorderPoll(); } else { stopPreorderPoll(); }
@@ -3416,8 +3415,10 @@ function applyPermissions() {
   });
   // เมนูย่อยแบบคงที่ (ผู้ใช้งาน = แอดมิน · เพิ่มร้านค้า = แอดมิน/เจ้าของเครื่อง)
   const canUsers = canViewTab('users'), canAddShop = canViewTab('settings');
+  const canActivity = canViewTab('activity');
   const setDisp = (id, show) => { const el = document.getElementById(id); if (el) el.style.display = show ? '' : 'none'; };
   setDisp('navUsers', canUsers);
+  setDisp('navActivity', canActivity);
   setDisp('navAddShop', canAddShop);
   // หัวข้อกลุ่ม — ซ่อนเมื่อไม่มีเมนูในกลุ่มนั้นให้เห็นเลย
   const has = (...vs) => vs.some(v => allowed.includes(v));
@@ -3425,7 +3426,7 @@ function applyPermissions() {
   setDisp('navGrpInventory', has('stock', 'preorder', 'sales', 'product'));
   setDisp('navGrpTrade', has('buy', 'report', 'gacha'));
   setDisp('navGrpPartners', has('shop') || canAddShop);
-  setDisp('navGrpSettings', canUsers);
+  setDisp('navGrpSettings', canUsers || canActivity);
   updateStats(); // รีเฟรชการซ่อน/โชว์การ์ดสรุปยอดรวมตามสิทธิ์ (เผื่อสิทธิ์เปลี่ยนสด)
   // หน้าล่าสุดเป็นหน้าร้าน → คืนร้าน+ฟังก์ชันเดิมทันที (กันแวบไปหน้าจัดการร้าน)
   if ((localStorage.getItem('app_view') === 'shop' || BOOT_VIEW === 'shop') && restoreShopView()) return;
