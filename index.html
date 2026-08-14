@@ -965,6 +965,8 @@
   .dash-2x2 > .dash-panel { display: flex; flex-direction: column; margin-bottom: 0; min-height: 210px; }
   .dash-2x2 > .dash-panel > .empty { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; margin: 0; }
   .empty .sub-hint { color: var(--muted); font-size: .8rem; margin-top: 6px; font-weight: 400; }
+  /* วันเวลาของไฟล์ที่เบราว์เซอร์กำลังรันอยู่ — ไว้เช็คว่าได้ตัวใหม่แล้วหรือยังเวลาแก้เสร็จ */
+  .app-build { font-size: .66rem; color: var(--muted); font-weight: 400; letter-spacing: .02em; }
   @media (max-width: 820px) { .dash-2x2 { grid-template-columns: 1fr; } }
   /* กราฟแท่ง (CSS ล้วน) */
   .bar-chart { display: flex; align-items: flex-end; gap: 3px; height: 165px; padding-top: 8px; }
@@ -1328,7 +1330,7 @@
   </div><!-- /viewSoldStock -->
 
   <div id="viewActivity" style="display:none">
-    <h2 class="view-title">📜 รายงานการใช้งาน</h2>
+    <h2 class="view-title">📜 รายงานการใช้งาน <span class="app-build" id="appBuild"></span></h2>
     <div class="stats" id="actStats"></div>
     <div class="toolbar">
       <input class="search" id="actSearch" placeholder="ค้นหา ชื่อการ์ด / เรื่อง / cert / ผู้ใช้..." oninput="renderActivity()" style="flex:1;min-width:200px">
@@ -4331,12 +4333,21 @@ function actHay(e, card) {
     .filter(Boolean).join(' ').toLowerCase();
   return card ? base + ' ' + cardHay(card) : base;
 }
+// วันเวลาของไฟล์ที่เบราว์เซอร์กำลังรันอยู่ (จาก Last-Modified ของหน้าเว็บ)
+// มีไว้ตอบคำถาม "แก้แล้วทำไมยังเหมือนเดิม" — ถ้าเลขนี้ไม่ขยับ = ยังโหลดไฟล์เก่าอยู่ ไม่ใช่โค้ดไม่ทำงาน
+function appBuildLabel() {
+  const d = new Date(document.lastModified);
+  if (isNaN(d.getTime())) return '';
+  return `เวอร์ชันไฟล์ ${pad2(d.getDate())}/${pad2(d.getMonth() + 1)} ${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+}
 // ค้นแล้วไม่เจอ ทั้งที่มีการ์ดใบนั้นอยู่จริง = การ์ดใบนั้นยังไม่เคยถูกแตะตั้งแต่เริ่มเก็บบันทึก
 // บอกให้ชัด ไม่งั้นคนใช้จะนึกว่าระบบค้นหาพัง
 function actNoHitHint(terms) {
   if (!terms || !terms.length) return '';
   const hit = (Array.isArray(cards) ? cards : []).filter(c => { const hay = cardHay(c); return terms.every(t => hay.includes(t)); });
-  if (!hit.length) return '';
+  // บอกเสมอว่าค้นจากอะไรไปเท่าไร — ไม่งั้น "ไม่พบรายการ" ลอย ๆ แยกไม่ออกว่าไม่มีข้อมูล หรือค้นหาเพี้ยน
+  const scope = `<div class="sub-hint">ค้น “${esc(terms.join(' '))}” ในบันทึก ${(activityLogs.length || 0).toLocaleString('th-TH')} รายการ · การ์ดในคลังที่ตรงกับคำค้น ${hit.length} ใบ</div>`;
+  if (!hit.length) return scope;
   // บอกวันแก้ล่าสุดของการ์ดไปเลย — เป็นข้อมูลเดียวที่มีจริงสำหรับใบที่ถูกแก้ก่อนระบบเริ่มเก็บบันทึก
   const names = hit.slice(0, 3).map(c => {
     const at = Number(c.updatedAt) || 0;
@@ -4345,7 +4356,7 @@ function actNoHitHint(terms) {
   const more = hit.length > 3 ? ` และอีก ${hit.length - 3} ใบ` : '';
   const first = activityLogs.length ? Math.min(...activityLogs.map(e => Number(e.at) || 0)) : 0;
   const since = first ? `ระบบเริ่มเก็บบันทึกเมื่อ ${actDayLabel(actDayKey(first))} — การแก้ไขก่อนหน้านั้นไม่มีรายการย้อนหลัง` : '';
-  return `<div class="sub-hint">มีการ์ดที่ตรงกับคำค้นอยู่ในคลัง — ${names}${more}<br>
+  return scope + `<div class="sub-hint">มีการ์ดที่ตรงกับคำค้นอยู่ในคลัง — ${names}${more}<br>
     แต่การ์ดใบนี้ยังไม่มีความเคลื่อนไหวในช่วงเวลาที่เลือก · ${since}</div>`;
 }
 function renderActivity() {
@@ -4382,6 +4393,8 @@ function renderActivity() {
     ['เช็คของวันนี้', cnt('stock'), 'ครั้ง'],
     ['ขายวันนี้', cnt('sell'), 'ใบ'],
   ];
+  const buildEl = document.getElementById('appBuild');
+  if (buildEl) buildEl.textContent = appBuildLabel();
   const statsEl = document.getElementById('actStats');
   if (statsEl) {
     statsEl.innerHTML = tiles.map(([l, v, u]) => `<div class="stat"><div class="label">${l}</div><div class="value num">${v.toLocaleString('th-TH')} <span style="font-size:.55em;color:var(--muted);font-weight:600">${u}</span></div></div>`).join('');
