@@ -383,6 +383,7 @@ const actEntry = { id: 'a1', at: 1, who: 'got001', act: 'edit', name: 'ชุด
 const setCard = {
   id: 'set1', name: 'ชุดรวม OP09', type: 'set',
   setItems: [{ name: 'Luffy', cert: '152750653' }, { name: 'Zoro', cert: '99887766' }],
+  updatedAt: Date.parse('2026-07-25T14:18:00Z'),
 };
 
 t('ค้นเลข cert ของใบในชุด แล้วเจอรายการในรายงาน', () => {
@@ -408,6 +409,8 @@ t('ค้นไม่เจอ แต่มีการ์ดใบนั้น�
   const hint = view.actNoHitHint(['152750653']);
   assert.ok(hint.includes('ชุดรวม OP09'), 'ต้องบอกชื่อการ์ดที่ตรงกับคำค้น');
   assert.ok(hint.includes('ยังไม่มีความเคลื่อนไหว'));
+  assert.ok(hint.includes('แก้ไขล่าสุด'), 'การ์ดมี updatedAt = ต้องบอกวันที่แก้ล่าสุด');
+  assert.ok(hint.includes('เริ่มเก็บบันทึก'), 'ต้องบอกว่าระบบเริ่มเก็บบันทึกเมื่อไหร่');
   assert.equal(view.actNoHitHint(['ไม่มีการ์ดชื่อนี้']), '', 'ไม่มีการ์ดตรงเลย = ไม่ต้องขึ้นคำอธิบาย');
   assert.equal(view.actNoHitHint([]), '', 'ไม่ได้ค้นอะไร = ไม่ต้องขึ้นคำอธิบาย');
 });

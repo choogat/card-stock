@@ -4337,12 +4337,16 @@ function actNoHitHint(terms) {
   if (!terms || !terms.length) return '';
   const hit = (Array.isArray(cards) ? cards : []).filter(c => { const hay = cardHay(c); return terms.every(t => hay.includes(t)); });
   if (!hit.length) return '';
-  const names = hit.slice(0, 3).map(c => esc(c.name || '(ไม่มีชื่อ)')).join(' · ');
+  // บอกวันแก้ล่าสุดของการ์ดไปเลย — เป็นข้อมูลเดียวที่มีจริงสำหรับใบที่ถูกแก้ก่อนระบบเริ่มเก็บบันทึก
+  const names = hit.slice(0, 3).map(c => {
+    const at = Number(c.updatedAt) || 0;
+    return `<b>${esc(c.name || '(ไม่มีชื่อ)')}</b>${at ? ` <span class="muted">แก้ไขล่าสุด ${actDayLabel(actDayKey(at))}</span>` : ''}`;
+  }).join(' · ');
   const more = hit.length > 3 ? ` และอีก ${hit.length - 3} ใบ` : '';
   const first = activityLogs.length ? Math.min(...activityLogs.map(e => Number(e.at) || 0)) : 0;
-  const since = first ? ` (เริ่มเก็บบันทึก ${actDayLabel(actDayKey(first))})` : '';
+  const since = first ? `ระบบเริ่มเก็บบันทึกเมื่อ ${actDayLabel(actDayKey(first))} — การแก้ไขก่อนหน้านั้นไม่มีรายการย้อนหลัง` : '';
   return `<div class="sub-hint">มีการ์ดที่ตรงกับคำค้นอยู่ในคลัง — ${names}${more}<br>
-    แต่ยังไม่มีความเคลื่อนไหวของการ์ดใบนี้ในช่วงเวลาที่เลือก${since} · ลองขยาย "ช่วงเวลา" หรือดูรายละเอียดใบนี้ที่หน้าคลังสินค้า</div>`;
+    แต่การ์ดใบนี้ยังไม่มีความเคลื่อนไหวในช่วงเวลาที่เลือก · ${since}</div>`;
 }
 function renderActivity() {
   const area = document.getElementById('actArea');
