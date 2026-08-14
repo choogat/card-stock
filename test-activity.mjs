@@ -23,7 +23,7 @@ function uid(){ return 'u' + (++_uid); }
 function cardHasStock(c){ return !!c && c.inStock === true; }
 function isViewVisible(){ return false; }
 function renderActivity(){}
-let passcode = 'x', loginId = 'Cielcard';
+let passcode = 'x', loginId = 'Cielcard', userRole = 'admin';
 let cards = [];
 let _cardSnap = new Map();
 const localStorage = { _d:{}, getItem(k){ return this._d[k] ?? null; }, setItem(k,v){ this._d[k]=String(v); }, removeItem(k){ delete this._d[k]; } };
@@ -39,7 +39,8 @@ const mod = await import('data:text/javascript;base64,' + Buffer.from(
     + '\nexport const setSnap = (v) => { _cardSnap = v; };'
     + '\nexport const getLogs = () => activityLogs;'
     + '\nexport const resetLogs = () => { activityLogs = []; };'
-    + '\nexport const ls = localStorage;',
+    + '\nexport const ls = localStorage;'
+    + '\nexport const setUser = (id, role) => { loginId = id; userRole = role; };',
 ).toString('base64'));
 
 let pass = 0, fail = 0;
@@ -205,6 +206,7 @@ t('เก็บไม่เกิน ' + mod.ACT_MAX + ' รายการ', ()
 
 console.log('\nเติมข้อมูลย้อนหลัง 1 วัน');
 
+const SEED_K = 'activity_seed_v3';
 const seedCards = () => {
   const now = Date.now();
   const d = new Date(now);
@@ -219,57 +221,76 @@ const seedCards = () => {
 
 t('เอาเฉพาะ 24 ชม.ล่าสุด + ใช้ id ตายตัวกันซ้ำข้ามเครื่อง', () => {
   mod.resetLogs();
-  mod.ls.removeItem('activity_seed_v2');
+  mod.ls.removeItem(SEED_K);
   mod.setCards(seedCards());
   mod.seedActivityFromCards();
   const ids = mod.getLogs().map(e => e.id).sort();
   assert.deepEqual(ids, ['seed-edit-b', 'seed-edit-d', 'seed-sell-a']);
   assert.ok(mod.getLogs().every(e => e.seed === true));
   // เรียกซ้ำต้องไม่เพิ่มรายการ (id ซ้ำ = ทับของเดิม ไม่ใช่ต่อท้าย)
-  mod.ls.removeItem('activity_seed_v2');
+  mod.ls.removeItem(SEED_K);
   mod.seedActivityFromCards();
   assert.equal(mod.getLogs().length, 3, 'เติมซ้ำแล้วต้องไม่บวมขึ้น');
 });
 
-t('ชื่อคนทำของรายการย้อนหลัง — ไม่มีคำว่า "ไม่ทราบ" อีกแล้ว', () => {
+t('ชื่อคนทำของรายการย้อนหลัง — ไล่จากหลักฐานที่แน่นอนที่สุด', () => {
   mod.resetLogs();
-  mod.ls.removeItem('activity_seed_v2');
+  mod.ls.removeItem(SEED_K);
   mod.setCards(seedCards());
   mod.seedActivityFromCards();
   const by = Object.fromEntries(mod.getLogs().map(e => [e.id, e.who]));
   assert.equal(by['seed-sell-a'], 'ผู้ช่วยเอ', 'ใบที่ขายแล้ว = คนขายที่บันทึกไว้');
   assert.equal(by['seed-edit-b'], 'ผู้ช่วยบี', 'ใบที่รู้คนแก้ล่าสุด = คนนั้น');
-  assert.equal(by['seed-edit-d'], 'Cielcard', 'ใบที่ไม่มีข้อมูลเลย = คนที่เปิดแอปอยู่');
+  assert.equal(by['seed-edit-d'], 'Cielcard', 'ใบที่ไม่มีข้อมูลเลย = บัญชีแอดมินที่เติมประวัติ');
   assert.ok(mod.getLogs().every(e => e.who && e.who !== 'ไม่ทราบ'));
 });
 
-t('รายการ "ไม่ทราบ" ที่เลย 24 ชม.ไปแล้ว (เติมซ้ำไม่ถึง) ก็ต้องถูกซ่อม', () => {
+t('รายการ "แก้ไข" ต้องไม่ถูกสวมชื่อผู้ขายของการขายครั้งก่อน', () => {
   mod.resetLogs();
-  const cards = seedCards();
-  const old = Date.now() - 5 * 86400000; // เก่ากว่า 24 ชม. แต่ยังไม่ถึงอายุที่ถูกตัดทิ้ง
-  // ใบ c เก่าเกิน 24 ชม. → ไม่เข้าเงื่อนไขเติมซ้ำ แต่มีแถวเก่าค้างอยู่
-  mod.getLogs().push({ id: 'seed-edit-c', at: old, who: 'ไม่ทราบ', act: 'edit', seed: true, cardId: 'c', changes: [] });
-  // ใบที่ถูกลบไปแล้ว — หาการ์ดไม่เจอ ก็ยังต้องไม่เหลือคำว่า "ไม่ทราบ"
-  mod.getLogs().push({ id: 'seed-edit-zz', at: old, who: 'ไม่ทราบ', act: 'edit', seed: true, cardId: 'zz', changes: [] });
-  mod.ls.removeItem('activity_seed_v2');
-  cards[2].editedBy = 'ผู้ช่วยซี';
-  mod.setCards(cards);
+  mod.ls.removeItem(SEED_K);
+  const now = Date.now();
+  // เคยขายโดย got001 มาก่อน แล้ววันนี้มีคนมาแก้ — คนแก้ไม่ใช่ got001
+  mod.setCards([{ id: 'k', name: 'เคยขาย', status: 'show', seller: 'got001', updatedAt: now - 60000 }]);
   mod.seedActivityFromCards();
-  const by = Object.fromEntries(mod.getLogs().map(e => [e.id, e.who]));
-  assert.equal(by['seed-edit-c'], 'ผู้ช่วยซี');
-  assert.equal(by['seed-edit-zz'], 'Cielcard');
-  assert.ok(mod.getLogs().every(e => e.who !== 'ไม่ทราบ'));
+  assert.equal(last().act, 'edit');
+  assert.equal(last().who, 'Cielcard', 'ต้องไม่ใช่ got001');
 });
 
-t('รายการย้อนหลังรอบเก่าที่ขึ้น "ไม่ทราบ" ถูกทับด้วยชื่อจริง', () => {
+t('ผู้ช่วยเปิดแอปแล้วต้องไม่เติม/ไม่ซ่อมประวัติ (กันชื่อคนทำโดนสวม)', () => {
   mod.resetLogs();
-  mod.getLogs().push({ id: 'seed-edit-b', at: 1, who: 'ไม่ทราบ', act: 'edit', seed: true, changes: [] });
-  mod.ls.removeItem('activity_seed_v2');
+  mod.getLogs().push({ id: 'seed-edit-b', at: Date.now(), who: 'ไม่ทราบ', act: 'edit', seed: true, cardId: 'b', changes: [] });
+  mod.ls.removeItem(SEED_K);
+  mod.setCards(seedCards());
+  mod.setUser('got001', 'assistant');
+  mod.seedActivityFromCards();
+  assert.equal(mod.getLogs().length, 1, 'ผู้ช่วยต้องไม่สร้างรายการย้อนหลัง');
+  assert.equal(last().who, 'ไม่ทราบ', 'และต้องไม่เขียนชื่อตัวเองทับ');
+  mod.setUser('Cielcard', 'admin');
+});
+
+t('แอดมินเปิดแล้วซ่อมชื่อที่ผิด และเครื่องอื่นมาทีหลังไม่เขียนสลับไปมา', () => {
+  mod.resetLogs();
+  const now = Date.now();
+  // แถวที่รอบก่อนเขียนชื่อผิดไว้ (เครื่องที่ล็อกอินเป็น got001 เป็นคนเติม)
+  mod.getLogs().push({ id: 'seed-edit-b', at: now - 3600000, who: 'got001', act: 'edit', seed: true, cardId: 'b', changes: [] });
+  mod.getLogs().push({ id: 'seed-edit-zz', at: now - 5 * 86400000, who: 'got001', act: 'edit', seed: true, cardId: 'zz', changes: [] });
+  mod.ls.removeItem(SEED_K);
   mod.setCards(seedCards());
   mod.seedActivityFromCards();
-  const rows = mod.getLogs().filter(e => e.id === 'seed-edit-b');
-  assert.equal(rows.length, 1, 'ต้องไม่เกิดรายการซ้ำ');
-  assert.equal(rows[0].who, 'ผู้ช่วยบี');
+  const by = Object.fromEntries(mod.getLogs().map(e => [e.id, e.who]));
+  assert.equal(by['seed-edit-b'], 'ผู้ช่วยบี', 'ใบที่รู้คนแก้ → ใช้ชื่อนั้น');
+  assert.equal(by['seed-edit-zz'], 'Cielcard', 'ใบที่หาการ์ดไม่เจอ (เลย 24 ชม.) → บัญชีแอดมิน');
+  assert.ok(mod.getLogs().every(e => e.who !== 'got001'), 'ต้องไม่เหลือชื่อที่ผิด');
+  assert.ok(mod.getLogs().every(e => e.whoFixed === 1), 'ทุกแถวต้องถูกปั๊มว่าสรุปแล้ว');
+  assert.equal(mod.getLogs().filter(e => e.id === 'seed-edit-b').length, 1, 'ต้องไม่เกิดรายการซ้ำ');
+
+  // แอดมินอีกเครื่อง (ชื่ออื่น) เปิดตาม — ต้องไม่เขียนชื่อทับของที่สรุปไปแล้ว
+  const snapshot = JSON.stringify(mod.getLogs().map(e => [e.id, e.who]).sort());
+  mod.ls.removeItem(SEED_K);
+  mod.setUser('AdminSอง', 'admin');
+  mod.seedActivityFromCards();
+  mod.setUser('Cielcard', 'admin');
+  assert.equal(JSON.stringify(mod.getLogs().map(e => [e.id, e.who]).sort()), snapshot, 'ชื่อต้องไม่สลับไปมา');
 });
 
 // ---- โครงตาราง: ดึงฟังก์ชันวาดแถวออกมาจริง ๆ แล้วนับช่องให้ตรงกับหัวตาราง ----

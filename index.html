@@ -2608,7 +2608,7 @@ function makeSyncStore({ key, api, respKey, get, set, onChange, debounce = 150 }
 const ACT_KEY = 'psa_activity_v1';
 const ACT_KEEP_MS = 180 * 24 * 60 * 60 * 1000; // เก็บย้อนหลัง 180 วัน
 const ACT_MAX = 3000;                          // หรือ 3,000 รายการ แล้วแต่ถึงก่อน
-const ACT_SEED_KEY = 'activity_seed_v2';       // เติมย้อนหลังจากข้อมูลการ์ดครั้งเดียวพอ (v2 = เติมชื่อคนทำแทน "ไม่ทราบ")
+const ACT_SEED_KEY = 'activity_seed_v3';       // เติมย้อนหลังครั้งเดียวพอ (v3 = ซ่อมชื่อคนทำ + เติมได้เฉพาะแอดมิน)
 let activityLogs = (() => { try { return JSON.parse(localStorage.getItem(ACT_KEY)) || []; } catch (e) { return []; } })();
 let _actBatch = '';
 const actStore = makeSyncStore({
@@ -2781,22 +2781,34 @@ function actSoldAt(c) {
 
 // ชื่อคนทำของรายการย้อนหลัง — ไล่จากหลักฐานที่แน่นอนที่สุดก่อน:
 // ผู้ขายที่บันทึกไว้ตอนขาย → คนที่แตะการ์ดใบนี้ล่าสุด (editedBy) → คนที่กำลังเปิดแอปอยู่
-function actSeedWho(c, preferSeller) {
-  if (preferSeller && c.seller) return c.seller;
-  return c.editedBy || c.seller || actWho();
+// รายการขาย = ผู้ขายที่บันทึกไว้ตอนขาย คือคนทำจริง
+// รายการแก้ไข = คนที่แตะการ์ดล่าสุด (editedBy) เท่านั้น — ห้ามเอา "ผู้ขาย" ของการขายครั้งก่อน
+// มาสวมรอยว่าเป็นคนแก้ · ที่เหลือใช้บัญชีเจ้าของข้อมูล (เติมย้อนหลังได้เฉพาะแอดมิน)
+function actSeedWho(c, isSell) {
+  if (isSell && c.seller) return c.seller;
+  return c.editedBy || actWho();
+}
+// ซ่อมชื่อคนทำของรายการย้อนหลัง แล้วปั๊ม whoFixed กันเครื่องอื่นมาเขียนสลับไปมาทีหลัง
+function actRepairSeedWho() {
+  let touched = 0;
+  for (const e of activityLogs) {
+    if (!e || !e.seed || e.whoFixed) continue;
+    const c = cards.find(x => x && x.id === e.cardId);
+    const known = e.act === 'sell' ? (c && (c.seller || c.editedBy)) : (c && c.editedBy);
+    e.who = known || actWho();
+    e.whoFixed = 1;
+    touched++;
+  }
+  return touched;
 }
 // เติมประวัติย้อนหลัง 1 วันจากข้อมูลการ์ดที่มีอยู่ (ทำครั้งเดียวตอนใช้ฟีเจอร์นี้ครั้งแรก)
 // ใช้ id แบบตายตัว (seed-<ชนิด>-<cardId>) เครื่องอื่นเติมซ้ำก็ถูกเซิร์ฟเวอร์รวมเป็นรายการเดียว
 function seedActivityFromCards() {
   if (localStorage.getItem(ACT_SEED_KEY) === '1') return;
-  // ซ่อมรายการย้อนหลังรอบก่อนที่ยังขึ้น "ไม่ทราบ" — รวมถึงใบที่ตอนนี้เลย 24 ชม.ไปแล้วจนไม่ถูกเติมซ้ำ
-  let fixed = 0;
-  for (const e of activityLogs) {
-    if (!e || !e.seed || e.who !== 'ไม่ทราบ') continue;
-    const c = cards.find(x => x && x.id === e.cardId);
-    e.who = c ? actSeedWho(c, e.act === 'sell') : actWho();
-    fixed++;
-  }
+  // เติม/ซ่อมประวัติย้อนหลังได้เฉพาะเจ้าของข้อมูล (แอดมิน หรือเปิดจากเครื่องเจ้าของแบบไม่ล็อกอิน)
+  // ไม่งั้นรายการที่เดาคนทำไม่ได้ จะถูกสวมชื่อของใครก็ตามที่บังเอิญเปิดแอปเป็นคนแรก
+  if (passcode && userRole !== 'admin') return;
+  const fixed = actRepairSeedWho();
   const since = Date.now() - 24 * 60 * 60 * 1000;
   const seeds = [];
   for (const c of cards) {
@@ -2807,22 +2819,24 @@ function seedActivityFromCards() {
       if (Number(c.discount)) ch.push({ k: 'discount', label: ACT_FIELDS.discount, to: actVal('discount', c.discount) });
       if (c.payment) ch.push({ k: 'payment', label: ACT_FIELDS.payment, to: actVal('payment', c.payment) });
       ch.push({ k: 'status', label: ACT_FIELDS.status, to: actVal('status', c.status) });
-      seeds.push(Object.assign({ id: 'seed-sell-' + c.id, at: soldAt, who: actSeedWho(c, true), act: 'sell', batchId: '', seed: true, changes: ch }, actCardInfo(c)));
+      seeds.push(Object.assign({ id: 'seed-sell-' + c.id, at: soldAt, who: actSeedWho(c, true), act: 'sell', batchId: '', seed: true, whoFixed: 1, changes: ch }, actCardInfo(c)));
       continue;
     }
     const at = Number(c.updatedAt) || 0;
     if (at < since) continue;
     // ข้อมูลเก่าไม่ได้เก็บว่าแก้ฟิลด์ไหน — บอกได้แค่ "มีการเพิ่ม/แก้ใบนี้" พร้อมสถานะ + เช็คของล่าสุด
-    seeds.push(Object.assign({ id: 'seed-edit-' + c.id, at, who: actSeedWho(c, false), act: 'edit', batchId: '', seed: true, changes: [
+    seeds.push(Object.assign({ id: 'seed-edit-' + c.id, at, who: actSeedWho(c, false), act: 'edit', batchId: '', seed: true, whoFixed: 1, changes: [
       { k: 'status', label: ACT_FIELDS.status, to: actVal('status', c.status) },
       { k: 'inStock', label: ACT_FIELDS.inStock, to: actVal('inStock', c.inStock === true) },
     ] }, actCardInfo(c)));
   }
   try { localStorage.setItem(ACT_SEED_KEY, '1'); } catch (e) {}
-  if (!seeds.length) { if (fixed) actCommit(); return; }
-  // ทับรายการย้อนหลังรอบก่อนที่ id เดียวกัน (รอบแรกยังไม่รู้ชื่อคนทำ) แล้วค่อยต่อของใหม่
-  const byId = new Map(seeds.map(e => [e.id, e]));
-  activityLogs = activityLogs.filter(e => !(e && byId.has(e.id))).concat(seeds);
+  // แถวที่ถูกซ่อมชื่อไปแล้ว = สรุปแล้ว อย่าสร้างทับอีก ไม่งั้นแอดมินอีกเครื่องจะเขียนชื่อสลับไปมา
+  const settled = new Set(activityLogs.filter(e => e && e.whoFixed).map(e => e.id));
+  const fresh = seeds.filter(e => !settled.has(e.id));
+  if (!fresh.length) { if (fixed) actCommit(); return; }
+  const byId = new Map(fresh.map(e => [e.id, e]));
+  activityLogs = activityLogs.filter(e => !(e && byId.has(e.id))).concat(fresh);
   actCommit();
 }
 
