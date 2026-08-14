@@ -306,11 +306,13 @@ function fmtDate(d){ return d ? d.split('-').reverse().join('/') : ''; }
 const ACT_META = { add:{label:'เพิ่มการ์ด'}, edit:{label:'แก้ไขการ์ด'}, stock:{label:'เช็คของ'}, sell:{label:'ขายแล้ว'}, del:{label:'ลบการ์ด'} };
 const document = { querySelectorAll: () => [], querySelector: () => null };
 let cards = [];
+let activityLogs = [];
 function cardById(id){ return cards.find(c => c && c.id === id) || null; }
 function cardHay(c){ return [c.name, c.cert, (c.setItems||[]).map(i => i.name + ' ' + i.cert).join(' ')].filter(Boolean).join(' ').toLowerCase(); }
 function setHitHTML(c){ return c && c.setItems ? '<div class="set-hit">รวมเป็นชุด</div>' : ''; }
-` + html.slice(rStart, rEnd) + '\nexport { actRowHTML, actLeafRowHTML, actChipHTML, actHay };'
-  + '\nexport const setViewCards = (v) => { cards = v; };').toString('base64'));
+` + html.slice(rStart, rEnd) + '\nexport { actRowHTML, actLeafRowHTML, actChipHTML, actHay, actNoHitHint };'
+  + '\nexport const setViewCards = (v) => { cards = v; };'
+  + '\nexport const setViewLogs = (v) => { activityLogs = v; };').toString('base64'));
 
 // จำนวนคอลัมน์ในหัวตาราง (อ่านจาก <thead> จริงใน index.html) ต้องเท่ากับทุกแถวที่วาดออกมา
 const rBody = html.slice(html.indexOf('function renderActivity() {'));
@@ -398,6 +400,16 @@ t('การ์ดถูกลบไปแล้ว ค้นหาไม่พ�
   view.setViewCards([]);
   assert.doesNotThrow(() => view.actHay(actEntry, undefined));
   assert.doesNotThrow(() => view.actLeafRowHTML(actEntry, null));
+});
+
+t('ค้นไม่เจอ แต่มีการ์ดใบนั้นอยู่จริง → บอกว่าการ์ดยังไม่มีความเคลื่อนไหว', () => {
+  view.setViewCards([setCard]);
+  view.setViewLogs([{ id: 'z', at: Date.parse('2026-08-12T03:00:00Z'), act: 'edit' }]);
+  const hint = view.actNoHitHint(['152750653']);
+  assert.ok(hint.includes('ชุดรวม OP09'), 'ต้องบอกชื่อการ์ดที่ตรงกับคำค้น');
+  assert.ok(hint.includes('ยังไม่มีความเคลื่อนไหว'));
+  assert.equal(view.actNoHitHint(['ไม่มีการ์ดชื่อนี้']), '', 'ไม่มีการ์ดตรงเลย = ไม่ต้องขึ้นคำอธิบาย');
+  assert.equal(view.actNoHitHint([]), '', 'ไม่ได้ค้นอะไร = ไม่ต้องขึ้นคำอธิบาย');
 });
 
 t('แถวในรายงานขึ้นป้าย "รวมเป็นชุด" เมื่อเจอจากใบในชุด', () => {

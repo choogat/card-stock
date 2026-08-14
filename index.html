@@ -4331,6 +4331,19 @@ function actHay(e, card) {
     .filter(Boolean).join(' ').toLowerCase();
   return card ? base + ' ' + cardHay(card) : base;
 }
+// ค้นแล้วไม่เจอ ทั้งที่มีการ์ดใบนั้นอยู่จริง = การ์ดใบนั้นยังไม่เคยถูกแตะตั้งแต่เริ่มเก็บบันทึก
+// บอกให้ชัด ไม่งั้นคนใช้จะนึกว่าระบบค้นหาพัง
+function actNoHitHint(terms) {
+  if (!terms || !terms.length) return '';
+  const hit = (Array.isArray(cards) ? cards : []).filter(c => { const hay = cardHay(c); return terms.every(t => hay.includes(t)); });
+  if (!hit.length) return '';
+  const names = hit.slice(0, 3).map(c => esc(c.name || '(ไม่มีชื่อ)')).join(' · ');
+  const more = hit.length > 3 ? ` และอีก ${hit.length - 3} ใบ` : '';
+  const first = activityLogs.length ? Math.min(...activityLogs.map(e => Number(e.at) || 0)) : 0;
+  const since = first ? ` (เริ่มเก็บบันทึก ${actDayLabel(actDayKey(first))})` : '';
+  return `<div class="sub-hint">มีการ์ดที่ตรงกับคำค้นอยู่ในคลัง — ${names}${more}<br>
+    แต่ยังไม่มีความเคลื่อนไหวของการ์ดใบนี้ในช่วงเวลาที่เลือก${since} · ลองขยาย "ช่วงเวลา" หรือดูรายละเอียดใบนี้ที่หน้าคลังสินค้า</div>`;
+}
 function renderActivity() {
   const area = document.getElementById('actArea');
   if (!area) return;
@@ -4390,7 +4403,7 @@ function renderActivity() {
   if (!list.length) {
     const any = activityLogs.length > 0;
     area.innerHTML = `<div class="empty"><div class="big">📜</div>${any ? 'ไม่พบรายการที่ตรงกับเงื่อนไข' : 'ยังไม่มีความเคลื่อนไหว'}
-      ${any ? '' : '<div class="sub-hint">ทุกการเพิ่ม/แก้ไข/ส่งขาย/เช็คของ จะถูกบันทึกไว้ที่นี่ตั้งแต่ตอนนี้เป็นต้นไป</div>'}</div>`;
+      ${any ? actNoHitHint(terms) : '<div class="sub-hint">ทุกการเพิ่ม/แก้ไข/ส่งขาย/เช็คของ จะถูกบันทึกไว้ที่นี่ตั้งแต่ตอนนี้เป็นต้นไป</div>'}</div>`;
     return;
   }
 
