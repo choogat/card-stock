@@ -730,6 +730,10 @@
   .set-badge.clickable:hover { background: #6d28d9; }
   .set-badge .exp { font-size: .8em; }
   .set-list { font-size: .78rem; color: var(--muted); margin-top: 3px; line-height: 1.5; }
+  /* ค้นเจอชุดจาก "ชื่อการ์ดใบเดียว" ที่อยู่ข้างใน — บอกให้ชัดว่าใบนั้นขายรวมเป็นชุด */
+  .set-hit { font-size: .78rem; color: var(--muted); margin-top: 4px; line-height: 1.5; }
+  .set-hit-tag { display: inline-block; background: #7c3aed; color: #fff; padding: 0 8px; border-radius: 999px; font-size: .7rem; font-weight: 700; margin-right: 4px; }
+  .set-hit b { color: var(--text); font-weight: 600; }
   /* แถบย่อยโชว์รูปการ์ดทุกใบในชุด */
   tr.set-cards-row > td { background: var(--card2); padding: 12px 14px; }
   .set-cards { display: flex; flex-wrap: wrap; gap: 12px; }
@@ -2987,13 +2991,10 @@ function render() {
   if (tf) list = list.filter(c => (c.topic || '') === tf);
   if (pMin != null && !isNaN(pMin)) list = list.filter(c => (Number(c.sell) || 0) >= pMin);
   if (pMax != null && !isNaN(pMax)) list = list.filter(c => (Number(c.sell) || 0) <= pMax);
-  if (q) {
-    const terms = q.split(/\s+/).filter(Boolean);
-    list = list.filter(c => {
-      const hay = [c.topic, c.name, c.set, c.psa, c.grader, c.cert, c.detail]
-        .filter(Boolean).join(' ').toLowerCase();
-      return terms.every(t => hay.includes(t)); // เจอเมื่อ "ทุกคำ" ที่พิมพ์อยู่ในข้อมูล
-    });
+  const terms = setSearchTerms(q);
+  if (terms.length) {
+    // เจอเมื่อ "ทุกคำ" ที่พิมพ์อยู่ในข้อมูล — รวมชื่อการ์ดรายใบที่อยู่ในชุดด้วย
+    list = list.filter(c => { const hay = cardHay(c); return terms.every(t => hay.includes(t)); });
   }
 
   const sorters = {
@@ -3089,6 +3090,32 @@ function toggleSetCards(id) {
 // ชื่อ/รูป ของการ์ดในชุด — รองรับทั้งข้อมูลเก่า (string) และใหม่ ({name,cert,image})
 function setItemName(it) { return typeof it === 'string' ? it : (it && it.name) || ''; }
 function setItemImg(it) { return (it && typeof it === 'object') ? (it.image || '') : ''; }
+// ---- ค้นหา: ชุดรวมต้องหาเจอจาก "ชื่อการ์ดรายใบ" ที่อยู่ในชุดด้วย ----
+// ชุดถูกเก็บเป็นการ์ด 1 ใบ (type='set') แต่ข้างในมีหลายใบ — ถ้าค้นแล้วไม่เจอ คนใช้จะนึกว่าไม่มีของ
+function setItemNames(c) {
+  if (!c || c.type !== 'set' || !Array.isArray(c.setItems)) return [];
+  return c.setItems.map(setItemName).filter(Boolean);
+}
+function cardHay(c, extra) {
+  return [c.topic, c.name, c.set, c.psa, c.grader, c.cert, c.detail, c.lang]
+    .concat(extra || [], setItemNames(c)).filter(Boolean).join(' ').toLowerCase();
+}
+// คำค้นของหน้าที่กำลังวาดอยู่ — ใช้บอกว่า "เจอเพราะใบไหนในชุด"
+let curSearchTerms = [];
+function setSearchTerms(q) {
+  curSearchTerms = String(q || '').trim().toLowerCase().split(/\s+/).filter(Boolean);
+  return curSearchTerms;
+}
+function setSearchHits(c, terms) {
+  const ts = terms || curSearchTerms;
+  if (!ts.length) return [];
+  const hits = [];
+  setItemNames(c).forEach((n, i) => {
+    const low = n.toLowerCase();
+    if (ts.some(t => low.includes(t))) hits.push({ no: i + 1, name: n });
+  });
+  return hits;
+}
 function openImgUrl(url) {
   if (!url) return;
   document.getElementById('lightboxImg').src = url;
@@ -3123,8 +3150,13 @@ function setMetaHTML(c) {
   const n = c.setCount != null ? c.setCount : items.length;
   const open = expandedSets.has(c.id);
   const badge = ` <span class="set-badge clickable" onclick="event.stopPropagation();toggleSetCards('${c.id}')" title="คลิกดูรูปการ์ดทุกใบในชุด">📦 ชุด ${n} ใบ <span class="exp">${open ? '▾' : '▸'}</span></span>`;
+  // ค้นหาด้วยชื่อการ์ดใบเดียวแล้วมาเจอชุดนี้ → บอกให้ชัดว่าใบที่หาอยู่ "ขายรวมเป็นชุด" ไม่ได้แยกใบ
+  const hits = setSearchHits(c);
+  const hit = hits.length
+    ? `<div class="set-hit"><span class="set-hit-tag">รวมเป็นชุด</span> ค้นเจอจากใบในชุดนี้ · ${hits.map(h => `<b>${h.no}. ${esc(h.name)}</b>`).join(' · ')}</div>`
+    : '';
   const list = items.length ? `<div class="set-list">${items.map((s, i) => `${i + 1}. ${esc(setItemName(s))}`).join(' · ')}</div>` : '';
-  return badge + list;
+  return badge + hit + list;
 }
 
 // ป้ายเกรดต่อท้ายชื่อ: RAW = การ์ดไม่เกรด, มีเลขเกรด = (บริษัท เกรด)
@@ -3394,12 +3426,9 @@ function applyPermissions() {
 
 // กรองการ์ดตามคำค้น (ว่าง = ทุกใบ)
 function filterCardsByQuery(q) {
-  if (!q) return cards.slice();
-  const terms = q.split(/\s+/).filter(Boolean);
-  return cards.filter(c => {
-    const hay = [c.topic, c.name, c.set, c.psa, c.grader, c.cert, c.detail, c.lang].filter(Boolean).join(' ').toLowerCase();
-    return terms.every(t => hay.includes(t));
-  });
+  const terms = setSearchTerms(q);
+  if (!terms.length) return cards.slice();
+  return cards.filter(c => { const hay = cardHay(c); return terms.every(t => hay.includes(t)); });
 }
 // ยุบใบที่เป็น "ชิ้นเดียวกัน" → ชื่อเดียวกัน + ภาษาเดียวกัน (ใบไม่ระบุภาษา ยุบเข้ากลุ่มชื่อเดียวกันได้ทุกภาษา)
 // ใช้ร่วมกันทั้งแถบ "ข้อมูลสินค้า" และ "รับซื้อสินค้า"
@@ -3812,12 +3841,9 @@ function renderReport() {
   // ค้นหา/กรองสินค้าในรายงาน (กรองเฉพาะรายการในตาราง — สรุปยอดด้านบนยังเป็นของทั้งวัน)
   const rq = (document.getElementById('reportSearch').value || '').trim().toLowerCase();
   let rowItems = sold.slice();
-  if (rq) {
-    const terms = rq.split(/\s+/).filter(Boolean);
-    rowItems = rowItems.filter(c => {
-      const hay = [c.topic, c.name, c.set, c.psa, c.grader, c.cert, c.lang, c.detail].filter(Boolean).join(' ').toLowerCase();
-      return terms.every(t => hay.includes(t));
-    });
+  const rTerms = setSearchTerms(rq);
+  if (rTerms.length) {
+    rowItems = rowItems.filter(c => { const hay = cardHay(c); return rTerms.every(t => hay.includes(t)); });
   }
   if (!rowItems.length) {
     area.innerHTML = `<div class="empty"><div class="big">🔎</div>ไม่พบสินค้าที่ตรงกับ “${esc(rq)}” ในวันนี้</div>`;
@@ -4132,12 +4158,9 @@ function renderSoldStock() {
 
   let list = base.slice();
   if (curMonth) list = list.filter(c => (c.sellDate || '').slice(0, 7) === curMonth);
-  if (q) {
-    const terms = q.split(/\s+/).filter(Boolean);
-    list = list.filter(c => {
-      const hay = [c.topic, c.name, c.set, c.psa, c.grader, c.cert, c.detail, c.lang, c.seller].filter(Boolean).join(' ').toLowerCase();
-      return terms.every(t => hay.includes(t));
-    });
+  const terms = setSearchTerms(q);
+  if (terms.length) {
+    list = list.filter(c => { const hay = cardHay(c, [c.seller]); return terms.every(t => hay.includes(t)); });
   }
 
   // การ์ดสรุปด้านบน
@@ -4421,12 +4444,9 @@ function renderSales() {
   if (salesUnitFilter) {
     list = list.filter(c => c.status === 'wait' && stockUnitOf(c) === salesUnitFilter);
   }
-  if (q) {
-    const terms = q.split(/\s+/).filter(Boolean);
-    list = list.filter(c => {
-      const hay = [c.topic, c.name, c.set, c.psa, c.grader, c.cert, c.detail].filter(Boolean).join(' ').toLowerCase();
-      return terms.every(t => hay.includes(t));
-    });
+  const terms = setSearchTerms(q);
+  if (terms.length) {
+    list = list.filter(c => { const hay = cardHay(c); return terms.every(t => hay.includes(t)); });
   }
   const idx = new Map(cards.map((c, i) => [c.id, i]));
   const sortBy = document.getElementById('salesSort').value;
