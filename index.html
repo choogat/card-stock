@@ -3097,6 +3097,7 @@ function setItemsOf(c) {
   if (!c || c.type !== 'set' || !Array.isArray(c.setItems)) return [];
   return c.setItems.filter(Boolean);
 }
+function cardById(id) { return (id && Array.isArray(cards)) ? (cards.find(c => c && c.id === id) || null) : null; }
 function setItemNames(c) { return setItemsOf(c).map(setItemName).filter(Boolean); }
 function cardHay(c, extra) {
   const inner = setItemsOf(c).map(it => `${setItemName(it)} ${setItemCert(it)}`);
@@ -3119,6 +3120,13 @@ function setSearchHits(c, terms) {
     if (ts.some(t => low.includes(t))) hits.push({ no: i + 1, name, cert });
   });
   return hits;
+}
+// ป้ายบอกว่า "ที่ค้นเจอ เพราะใบนี้อยู่ในชุด" — ใช้ทั้งหน้าคลัง/ขาย/รายงาน ให้ข้อความตรงกัน
+function setHitHTML(c) {
+  const hits = c ? setSearchHits(c) : [];
+  if (!hits.length) return '';
+  const one = h => `<b>${h.no}. ${esc(h.name)}</b>${h.cert ? ` <span class="muted">cert ${esc(h.cert)}</span>` : ''}`;
+  return `<div class="set-hit"><span class="set-hit-tag">รวมเป็นชุด</span> ค้นเจอจากใบในชุดนี้ · ${hits.map(one).join(' · ')}</div>`;
 }
 function openImgUrl(url) {
   if (!url) return;
@@ -3155,11 +3163,7 @@ function setMetaHTML(c) {
   const open = expandedSets.has(c.id);
   const badge = ` <span class="set-badge clickable" onclick="event.stopPropagation();toggleSetCards('${c.id}')" title="คลิกดูรูปการ์ดทุกใบในชุด">📦 ชุด ${n} ใบ <span class="exp">${open ? '▾' : '▸'}</span></span>`;
   // ค้นหาด้วยชื่อ/เลข cert ของใบเดียวแล้วมาเจอชุดนี้ → บอกให้ชัดว่าใบที่หาอยู่ "ขายรวมเป็นชุด" ไม่ได้แยกใบ
-  const hits = setSearchHits(c);
-  const hitTxt = h => `<b>${h.no}. ${esc(h.name)}</b>${h.cert ? ` <span class="muted">cert ${esc(h.cert)}</span>` : ''}`;
-  const hit = hits.length
-    ? `<div class="set-hit"><span class="set-hit-tag">รวมเป็นชุด</span> ค้นเจอจากใบในชุดนี้ · ${hits.map(hitTxt).join(' · ')}</div>`
-    : '';
+  const hit = setHitHTML(c);
   const list = items.length ? `<div class="set-list">${items.map((s, i) => `${i + 1}. ${esc(setItemName(s))}`).join(' · ')}</div>` : '';
   return badge + hit + list;
 }
@@ -4303,7 +4307,7 @@ function actLeafRowHTML(e, batch) {
     <td class="act-time">${batch ? '' : actTimeLabel(e.at)}</td>
     <td>${batch ? '' : `<span class="act-tag ${e.act}">${m.label}</span>`}</td>
     <td>${actThumbHTML(e)}</td>
-    <td class="name"><span class="act-name">${e.topic ? `<span class="act-topic">${esc(e.topic)}</span>` : ''}${esc(e.name)}${grade}${seed}</span>${actChangesHTML(ch)}</td>
+    <td class="name"><span class="act-name">${e.topic ? `<span class="act-topic">${esc(e.topic)}</span>` : ''}${esc(e.name)}${grade}${seed}</span>${actChangesHTML(ch)}${setHitHTML(cardById(e.cardId))}</td>
     <td class="hide-sm muted">${e.cert ? esc(e.cert) : '—'}</td>
     <td class="center">${actChipHTML(ch, 'status')}</td>
     <td class="center">${actStockCellHTML(e, ch)}</td>
@@ -4318,6 +4322,14 @@ function toggleActBatch(id) {
   rows.forEach(r => { r.style.display = open ? '' : 'none'; });
   const head = document.querySelector(`tr.act-batch[data-b="${id}"]`);
   if (head) head.classList.toggle('open', open);
+}
+// ข้อความที่ใช้ค้นของ 1 รายการ — รายการเก็บชื่อ/cert ไว้ตอนบันทึก ซึ่งไม่มีข้อมูล "ใบในชุด"
+// จึงเทียบกับการ์ดใบล่าสุดด้วย (ถ้ายังอยู่) ให้ค้นเลข cert ของใบในชุดแล้วเจอรายการเหมือนหน้าอื่น
+function actHay(e, card) {
+  const base = [e.name, e.topic, e.cert, e.psa, e.grader, e.who, (ACT_META[e.act] || {}).label,
+    (e.changes || []).map(x => `${x.label} ${x.from || ''} ${x.to || ''}`).join(' ')]
+    .filter(Boolean).join(' ').toLowerCase();
+  return card ? base + ' ' + cardHay(card) : base;
 }
 function renderActivity() {
   const area = document.getElementById('actArea');
@@ -4368,13 +4380,10 @@ function renderActivity() {
   if (since) list = list.filter(e => (Number(e.at) || 0) >= since);
   if (type) list = list.filter(e => e.act === type);
   if (user) list = list.filter(e => (e.who || '') === user);
-  if (q) {
-    const terms = q.split(/\s+/).filter(Boolean);
-    list = list.filter(e => {
-      const hay = [e.name, e.topic, e.cert, e.psa, e.grader, e.who, (ACT_META[e.act] || {}).label,
-        (e.changes || []).map(x => `${x.label} ${x.from || ''} ${x.to || ''}`).join(' ')].filter(Boolean).join(' ').toLowerCase();
-      return terms.every(t => hay.includes(t));
-    });
+  const terms = setSearchTerms(q);
+  if (terms.length) {
+    const byId = new Map((Array.isArray(cards) ? cards : []).map(c => [c.id, c])); // เทียบกับการ์ดใบล่าสุดครั้งเดียว ไม่ต้องวนหาใหม่ทุกแถว
+    list = list.filter(e => { const hay = actHay(e, byId.get(e.cardId)); return terms.every(t => hay.includes(t)); });
   }
   list.sort((a, b) => (Number(b.at) || 0) - (Number(a.at) || 0));
 

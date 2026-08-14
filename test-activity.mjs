@@ -305,7 +305,12 @@ function yesterdayStr(){ return '2026-08-13'; }
 function fmtDate(d){ return d ? d.split('-').reverse().join('/') : ''; }
 const ACT_META = { add:{label:'เพิ่มการ์ด'}, edit:{label:'แก้ไขการ์ด'}, stock:{label:'เช็คของ'}, sell:{label:'ขายแล้ว'}, del:{label:'ลบการ์ด'} };
 const document = { querySelectorAll: () => [], querySelector: () => null };
-` + html.slice(rStart, rEnd) + '\nexport { actRowHTML, actLeafRowHTML, actChipHTML };').toString('base64'));
+let cards = [];
+function cardById(id){ return cards.find(c => c && c.id === id) || null; }
+function cardHay(c){ return [c.name, c.cert, (c.setItems||[]).map(i => i.name + ' ' + i.cert).join(' ')].filter(Boolean).join(' ').toLowerCase(); }
+function setHitHTML(c){ return c && c.setItems ? '<div class="set-hit">รวมเป็นชุด</div>' : ''; }
+` + html.slice(rStart, rEnd) + '\nexport { actRowHTML, actLeafRowHTML, actChipHTML, actHay };'
+  + '\nexport const setViewCards = (v) => { cards = v; };').toString('base64'));
 
 // จำนวนคอลัมน์ในหัวตาราง (อ่านจาก <thead> จริงใน index.html) ต้องเท่ากับทุกแถวที่วาดออกมา
 const rBody = html.slice(html.indexOf('function renderActivity() {'));
@@ -367,6 +372,38 @@ t('เนื้อหาจากผู้ใช้ถูก escape ไม่ห
   const out = view.actLeafRowHTML(e, null);
   assert.ok(!out.includes('<script'), 'ชื่อการ์ดต้องไม่กลายเป็นแท็ก');
   assert.ok(!out.includes('<b>hack'), 'ชื่อผู้ใช้ต้องไม่กลายเป็นแท็ก');
+});
+
+console.log('\nค้นหาในรายงานการใช้งาน');
+
+// รายการเก่าเก็บแค่ชื่อ/cert ของ "ชุด" — เลข cert ของใบข้างในต้องมาจากการ์ดใบล่าสุด
+const actEntry = { id: 'a1', at: 1, who: 'got001', act: 'edit', name: 'ชุดรวม OP09', cert: '', cardId: 'set1', changes: [] };
+const setCard = {
+  id: 'set1', name: 'ชุดรวม OP09', type: 'set',
+  setItems: [{ name: 'Luffy', cert: '152750653' }, { name: 'Zoro', cert: '99887766' }],
+};
+
+t('ค้นเลข cert ของใบในชุด แล้วเจอรายการในรายงาน', () => {
+  view.setViewCards([setCard]);
+  assert.ok(view.actHay(actEntry, setCard).includes('152750653'));
+  assert.ok(!view.actHay(actEntry, null).includes('152750653'), 'ไม่มีการ์ดให้เทียบ = ได้แค่ข้อมูลที่บันทึกไว้');
+});
+
+t('ยังค้นด้วยข้อมูลที่บันทึกไว้ได้เหมือนเดิม (ชื่อ/ผู้ทำรายการ/ประเภท)', () => {
+  const hay = view.actHay(actEntry, null);
+  assert.ok(hay.includes('ชุดรวม op09') && hay.includes('got001') && hay.includes('แก้ไขการ์ด'));
+});
+
+t('การ์ดถูกลบไปแล้ว ค้นหาไม่พัง', () => {
+  view.setViewCards([]);
+  assert.doesNotThrow(() => view.actHay(actEntry, undefined));
+  assert.doesNotThrow(() => view.actLeafRowHTML(actEntry, null));
+});
+
+t('แถวในรายงานขึ้นป้าย "รวมเป็นชุด" เมื่อเจอจากใบในชุด', () => {
+  view.setViewCards([setCard]);
+  assert.ok(view.actLeafRowHTML(actEntry, null).includes('set-hit'));
+  assert.ok(!view.actLeafRowHTML({ ...actEntry, cardId: 'none' }, null).includes('set-hit'));
 });
 
 console.log(`\n${fail ? '✗' : '✓'} ผ่าน ${pass} / ${pass + fail}\n`);
