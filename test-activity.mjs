@@ -272,5 +272,81 @@ t('รายการย้อนหลังรอบเก่าที่ข�
   assert.equal(rows[0].who, 'ผู้ช่วยบี');
 });
 
+// ---- โครงตาราง: ดึงฟังก์ชันวาดแถวออกมาจริง ๆ แล้วนับช่องให้ตรงกับหัวตาราง ----
+const rStart = html.indexOf('// ---- หน้ารายงานการใช้งาน');
+const rEnd = html.indexOf('function renderActivity() {');
+assert.ok(rStart > 0 && rEnd > rStart, 'หาบล็อกวาดหน้ารายงานไม่เจอ');
+const view = await import('data:text/javascript;base64,' + Buffer.from(`
+function esc(s){ return String(s ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
+function pad2(n){ return String(n).padStart(2,'0'); }
+function todayStr(){ return '2026-08-14'; }
+function yesterdayStr(){ return '2026-08-13'; }
+function fmtDate(d){ return d ? d.split('-').reverse().join('/') : ''; }
+const ACT_META = { add:{label:'เพิ่มการ์ด'}, edit:{label:'แก้ไขการ์ด'}, stock:{label:'เช็คของ'}, sell:{label:'ขายแล้ว'}, del:{label:'ลบการ์ด'} };
+const document = { querySelectorAll: () => [], querySelector: () => null };
+` + html.slice(rStart, rEnd) + '\nexport { actRowHTML, actLeafRowHTML, actChipHTML };').toString('base64'));
+
+// จำนวนคอลัมน์ในหัวตาราง (อ่านจาก <thead> จริงใน index.html) ต้องเท่ากับทุกแถวที่วาดออกมา
+const rBody = html.slice(html.indexOf('function renderActivity() {'));
+const tableAt = rBody.indexOf('<table id="actTable">');
+const COLS = (rBody.slice(tableAt, rBody.indexOf('</thead>', tableAt)).match(/<th[\s>]/g) || []).length;
+const colspan = Number((rBody.slice(0, tableAt).match(/sold-date-head"><td colspan="(\d+)"/) || [])[1]);
+const cellsOf = (tr) => (tr.match(/<td/g) || []).length;
+const rowsOf = (h) => h.split('<tr').slice(1).map(r => '<tr' + r);
+
+console.log('\nโครงตาราง (' + COLS + ' คอลัมน์)');
+
+t('หัวตารางกับ colspan ของแถบวันที่ตรงกัน', () => {
+  assert.equal(colspan, COLS, `colspan=${colspan} แต่หัวตารางมี ${COLS} คอลัมน์`);
+});
+
+t('แถวปกติมีช่องครบตามหัวตาราง', () => {
+  const e = { id: 'x', at: Date.now(), who: 'Cielcard', act: 'stock', name: 'Luffy', topic: 'One Piece',
+    cert: '144153428', psa: '10', grader: 'PSA', image: 'https://blob/a.png', stockTally: '178/1118',
+    changes: [{ k: 'inStock', label: 'เช็คของ', from: 'ของไม่มี', to: 'มีของ' }] };
+  const rows = rowsOf(view.actRowHTML([e]));
+  assert.equal(rows.length, 1);
+  assert.equal(cellsOf(rows[0]), COLS);
+});
+
+t('แถวกลุ่มที่ยุบไว้: หัวแถว + ใบย่อย ช่องครบทุกแถว', () => {
+  const mk = (i) => ({ id: 'x' + i, at: Date.now(), who: 'Cielcard', act: 'edit', batchId: 'b1',
+    name: 'การ์ด ' + i, cert: '', image: '', changes: [{ k: 'sell', label: 'ราคาขาย', from: '฿500', to: '฿600' }] });
+  const rows = rowsOf(view.actRowHTML([mk(1), mk(2), mk(3)]));
+  assert.equal(rows.length, 4, 'หัวแถว 1 + ใบย่อย 3');
+  rows.forEach((r, i) => assert.equal(cellsOf(r), COLS, 'แถวที่ ' + i + ' ช่องไม่ครบ'));
+  assert.equal((rows[0].match(/act-batch/g) || []).length, 1);
+  assert.equal(rows.slice(1).filter(r => r.includes('act-sub-tr') && r.includes('display:none')).length, 3);
+});
+
+t('รูปกดดูได้ · ไม่มีรูปก็ไม่พัง', () => {
+  const base = { id: 'x', at: Date.now(), who: 'a', act: 'edit', name: 'n', changes: [] };
+  const withImg = view.actLeafRowHTML({ ...base, image: 'https://blob/a.png' }, null);
+  assert.ok(withImg.includes("openImgUrl('https://blob/a.png')"), 'รูปต้องกดเปิดดูได้');
+  assert.ok(withImg.includes('act-thumb'), 'ต้องมี class รูปย่อ');
+  assert.ok(view.actLeafRowHTML(base, null).includes('act-thumb-empty'), 'ไม่มีรูป = ช่องว่างมีไอคอนแทน');
+});
+
+t('ยอดเช็คของโผล่เฉพาะแถวที่ติ๊กเช็คของ', () => {
+  const stock = { id: 'x', at: 1, who: 'a', act: 'stock', name: 'n', stockTally: '178/1118',
+    changes: [{ k: 'inStock', label: 'เช็คของ', from: 'ของไม่มี', to: 'มีของ' }] };
+  assert.ok(view.actLeafRowHTML(stock, null).includes('178/1118'));
+  const edit = { id: 'y', at: 1, who: 'a', act: 'edit', name: 'n', changes: [{ k: 'sell', label: 'ราคาขาย', to: '฿600' }] };
+  assert.ok(!view.actLeafRowHTML(edit, null).includes('act-tally'));
+});
+
+t('ชิปสถานะได้สีตามค่า และช่องที่ไม่มีข้อมูลขึ้นขีด', () => {
+  const ch = [{ k: 'status', label: 'สถานะ', from: 'สะสม', to: 'ขายแล้ว' }];
+  assert.ok(view.actChipHTML(ch, 'status').includes('act-chip sold'));
+  assert.ok(view.actChipHTML(ch, 'inStock').includes('—'));
+});
+
+t('เนื้อหาจากผู้ใช้ถูก escape ไม่หลุดเป็น HTML', () => {
+  const e = { id: 'x', at: 1, who: '<b>hack</b>', act: 'edit', name: '<script>x</' + 'script>', cert: '"><i>', changes: [] };
+  const out = view.actLeafRowHTML(e, null);
+  assert.ok(!out.includes('<script'), 'ชื่อการ์ดต้องไม่กลายเป็นแท็ก');
+  assert.ok(!out.includes('<b>hack'), 'ชื่อผู้ใช้ต้องไม่กลายเป็นแท็ก');
+});
+
 console.log(`\n${fail ? '✗' : '✓'} ผ่าน ${pass} / ${pass + fail}\n`);
 process.exit(fail ? 1 : 0);
