@@ -679,6 +679,19 @@
   .badge.wait { background: rgba(192,138,0,.22); color: #111; }
   .badge.sold { background: rgba(24,165,88,.22); color: #111; text-align: center; }
   .badge.sold .sold-when { display: block; font-weight: 400; font-size: .72rem; margin-top: 1px; }
+  /* คืนสินค้า: ร้านกดขอคืน → รอแอดมินตัดสิน → สำเร็จ / ไม่สำเร็จ */
+  .badge.retwait { background: rgba(192,138,0,.28); color: #6b4c00; }
+  .badge.retask { background: rgba(240,140,20,.22); color: #a2560a; }
+  .badge.retdone { background: rgba(24,165,88,.22); color: #0f7a3d; }
+  .btn-return { padding: 4px 10px; font-size: .72rem; border-radius: 7px; line-height: 1.3; min-width: 46px; }
+  .sale-warn {
+    display: flex; gap: 9px; align-items: center; margin-bottom: 16px; padding: 11px 13px;
+    background: rgba(240,140,20,.12); border: 1px solid rgba(240,140,20,.5); border-radius: 13px;
+    color: #b3610a; font-size: .86rem; font-weight: 700;
+  }
+  /* คืนไม่สำเร็จ → ปุ่มขายเป็นสีส้ม บอกว่าใบนี้เคยขอคืนแล้วไม่ผ่าน */
+  .btn-sold.ret-failed { background: rgba(240,140,20,.16); border-color: #f08c14; color: #b3610a; }
+  .ret-fail-note { display: block; font-size: .7rem; font-weight: 700; color: #b3610a; margin-top: 2px; }
 
   .row-actions { display: flex; gap: 6px; }
   .icon-btn {
@@ -694,15 +707,19 @@
   .empty .big { font-size: 3rem; margin-bottom: 12px; }
 
   /* Modal */
+  /* ทุก popup อยู่กลางจอเสมอ — เนื้อหายาวเกินจอก็เลื่อนในกล่องเอง ไม่ดันหัวกล่องหลุดขอบบน */
   .overlay {
     position: fixed; inset: 0; background: rgba(6,8,18,.7); backdrop-filter: blur(4px);
-    display: none; align-items: flex-start; justify-content: center; padding: 40px 16px; z-index: 50; overflow-y: auto;
+    display: none; align-items: center; justify-content: center; padding: 24px 16px; z-index: 50; overflow-y: auto;
   }
   .overlay.open { display: flex; }
   .modal {
     background: var(--card); border: 1px solid var(--border); border-radius: 20px;
     width: 100%; max-width: 520px; padding: 26px;
+    margin: auto; max-height: calc(100vh - 48px); overflow-y: auto; overscroll-behavior: contain;
+    box-shadow: 0 24px 60px rgba(0,0,0,.35);
   }
+  @supports (max-height: 100dvh) { .modal { max-height: calc(100dvh - 48px); } }
   .modal h2 { font-size: 1.25rem; margin-bottom: 20px; }
   .field { margin-bottom: 15px; }
   .field label { display: block; font-size: .82rem; color: var(--muted); margin-bottom: 6px; }
@@ -1020,7 +1037,8 @@
     td { padding: 7px 6px; font-size: .82rem; }
     .thumb, .thumb-empty { width: 34px; height: 48px; }
     /* ฟอร์ม/โมดัล */
-    .modal { padding: 18px 16px; border-radius: 16px; }
+    .modal { padding: 18px 16px; border-radius: 16px; max-height: calc(100vh - 28px); }
+    .overlay { padding: 14px 12px; }
     .modal h2 { font-size: 1.1rem; margin-bottom: 14px; }
     .field { margin-bottom: 11px; }
     .field label { font-size: .8rem; margin-bottom: 4px; }
@@ -1694,7 +1712,7 @@
 
 <!-- พรีออเดอร์: popup แสดงหมายเหตุเต็ม -->
 <!-- popup ยืนยัน (ใช้แทน confirm ของเบราว์เซอร์ ที่ขึ้นชื่อโดเมนนำหน้า) -->
-<div class="overlay" id="confirmOverlay" onclick="if(event.target===this)closeAppConfirm(false)">
+<div class="overlay" id="confirmOverlay" onclick="if(event.target===this)closeAppConfirm(null)">
   <div class="modal cf-modal">
     <div class="cf-icon" id="cfIcon">❓</div>
     <div class="cf-title" id="cfTitle"></div>
@@ -1704,7 +1722,7 @@
       <span class="cf-count-val" id="cfCountVal"></span>
     </div>
     <div class="modal-actions">
-      <button class="btn btn-ghost" onclick="closeAppConfirm(false)">ยกเลิก</button>
+      <button class="btn btn-ghost" id="cfCancel" onclick="closeAppConfirm(false)">ยกเลิก</button>
       <button class="btn btn-primary" id="cfOk" onclick="closeAppConfirm(true)">ตกลง</button>
     </div>
   </div>
@@ -1981,6 +1999,7 @@
   <div class="modal" style="max-width:430px">
     <h2>✓ บันทึกการขาย</h2>
     <p id="saleCardName" style="color:var(--muted);font-size:.9rem;margin-bottom:16px"></p>
+    <div id="saleReturnWarn" class="sale-warn" style="display:none"></div>
     <input type="hidden" id="sale_id">
     <div class="field" id="row_saleQty" style="display:none">
       <label>จำนวนที่ขาย (มีทั้งหมด <span id="saleMaxQty"></span>)</label>
@@ -2649,7 +2668,10 @@ const ACT_FIELDS = {
   seller: 'ผู้ขาย', shopId: 'ร้านค้า', soldShopId: 'ร้านที่ขาย', gachaBoxId: 'ตู้จุ่ม', gachaNo: 'เบอร์ในตู้',
   snkr: 'ราคา SNKRDUNK', namCode: 'รหัส NamTCG', namRaw: 'ราคา RAW', namPsa10: 'ราคา PSA10',
   viaBuy: 'มาจากการรับซื้อ', productOnly: 'ข้อมูลสินค้าอย่างเดียว', cancelled: 'ยกเลิกการขาย',
+  retState: 'คืนสินค้า', retFails: 'คืนไม่สำเร็จ (ครั้ง)',
 };
+// สถานะคืนสินค้าเป็นรหัสสั้น ๆ ในข้อมูล — รายงานต้องอ่านเป็นภาษาคน
+const RET_LABEL = { pending: 'รอดำเนินการ', done: 'คืนสำเร็จ' };
 const ACT_MONEY = new Set(['median', 'buy', 'sell', 'unitMedian', 'unitBuy', 'unitSell', 'discount', 'snkr', 'namRaw', 'namPsa10']);
 const ACT_BOOL = new Set(['inStock', 'viaBuy', 'productOnly', 'cancelled']);
 
@@ -2658,6 +2680,7 @@ function actVal(k, v) {
   // ฟิลด์ใช่/ไม่ใช่ ต้องเช็คก่อน "ค่าว่าง" — ใบเก่าที่ยังไม่มีฟิลด์นี้เลย ต้องอ่านว่า "ไม่" ไม่ใช่ "—"
   if (k === 'inStock') return v === true ? 'มีของ' : 'ของไม่มี';
   if (ACT_BOOL.has(k)) return v === true ? 'ใช่' : 'ไม่';
+  if (k === 'retState') return v ? (RET_LABEL[v] || v) : 'ไม่ได้คืน';
   if (v === undefined || v === null || v === '') return '—';
   if (k === 'status') return (STATUS[v] || {}).label || v;
   if (k === 'payment') return PAYMENT[v] || v;
@@ -4605,15 +4628,86 @@ function saleShopLabelsFor(items) {
   }
   return out;
 }
+// ================= คืนสินค้า =================
+// ร้านกด "คืนสินค้า" → ใบนั้นเป็น "รอดำเนินการ" ฝั่งร้าน และขึ้น "คืนสินค้า" ฝั่งรวมให้แอดมินตัดสิน
+// แอดมินยืนยัน → ร้านเห็น "คืนสินค้า" ฝั่งรวมเห็น "คืนสินค้าสำเร็จ"
+// แอดมินกดยกเลิก → กลับไปขายต่อได้เหมือนเดิม แต่นับ "คืนไม่สำเร็จ" ไว้ และย้อมปุ่มขายเป็นสีส้ม
+function retState(c) { return (c && c.retState) || ''; }
+function retFails(c) { return Number(c && c.retFails) || 0; }
+// ฝั่งร้าน (เปิดในบริบทร้าน) กับฝั่งรวม เรียกสถานะเดียวกันคนละชื่อ ตามที่ตกลงกันไว้
+function returnBadgeHTML(c) {
+  const st = retState(c), inShop = !!viewShopId;
+  if (st === 'pending') return inShop
+    ? '<span class="badge retwait">รอดำเนินการ</span>'
+    : '<span class="badge retask">คืนสินค้า</span>';
+  if (st === 'done') return inShop
+    ? '<span class="badge retdone">คืนสินค้า</span>'
+    : '<span class="badge retdone">คืนสินค้าสำเร็จ</span>';
+  return '';
+}
+function returnActionsHTML(c) {
+  const st = retState(c), fails = retFails(c);
+  if (st === 'done') return '<span class="muted">—</span>'; // คืนจบแล้ว ไม่ต้องมีปุ่ม
+  const failNote = fails ? `<span class="ret-fail-note" title="เคยขอคืนแล้วไม่สำเร็จ">คืนไม่สำเร็จ ${fails} ครั้ง</span>` : '';
+  const sellBtn = `<button class="btn btn-primary btn-sold${fails ? ' ret-failed' : ''}" onclick="markSold('${c.id}')">ขาย</button>`;
+  if (st === 'pending') {
+    // ฝั่งรวมเท่านั้นที่ตัดสินได้ — ฝั่งร้านเห็นว่ากำลังรออยู่
+    return viewShopId
+      ? `<span class="muted">รออนุมัติ</span>${failNote}`
+      : `<div class="row-actions" style="justify-content:center"><button class="btn btn-ghost btn-return" onclick="reviewReturn('${c.id}')">คืนสินค้า</button></div>${failNote}`;
+  }
+  const askBtn = viewShopId
+    ? `<button class="btn btn-ghost btn-return" onclick="requestReturn('${c.id}')" title="ส่งคืนสินค้าให้เจ้าของ">คืนสินค้า</button>`
+    : '';
+  return `<div class="row-actions" style="justify-content:center">${sellBtn}${askBtn}</div>${failNote}`;
+}
+// ฝั่งร้านกดขอคืน — มีผลทันทีตามที่ออกแบบไว้ (ไม่ถามซ้ำ) แล้วรอฝั่งรวมตัดสิน
+function requestReturn(id) {
+  const c = cards.find(x => x.id === id);
+  if (!c || retState(c)) return;
+  c.retState = 'pending';
+  c.retAt = Date.now();
+  c.retBy = (typeof loginId !== 'undefined' && loginId) || 'เจ้าของเครื่อง';
+  save();
+  renderSales();
+  setSync('📦 ส่งคำขอคืนสินค้าแล้ว — รอฝั่งรวมยืนยัน', 'ok');
+}
+// ฝั่งรวมตัดสิน: ยืนยัน = คืนสำเร็จ · ยกเลิก = ไม่คืน (นับครั้ง) · ปิดทิ้ง = ยังไม่ตัดสิน
+async function reviewReturn(id) {
+  const c = cards.find(x => x.id === id);
+  if (!c || retState(c) !== 'pending') return;
+  const shop = shopById(c.shopId);
+  const who = c.retBy ? `ผู้ขอคืน: ${c.retBy}` : '';
+  const when = c.retAt ? `ขอคืนเมื่อ ${fmtDate(actDayKey(c.retAt))}` : ''; // actDayKey = วันตามเวลาเครื่อง ไม่ใช่ UTC
+  const ans = await appConfirm({
+    icon: '📦', tone: 'warn', title: 'ยืนยันคืนสินค้า',
+    sub: [`${c.name || 'สินค้า'}${c.psa ? ` (${c.grader || 'PSA'} ${c.psa})` : ''}`,
+      shop ? `ร้าน: ${shop.name || 'ร้าน'}` : '', who, when].filter(Boolean).join('\n'),
+    countLabel: retFails(c) ? 'เคยคืนไม่สำเร็จ' : '',
+    count: retFails(c) ? `${retFails(c)} ครั้ง` : '',
+    okText: 'ยืนยันคืนสินค้า', cancelText: 'ยกเลิก',
+  });
+  if (ans === null) return;                 // ปิดทิ้ง = ยังไม่ตัดสิน ไม่นับเป็นอะไรทั้งนั้น
+  if (ans) {
+    c.retState = 'done';
+    c.retDoneAt = Date.now();
+  } else {
+    c.retState = '';
+    c.retFails = retFails(c) + 1;           // ไว้เตือนตอนกดขายครั้งถัดไป
+  }
+  save();
+  renderSales();
+  setSync(ans ? '✓ คืนสินค้าสำเร็จ' : '↩️ ยกเลิกการคืน — กลับไปขายต่อได้', ans ? 'ok' : 'err');
+}
 function salesRow(c, isChild) {
   const img = c.image
     ? `<img class="thumb" loading="lazy" decoding="async" src="${c.image}" onclick="openLightbox('${c.id}')" alt="">`
     : `<div class="thumb-empty">🃏</div>`;
-  // สถานะ: โชว์แค่ "รอขาย" — ใบที่ขายแล้วเว้นว่าง
-  const statusCell = c.status === 'sold' ? '' : `<span class="badge wait">รอขาย</span>`;
+  // สถานะ: โชว์แค่ "รอขาย" — ใบที่ขายแล้วเว้นว่าง · ใบที่กำลังขอคืน/คืนแล้ว โชว์สถานะคืนสินค้าแทน
+  const statusCell = c.status === 'sold' ? '' : (returnBadgeHTML(c) || `<span class="badge wait">รอขาย</span>`);
   const actionCell = c.status === 'sold'
     ? `<button class="lock-btn" onclick="unlockSold('${c.id}')" title="แก้ไข (ต้องใส่รหัส)">🔒</button>`
-    : `<button class="btn btn-primary btn-sold" onclick="markSold('${c.id}')">ขาย</button>`;
+    : returnActionsHTML(c);
   const qtyText = `${Number(c.qty) || 1}${c.unit ? ' ' + esc(c.unit) : ''}`;
   return `<tr class="${isChild ? 'child-row' : ''}">
     <td>${img}</td>
@@ -4633,7 +4727,9 @@ function salesGroupRow(g) {
   const open = expandedSales.has(g.key);
   // สรุปกลุ่ม: โชว์แค่จำนวน "รอขาย" (ตัดขายแล้วออก)
   const waitN = items.filter(c => c.status === 'wait').length;
-  const stSummary = waitN ? `<span class="stat-pill wait">รอขาย ${waitN}</span>` : '';
+  const retN = items.filter(c => retState(c) === 'pending').length; // มีใบขอคืนค้างอยู่ในกลุ่ม → บอกไว้ที่หัวกลุ่ม จะได้ไม่ต้องกางหาเอง
+  const stSummary = (waitN ? `<span class="stat-pill wait">รอขาย ${waitN}</span>` : '')
+    + (retN ? ` <span class="badge retask">คืนสินค้า ${retN}</span>` : '');
   const img = rep.image
     ? `<img class="thumb" loading="lazy" decoding="async" src="${rep.image}" onclick="event.stopPropagation();openLightbox('${rep.id}')" alt="">`
     : `<div class="thumb-empty">🃏</div>`;
@@ -4743,6 +4839,13 @@ function markSold(id) {
   if (!c) return;
   document.getElementById('sale_id').value = id;
   document.getElementById('saleCardName').textContent = `การ์ด: ${c.name}`;
+  // เคยขอคืนแล้วฝั่งรวมไม่อนุมัติ → เตือนตอนจะขายอีกครั้ง พร้อมจำนวนครั้ง
+  const warn = document.getElementById('saleReturnWarn');
+  if (warn) {
+    const n = retFails(c);
+    warn.style.display = n ? '' : 'none';
+    warn.innerHTML = n ? `<span>⚠️</span><span>สินค้าคืนไม่สำเร็จ ${n} ครั้ง</span>` : '';
+  }
   // ของสะสมหลายชิ้น → โชว์ช่องเลือกจำนวนที่ขาย
   const isMulti = c.type === 'collect' && (Number(c.qty) || 1) > 1;
   document.getElementById('row_saleQty').style.display = isMulti ? '' : 'none';
@@ -6856,7 +6959,9 @@ function poListHTML(list) {
 // ---- popup ยืนยันของแอปเอง (แทน confirm ของเบราว์เซอร์ ที่ขึ้น "cielcard.vercel.app บอกว่า") ----
 // ใช้: if (!await appConfirm({...})) return;
 let _cfResolve = null;
-function appConfirm({ icon = '❓', title = '', sub = '', countLabel = '', count = '', tone = '', okText = 'ตกลง' } = {}) {
+// คืนค่า true = กดปุ่มหลัก · false = กดปุ่มยกเลิก · null = ปิดทิ้งเฉย ๆ (คลิกนอกกล่อง)
+// การแยก false ออกจาก null สำคัญตอนที่ "ยกเลิก" มีผลจริง เช่นปฏิเสธการคืนสินค้า — ปิดทิ้งต้องไม่นับเป็นปฏิเสธ
+function appConfirm({ icon = '❓', title = '', sub = '', countLabel = '', count = '', tone = '', okText = 'ตกลง', cancelText = 'ยกเลิก' } = {}) {
   const ov = document.getElementById('confirmOverlay');
   if (!ov) return Promise.resolve(window.confirm(title)); // เผื่อหา popup ไม่เจอ — ไม่ให้ค้าง
   if (_cfResolve) { const prev = _cfResolve; _cfResolve = null; prev(false); } // มีอันค้างอยู่ → ปิดอันเก่าก่อน
@@ -6871,6 +6976,8 @@ function appConfirm({ icon = '❓', title = '', sub = '', countLabel = '', count
   document.getElementById('cfCountVal').textContent = count;
   const ok = document.getElementById('cfOk');
   ok.textContent = okText;
+  const cancel = document.getElementById('cfCancel');
+  if (cancel) cancel.textContent = cancelText;
   ov.classList.add('open');
   setTimeout(() => ok.focus(), 60);
   return new Promise(resolve => { _cfResolve = resolve; });
@@ -6880,7 +6987,7 @@ function closeAppConfirm(val) {
   if (!ov || !ov.classList.contains('open')) return;
   ov.classList.remove('open');
   const r = _cfResolve; _cfResolve = null;
-  if (r) r(!!val);
+  if (r) r(val === null || val === undefined ? null : !!val); // null = ปิดทิ้ง ไม่ได้ตัดสินใจ
 }
 
 // ---- popup แสดงหมายเหตุพรีออเดอร์แบบเต็ม ----
@@ -8488,7 +8595,7 @@ document.getElementById('shopOverlay').addEventListener('click', e => {
 document.getElementById('saleShopOverlay').addEventListener('click', e => {
   if (e.target.id === 'saleShopOverlay') closeSaleShop();
 });
-document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeLogin(); closePSASearch(); closeSale(); closeSplit(); closeProductEdit(); closeBuyConfirm(); closeBuyPopup(); closeGachaForm(); closeBuyEdit(); closeNewBuy(); closeSaleEdit(); closePreorderForm(); closeShopForm(); closeSaleShop(); closeNotePopup(); closeAppConfirm(false); } });
+document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeLogin(); closePSASearch(); closeSale(); closeSplit(); closeProductEdit(); closeBuyConfirm(); closeBuyPopup(); closeGachaForm(); closeBuyEdit(); closeNewBuy(); closeSaleEdit(); closePreorderForm(); closeShopForm(); closeSaleShop(); closeNotePopup(); closeAppConfirm(null); } });
 
 render();
 updatePoViewBtn();  // ปุ่มสลับมุมมองพรีออเดอร์ให้ตรงกับที่เลือกไว้ครั้งก่อน
