@@ -432,6 +432,10 @@
   .act-chip.sold { background: rgba(24,165,88,.22); border-color: transparent; color: #0f7a3d; }
   .act-chip.have { background: rgba(24,165,88,.16); border-color: transparent; color: var(--green); }
   .act-chip.none { background: var(--card2); color: var(--muted); }
+  /* ผลของการคืนสินค้าในคอลัมน์สถานะ — เห็นปุ๊บรู้ปั๊บว่าจบยังไง */
+  .act-chip.ok { background: rgba(24,165,88,.22); border-color: transparent; color: #0f7a3d; }
+  .act-chip.no { background: rgba(226,59,78,.18); border-color: transparent; color: var(--danger); }
+  .act-chip.pend { background: rgba(192,138,0,.22); border-color: transparent; color: #92600a; }
   .act-tally { margin-top: 3px; font-size: .78rem; font-weight: 800; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
   .act-chg { margin-top: 4px; font-size: .82rem; color: var(--muted); line-height: 1.65; overflow-wrap: anywhere; font-weight: 400; }
   .act-chg .act-f { font-weight: 700; color: var(--text); }
@@ -4284,6 +4288,18 @@ function actChipCls(x) {
   if (x.k === 'inStock') return x.to === 'มีของ' ? 'have' : 'none';
   return ACT_STATUS_CLS[x.to] || '';
 }
+// คอลัมน์ "สถานะ" ของรายการคืนสินค้า — บอกผลเป็น สำเร็จ / ยกเลิก ไม่ใช่สถานะสะสม-รอขาย
+// (การอนุมัติคืนก็เปลี่ยนสถานะการ์ดด้วย แต่คนอ่านรายงานอยากรู้ "ผลของการคืน" ก่อน)
+const ACT_RET_CHIP = {
+  retok:   { label: 'สำเร็จ', cls: 'ok' },
+  retno:   { label: 'ยกเลิก', cls: 'no' },
+  retask:  { label: 'รอดำเนินการ', cls: 'pend' },
+};
+function actStatusCellHTML(e, ch) {
+  const r = ACT_RET_CHIP[e && e.act];
+  if (r) return `<span class="act-chip ${r.cls}">${r.label}</span>`;
+  return actChipHTML(ch, 'status');
+}
 // ชิปของคอลัมน์เดียว (สถานะ / เช็คของ) — ไม่มีก็ปล่อยช่องว่างไว้ ให้ตารางยังอ่านเป็นแนวตั้งได้
 function actChipHTML(ch, key) {
   const x = (ch || []).find(y => y.k === key);
@@ -4361,7 +4377,7 @@ function actRowHTML(g) {
       <td></td>
       <td class="name"><span class="act-name"><span class="act-caret">▶</span>${g.length} ใบ</span>${actChangesHTML(common)}</td>
       <td class="hide-sm muted"></td>
-      <td class="center">${actChipHTML(common, 'status')}</td>
+      <td class="center">${actStatusCellHTML(e, common)}</td>
       <td class="center">${actChipHTML(common, 'inStock')}</td>
       <td class="hide-sm">${who}</td>
     </tr>`;
@@ -4381,7 +4397,7 @@ function actLeafRowHTML(e, batch) {
     <td>${actThumbHTML(e)}</td>
     <td class="name"><span class="act-name">${e.topic ? `<span class="act-topic">${esc(e.topic)}</span>` : ''}${esc(e.name)}${grade}${seed}</span>${actChangesHTML(ch)}${setHitHTML(cardById(e.cardId))}</td>
     <td class="hide-sm muted">${e.cert ? esc(e.cert) : '—'}</td>
-    <td class="center">${actChipHTML(ch, 'status')}</td>
+    <td class="center">${actStatusCellHTML(e, ch)}</td>
     <td class="center">${actStockCellHTML(e, ch)}</td>
     <td class="hide-sm">${batch ? '' : `<span class="act-who">👤 ${esc(e.who || '—')}</span>`}</td>
   </tr>`;

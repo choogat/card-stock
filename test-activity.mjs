@@ -398,6 +398,23 @@ t('ยอดเช็คของโผล่เฉพาะแถวที่�
   assert.ok(!view.actLeafRowHTML(edit, null).includes('act-tally'));
 });
 
+t('รายการคืนสินค้า: สถานะเป็น สำเร็จ (เขียว) / ยกเลิก (แดง) / รอดำเนินการ', () => {
+  const ch = [{ k: 'status', label: 'สถานะ', from: 'รอขาย', to: 'สะสม' }];
+  const ok = view.actLeafRowHTML({ id: 'r1', at: 1, who: 'a', act: 'retok', name: 'n', changes: ch }, null);
+  assert.ok(ok.includes('act-chip ok') && ok.includes('สำเร็จ'), 'คืนสำเร็จต้องขึ้น "สำเร็จ" สีเขียว');
+  assert.ok(!ok.includes('>สะสม<'), 'ต้องไม่โชว์สถานะการ์ดแทนผลการคืน');
+  const no = view.actLeafRowHTML({ id: 'r2', at: 1, who: 'a', act: 'retno', name: 'n', changes: [] }, null);
+  assert.ok(no.includes('act-chip no') && no.includes('ยกเลิก'), 'ไม่อนุมัติต้องขึ้น "ยกเลิก" สีแดง');
+  const ask = view.actLeafRowHTML({ id: 'r3', at: 1, who: 'a', act: 'retask', name: 'n', changes: [] }, null);
+  assert.ok(ask.includes('act-chip pend') && ask.includes('รอดำเนินการ'));
+});
+
+t('รายการอื่นยังใช้ชิปสถานะเดิม ไม่โดนกลบ', () => {
+  const ch = [{ k: 'status', label: 'สถานะ', from: 'สะสม', to: 'ขายแล้ว' }];
+  const sell = view.actLeafRowHTML({ id: 's1', at: 1, who: 'a', act: 'sell', name: 'n', changes: ch }, null);
+  assert.ok(sell.includes('act-chip sold') && sell.includes('ขายแล้ว'));
+});
+
 t('ชิปสถานะได้สีตามค่า และช่องที่ไม่มีข้อมูลขึ้นขีด', () => {
   const ch = [{ k: 'status', label: 'สถานะ', from: 'สะสม', to: 'ขายแล้ว' }];
   assert.ok(view.actChipHTML(ch, 'status').includes('act-chip sold'));
