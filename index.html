@@ -628,6 +628,13 @@
   .filters-row select.filter { flex: 0 0 auto; }
   .filters-row .price-filter { flex: 0 0 auto; margin-left: auto; }
   .price-filter { display: flex; align-items: center; gap: 6px; padding: 0 12px; }
+  /* ปุ่มสลับ "รวมใบ / แยกใบ" — ไอคอนล้วน กว้างเท่าความสูง ไม่กินที่ ไม่แย่งสายตาจากตัวกรอง */
+  .icon-toggle {
+    width: 42px; padding: 0; flex: 0 0 auto; cursor: pointer;
+    font-size: 1rem; line-height: 1; display: inline-flex; align-items: center; justify-content: center;
+  }
+  .icon-toggle:hover { border-color: var(--accent); }
+  .icon-toggle.on { border-color: var(--accent); background: var(--t-info-bg); color: var(--t-info-fg); }
   .price-filter .pf-label { color: var(--muted); font-size: .82rem; font-weight: 600; }
   .price-filter .pf-dash { color: var(--muted); }
   .price-filter .pf-input {
@@ -1378,6 +1385,7 @@
     <button class="btn btn-primary" onclick="openForm('card')">+ เพิ่มการ์ด</button>
     <button class="btn btn-primary" onclick="openForm('collect')">+ เพิ่มของสะสม</button>
     <input class="search" id="search" placeholder="ค้นหา / PSA…" oninput="render()">
+    <button class="filter icon-toggle" id="flatBtnStock" onclick="toggleFlatRows()" title="กำลังรวมใบที่เหมือนกัน — กดเพื่อแยกทุกใบ">🗂</button>
     <select class="filter" id="topicFilter" onchange="render()">
       <option value="">ทุกเรื่อง</option>
     </select>
@@ -1514,6 +1522,7 @@
     <div class="topic-breakdown" id="salesDaily"></div>
     <div class="toolbar">
       <input class="search" id="salesSearch" placeholder="ค้นหา เรื่อง / ชื่อ / รุ่น..." oninput="renderSales()">
+      <button class="filter icon-toggle" id="flatBtnSales" onclick="toggleFlatRows()" title="กำลังรวมใบที่เหมือนกัน — กดเพื่อแยกทุกใบ">🗂</button>
       <select class="filter" id="salesSort" onchange="renderSales()">
         <option value="newest">ใหม่สุดก่อน</option>
         <option value="oldest">เก่าสุดก่อน</option>
@@ -3448,6 +3457,27 @@ function groupRow(g) {
 }
 
 // สร้างแถวตารางสต็อกแบบรวมกลุ่ม
+// ===== รวมใบเหมือนกัน / แยกทุกใบ =====
+// ปกติการ์ดที่เหมือนกันถูกยุบเป็นแถวเดียว กดกางดูใบย่อย — เห็นภาพรวมง่ายแต่ต้องกดก่อนถึงจะแก้ใบข้างในได้
+// สลับเป็น "แยกทุกใบ" เมื่ออยากไล่แก้เร็ว ๆ · จำค่าที่เลือกไว้ในเครื่อง ใช้ร่วมกันทั้งคลังสินค้าและสินค้าขาย
+let flatRows = localStorage.getItem('app_flat_rows') === '1';
+function toggleFlatRows() {
+  flatRows = !flatRows;
+  localStorage.setItem('app_flat_rows', flatRows ? '1' : '0');
+  syncFlatBtns();
+  render();
+  if (isViewVisible('viewSales')) renderSales();
+}
+function flatBtnHTML(id) {
+  const tip = flatRows ? 'กำลังแยกทุกใบ — กดเพื่อรวมใบที่เหมือนกัน' : 'กำลังรวมใบที่เหมือนกัน — กดเพื่อแยกทุกใบ';
+  return `<button class="filter icon-toggle${flatRows ? ' on' : ''}" id="${id}" onclick="toggleFlatRows()" title="${tip}" aria-label="${tip}">${flatRows ? '☰' : '🗂'}</button>`;
+}
+function syncFlatBtns() {
+  for (const id of ['flatBtnStock', 'flatBtnSales']) {
+    const el = document.getElementById(id);
+    if (el) el.outerHTML = flatBtnHTML(id);
+  }
+}
 function buildStockRows(list) {
   const groups = [];
   const gmap = new Map();
@@ -3457,6 +3487,8 @@ function buildStockRows(list) {
     if (!g) { g = { key: k, items: [] }; gmap.set(k, g); groups.push(g); }
     g.items.push(c);
   }
+  if (flatRows) return list.map(c => stockRow(c, false)
+    + (c.type === 'set' && expandedSets.has(c.id) ? setCardsRow(c) : '')).join('');
   return groups.map(g => {
     if (g.items.length === 1) {
       const c = g.items[0];
@@ -4990,6 +5022,13 @@ function buildSalesRows(list) {
     let g = gmap.get(k);
     if (!g) { g = { key: k, items: [] }; gmap.set(k, g); groups.push(g); }
     g.items.push(c);
+  }
+  if (flatRows) {
+    const one = c => salesRow(c, false) + (c.type === 'set' && expandedSets.has(c.id) ? setCardsRow(c) : '');
+    if (!salesActSort) return list.map(one).join('');
+    const dir = salesActSort === 'ret' ? -1 : 1;
+    return list.slice().sort((a, b) =>
+      ((retState(a) === 'pending' ? 1 : 0) - (retState(b) === 'pending' ? 1 : 0)) * dir).map(one).join('');
   }
   // เรียงตามคอลัมน์ "กระทำ" — เรียงที่ระดับกลุ่ม ไม่ให้กลุ่มชื่อเดียวกันถูกฉีกออกจากกัน
   // กลุ่มที่มีใบรอตัดสินเรื่องคืนแม้ใบเดียว ถือว่าเป็นกลุ่ม "คืนสินค้า"
@@ -8902,6 +8941,7 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeLogin
 render();
 updatePoViewBtn();  // ปุ่มสลับมุมมองพรีออเดอร์ให้ตรงกับที่เลือกไว้ครั้งก่อน
 applyPermissions(); // ตั้งเมนู/แถบตามสิทธิ์ + คงแถบ/ร้านล่าสุดหลัง F5 (รวมคืนหน้าร้านจากแคชทันที)
+syncFlatBtns();     // ปุ่มรวมใบ/แยกใบ ต้องตรงกับค่าที่จำไว้ตั้งแต่เปิดแอป
 gachaBooting = false; // คืนหน้าล่าสุด (F5) เสร็จแล้ว — จากนี้กดเมนูอื่นกลับเข้ายอดจุ่ม = รีเซ็ตเป็น "ใช้งานอยู่"
 updateAuthGate();   // ยังไม่ล็อกอิน → ล็อกหน้าจอ เหลือแต่หน้าล็อกอิน
 // เปิดแอป: บังจอไว้จนข้อมูลชุดแรกมาครบ กันกดปุ่มตอนข้อมูลยังไม่มา
