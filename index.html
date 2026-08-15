@@ -945,6 +945,14 @@
   .psa-msg.load { color: var(--muted); }
   .modal-actions { display: flex; gap: 10px; margin-top: 22px; }
   .modal-actions .btn { flex: 1; }
+  /* 3 ทางเลือก: ปุ่มออกเฉย ๆ ไม่ต้องกว้างเท่าปุ่มที่ตัดสินจริง และบนจอแคบให้ตกลงไปแถวล่างเต็มความกว้าง
+     เรียงซ้าย→ขวา = ปลอดภัยสุด → ปฏิเสธ → ตกลง (ดู DESIGN.md ข้อ 5) */
+  .modal-actions.three { flex-wrap: wrap; }
+  .modal-actions.three .btn { padding: 12px 10px; font-size: .9rem; }
+  .modal-actions.three #cfDismiss { flex: 0 0 auto; min-width: 92px; }
+  @media (max-width: 460px) {
+    .modal-actions.three #cfDismiss { order: 3; flex: 1 0 100%; }
+  }
 
   /* ---- popup ยืนยันของแอปเอง (แทน confirm ของเบราว์เซอร์) ---- */
   .cf-modal { max-width: 380px; text-align: center; padding: 26px 24px 22px; }
@@ -1760,7 +1768,9 @@
       <span class="cf-count-lbl" id="cfCountLbl"></span>
       <span class="cf-count-val" id="cfCountVal"></span>
     </div>
-    <div class="modal-actions">
+    <div class="modal-actions" id="cfActions">
+      <!-- ปุ่มออกเฉย ๆ (ไม่ตัดสินอะไร) โผล่เฉพาะ popup ที่ปุ่ม "ยกเลิก" มีผลจริง เช่นการไม่อนุมัติคืนสินค้า -->
+      <button class="btn btn-ghost" id="cfDismiss" style="display:none" onclick="closeAppConfirm(null)">ยกเลิก</button>
       <button class="btn btn-ghost" id="cfCancel" onclick="closeAppConfirm(false)">ยกเลิก</button>
       <button class="btn btn-primary" id="cfOk" onclick="closeAppConfirm(true)">ตกลง</button>
     </div>
@@ -4811,12 +4821,14 @@ async function reviewReturn(id) {
   const who = c.retBy ? `ผู้ขอคืน: ${c.retBy}` : '';
   const when = c.retAt ? `ขอคืนเมื่อ ${fmtDate(actDayKey(c.retAt))}` : ''; // actDayKey = วันตามเวลาเครื่อง ไม่ใช่ UTC
   const ans = await appConfirm({
-    icon: '📦', tone: 'warn', title: 'ยืนยันคืนสินค้า',
+    icon: '📦', tone: 'warn', title: 'คำขอคืนสินค้า',
     sub: [`${c.name || 'สินค้า'}${c.psa ? ` (${c.grader || 'PSA'} ${c.psa})` : ''}`,
       shop ? `ร้าน: ${shop.name || 'ร้าน'}` : '', who, when].filter(Boolean).join('\n'),
     countLabel: retFails(c) ? 'เคยคืนไม่สำเร็จ' : '',
     count: retFails(c) ? `${retFails(c)} ครั้ง` : '',
-    okText: 'ยืนยันคืนสินค้า', cancelText: 'ยกเลิก',
+    okText: 'อนุมัติ',                    // → คืนสำเร็จ กลับเข้าคลังเป็นสะสม
+    cancelText: 'ไม่อนุมัติ', cancelTone: 'danger', // → นับคืนไม่สำเร็จ กลับไปขายต่อ
+    dismissText: 'ยกเลิก',                // → ไม่ตัดสินอะไร ค้างรอไว้เหมือนเดิม
   });
   if (ans === null) return;                 // ปิดทิ้ง = ยังไม่ตัดสิน ไม่นับเป็นอะไรทั้งนั้น
   if (ans) {
@@ -7126,7 +7138,9 @@ function poListHTML(list) {
 let _cfResolve = null;
 // คืนค่า true = กดปุ่มหลัก · false = กดปุ่มยกเลิก · null = ปิดทิ้งเฉย ๆ (คลิกนอกกล่อง)
 // การแยก false ออกจาก null สำคัญตอนที่ "ยกเลิก" มีผลจริง เช่นปฏิเสธการคืนสินค้า — ปิดทิ้งต้องไม่นับเป็นปฏิเสธ
-function appConfirm({ icon = '❓', title = '', sub = '', countLabel = '', count = '', tone = '', okText = 'ตกลง', cancelText = 'ยกเลิก' } = {}) {
+// dismissText = ใส่เมื่อ popup มี 3 ทางเลือก (ออกเฉย ๆ / ปฏิเสธ / ตกลง) — ไม่ใส่ = 2 ปุ่มเหมือนเดิม
+// cancelTone = 'danger' เมื่อการกดปฏิเสธมีผลถาวร จะได้ไม่กดสลับกับปุ่มออกเฉย ๆ
+function appConfirm({ icon = '❓', title = '', sub = '', countLabel = '', count = '', tone = '', okText = 'ตกลง', cancelText = 'ยกเลิก', dismissText = '', cancelTone = '' } = {}) {
   const ov = document.getElementById('confirmOverlay');
   if (!ov) return Promise.resolve(window.confirm(title)); // เผื่อหา popup ไม่เจอ — ไม่ให้ค้าง
   if (_cfResolve) { const prev = _cfResolve; _cfResolve = null; prev(false); } // มีอันค้างอยู่ → ปิดอันเก่าก่อน
@@ -7142,7 +7156,17 @@ function appConfirm({ icon = '❓', title = '', sub = '', countLabel = '', count
   const ok = document.getElementById('cfOk');
   ok.textContent = okText;
   const cancel = document.getElementById('cfCancel');
-  if (cancel) cancel.textContent = cancelText;
+  if (cancel) {
+    cancel.textContent = cancelText;
+    cancel.className = 'btn ' + (cancelTone === 'danger' ? 'btn-danger' : 'btn-ghost');
+  }
+  const dismiss = document.getElementById('cfDismiss');
+  if (dismiss) {
+    dismiss.style.display = dismissText ? '' : 'none';
+    dismiss.textContent = dismissText || 'ยกเลิก';
+  }
+  const acts = document.getElementById('cfActions');
+  if (acts) acts.classList.toggle('three', !!dismissText);
   ov.classList.add('open');
   setTimeout(() => ok.focus(), 60);
   return new Promise(resolve => { _cfResolve = resolve; });

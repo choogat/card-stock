@@ -83,5 +83,19 @@ t('หัวข้อ h2 ถูกซ่อนเมื่อมีแถบห�
   assert.ok(/body\.shop-ui \.view-title, body\.main-ui \.view-title \{ display: none/.test(html));
 });
 
+console.log('\nปุ่มใน popup');
+
+t('popup ทั่วไปยังเป็น 2 ปุ่มเหมือนเดิม (ปุ่มที่ 3 ซ่อนไว้จนกว่าจะสั่ง)', () => {
+  const bar = html.slice(html.indexOf('<div class="modal-actions" id="cfActions">'), html.indexOf('</div>', html.indexOf('id="cfOk"')));
+  assert.ok(/id="cfDismiss"[^>]*style="display:none"/.test(bar), 'ปุ่มออกเฉย ๆ ต้องซ่อนไว้ก่อน');
+  assert.ok(bar.indexOf('cfDismiss') < bar.indexOf('cfCancel'), 'ปุ่มปลอดภัยสุดอยู่ซ้ายสุด');
+  assert.ok(bar.indexOf('cfCancel') < bar.indexOf('cfOk'), 'ปุ่มตกลงอยู่ขวาสุด');
+});
+
+t('ปุ่มออกเฉย ๆ ต้องไม่ถูกนับเป็นการปฏิเสธ', () => {
+  assert.ok(/id="cfDismiss"[^>]*onclick="closeAppConfirm\(null\)"/.test(html), 'ต้องส่งค่า null เหมือนการปิดกล่อง');
+  assert.ok(/id="cfCancel"[^>]*onclick="closeAppConfirm\(false\)"/.test(html));
+});
+
 console.log(`\n${fail ? '✗' : '✓'} ผ่าน ${pass} / ${pass + fail}\n`);
 process.exit(fail ? 1 : 0);

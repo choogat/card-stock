@@ -168,10 +168,20 @@ await ta('popup บอกชื่อสินค้า ร้าน และ�
   mod.setCards([c]); mod.setShop(null); mod.setAnswer(null);
   await mod.reviewReturn('c1');
   const last = mod.asked[mod.asked.length - 1];
-  assert.equal(last.title, 'ยืนยันคืนสินค้า');
-  assert.equal(last.okText, 'ยืนยันคืนสินค้า');
+  assert.equal(last.title, 'คำขอคืนสินค้า');
   assert.ok(last.sub.includes('Luffy') && last.sub.includes('สาขา 2') && last.sub.includes('got001'));
   assert.equal(last.count, '3 ครั้ง');
+});
+
+await ta('popup มี 3 ทางเลือก: ยกเลิก / ไม่อนุมัติ / อนุมัติ', async () => {
+  const c = { ...mk(), retState: 'pending' };
+  mod.setCards([c]); mod.setShop(null); mod.setAnswer(null);
+  await mod.reviewReturn('c1');
+  const o = mod.asked[mod.asked.length - 1];
+  assert.equal(o.okText, 'อนุมัติ', 'ปุ่มขวา = อนุมัติ');
+  assert.equal(o.cancelText, 'ไม่อนุมัติ', 'ปุ่มกลาง = ไม่อนุมัติ (มีผลจริง)');
+  assert.equal(o.dismissText, 'ยกเลิก', 'ปุ่มซ้าย = ออกเฉย ๆ');
+  assert.equal(o.cancelTone, 'danger', 'ปุ่มไม่อนุมัติต้องเป็นสีแดง ไม่ให้กดสลับกับยกเลิก');
 });
 
 console.log('\nชิปสรุป "รอดำเนินการ"');
