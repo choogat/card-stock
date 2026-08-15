@@ -1316,7 +1316,7 @@
       <option value="profit_desc">กำไร มาก→น้อย</option>
       <option value="buyDate_desc">วันที่ซื้อ ล่าสุด</option>
       <option value="stock_have">เช็คของ: มีของก่อน</option>
-      <option value="stock_none">เช็คของ: ของไม่มีก่อน</option>
+      <option value="stock_none">เช็คของ: ไม่มีของก่อน</option>
     </select>
     <select class="filter" id="stockShopFilter" onchange="render()">
       <option value="">ทุกร้าน</option>
@@ -2687,7 +2687,7 @@ const ACT_BOOL = new Set(['inStock', 'viaBuy', 'productOnly', 'cancelled']);
 // แปลงค่าดิบให้อ่านออก (เก็บเป็นข้อความตั้งแต่ตอนบันทึก — ประวัติจะได้ไม่เพี้ยนถ้าร้าน/ตู้ถูกเปลี่ยนชื่อทีหลัง)
 function actVal(k, v) {
   // ฟิลด์ใช่/ไม่ใช่ ต้องเช็คก่อน "ค่าว่าง" — ใบเก่าที่ยังไม่มีฟิลด์นี้เลย ต้องอ่านว่า "ไม่" ไม่ใช่ "—"
-  if (k === 'inStock') return v === true ? 'มีของ' : 'ของไม่มี';
+  if (k === 'inStock') return v === true ? 'มีของ' : 'ไม่มีของ';
   if (ACT_BOOL.has(k)) return v === true ? 'ใช่' : 'ไม่';
   if (k === 'retState') return v ? (RET_LABEL[v] || v) : 'ไม่ได้คืน';
   if (v === undefined || v === null || v === '') return '—';
@@ -3257,8 +3257,8 @@ function stockRow(c, isChild) {
     </td>
     <td class="center stock-cell ${hasStock ? 'on' : 'off'}">
       <input type="checkbox" class="stock-check" ${hasStock ? 'checked' : ''}
-        onchange="toggleInStock('${c.id}', this)" title="ติ๊ก = มีของอยู่จริง · เอาติ๊กออก = ของไม่มี">
-      <span class="stock-lbl">${hasStock ? 'มีของ' : 'ของไม่มี'}</span>
+        onchange="toggleInStock('${c.id}', this)" title="ติ๊ก = มีของอยู่จริง · เอาติ๊กออก = ไม่มีของ">
+      <span class="stock-lbl">${hasStock ? 'มีของ' : 'ไม่มีของ'}</span>
     </td>
     <td class="center">${esc(stockShopName(c))}</td>
     <td>
@@ -4295,8 +4295,18 @@ const ACT_RET_CHIP = {
   retno:   { label: 'ยกเลิก', cls: 'no' },
   retask:  { label: 'รอดำเนินการ', cls: 'pend' },
 };
+// แถว "ขอคืนสินค้า" ค้างเป็นรอดำเนินการตลอดไม่ได้ — พอเรื่องจบแล้วต้องบอกผลตามที่จบจริง
+// ดูจากการ์ดใบล่าสุด: ยังรออยู่ = รอดำเนินการ · คืนจบหลังคำขอนี้ = สำเร็จ · นอกนั้น = ยกเลิก
+function actRetOutcome(e) {
+  if (e.act !== 'retask') return ACT_RET_CHIP[e.act];
+  const c = cardById(e.cardId);
+  if (!c) return ACT_RET_CHIP.retask;                                  // การ์ดถูกลบไปแล้ว ไม่รู้ผล
+  if (c.retState === 'pending') return ACT_RET_CHIP.retask;
+  if ((Number(c.retDoneAt) || 0) >= (Number(e.at) || 0)) return ACT_RET_CHIP.retok;
+  return ACT_RET_CHIP.retno;
+}
 function actStatusCellHTML(e, ch) {
-  const r = ACT_RET_CHIP[e && e.act];
+  const r = e && ACT_RET_CHIP[e.act] ? actRetOutcome(e) : null;
   if (r) return `<span class="act-chip ${r.cls}">${r.label}</span>`;
   return actChipHTML(ch, 'status');
 }
@@ -4304,14 +4314,20 @@ function actStatusCellHTML(e, ch) {
 function actChipHTML(ch, key) {
   const x = (ch || []).find(y => y.k === key);
   if (!x) return '<span class="muted">—</span>';
+  // เช็คของมีแค่ 2 ค่า — บอกผลตอนนี้พอ ไม่ต้องลาก "ของไม่มี →" มาให้รก (ยอดรวมอยู่ใต้ชิปแล้ว)
+  if (key === 'inStock') return `<span class="act-chip ${actChipCls(x)}">${esc(stockTxt(x.to))}</span>`;
   const from = (x.from !== undefined && x.from !== null && x.from !== x.to)
     ? `<span class="act-chip-from">${esc(x.from)}</span><span class="act-chip-ar">→</span>` : '';
   return `<span class="act-chip ${actChipCls(x)}">${from}<span>${esc(x.to)}</span></span>`;
 }
+// รายการเก่าบันทึกคำว่า "ของไม่มี" ไว้ในข้อมูลแล้ว — แปลงตอนแสดงผล ให้อ่านเหมือนกันทั้งเก่าและใหม่
+function stockTxt(v) { return v === 'ของไม่มี' ? 'ไม่มีของ' : v; }
 function actChangesHTML(ch) {
   const rest = (ch || []).filter(x => !ACT_CHIP_KEYS.includes(x.k));
   if (!rest.length) return '';
   return '<div class="act-chg">' + rest.map(x => {
+    // สถานะคืนสินค้าอ่านได้จากชิปในคอลัมน์สถานะอยู่แล้ว — ตรงนี้เอาแค่ชื่อเรื่องพอ ไม่ต้องซ้ำค่า
+    if (x.k === 'retState') return `<span class="act-f">คืนสินค้า</span>`;
     const from = (x.from !== undefined && x.from !== null && x.from !== x.to)
       ? `<span class="act-from">${esc(x.from)}</span> → ` : '';
     return `<span class="act-f">${esc(x.label)}</span> ${from}<span class="act-to">${esc(x.to)}</span>`;
@@ -4978,7 +4994,7 @@ function stockCheckThHTML() {
   const cur = document.getElementById('sortBy')?.value || '';
   const arrow = cur === 'stock_have' ? '✓' : cur === 'stock_none' ? '✕' : '';
   const on = arrow ? ' sorted' : '';
-  return `<th class="center stock-th${on}" onclick="sortByStockCheck()" title="กดเพื่อเรียง มีของ / ของไม่มี">`
+  return `<th class="center stock-th${on}" onclick="sortByStockCheck()" title="กดเพื่อเรียง มีของ / ไม่มีของ">`
     + `เช็คของ<span class="stock-th-ar">${arrow}</span></th>`;
 }
 function sortByStockCheck() {
@@ -5014,7 +5030,7 @@ async function toggleInStock(id, el) {
     td.classList.toggle('on', c.inStock);
     td.classList.toggle('off', !c.inStock);
     const lbl = td.querySelector('.stock-lbl');
-    if (lbl) lbl.textContent = c.inStock ? 'มีของ' : 'ของไม่มี';
+    if (lbl) lbl.textContent = c.inStock ? 'มีของ' : 'ไม่มีของ';
     refreshGroupStockSum(td.closest('tr')); // ใบย่อยในกลุ่ม → อัปเดตเลข x/y ที่หัวข้อใหญ่ด้วย
   }
   updateStats(); // อัปเดตกล่อง "เช็คของแล้ว" ด้านบนให้ตรงทันที

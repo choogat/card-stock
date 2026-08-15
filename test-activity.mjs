@@ -60,7 +60,7 @@ t('การ์ดใบใหม่ = เพิ่มการ์ด พร้�
   assert.deepEqual(e.changes.map(x => x.label + ' ' + x.to), ['ราคารับซื้อ ฿500', 'ราคาขาย ฿900', 'สถานะ สะสม']);
 });
 
-t('ติ๊กเช็คของอย่างเดียว = เช็คของ (ของไม่มี → มีของ)', () => {
+t('ติ๊กเช็คของอย่างเดียว = เช็คของ (ไม่มีของ → มีของ)', () => {
   mod.resetLogs();
   const prev = { id: 'c1', name: 'Luffy', status: 'show' };
   const cur = { ...prev, inStock: true };
@@ -69,7 +69,7 @@ t('ติ๊กเช็คของอย่างเดียว = เช็�
   const e = last();
   assert.equal(e.act, 'stock');
   assert.equal(e.changes.length, 1);
-  assert.equal(e.changes[0].from, 'ของไม่มี');
+  assert.equal(e.changes[0].from, 'ไม่มีของ');
   assert.equal(e.changes[0].to, 'มีของ');
 });
 
@@ -341,7 +341,7 @@ function cardById(id){ return cards.find(c => c && c.id === id) || null; }
 function cardHay(c){ return [c.name, c.cert, (c.setItems||[]).map(i => i.name + ' ' + i.cert).join(' ')].filter(Boolean).join(' ').toLowerCase(); }
 function setHitHTML(c){ return c && c.setItems ? '<div class="set-hit">รวมเป็นชุด</div>' : ''; }
 function actVal(k, v){
-  if (k === 'inStock') return v === true ? 'มีของ' : 'ของไม่มี';
+  if (k === 'inStock') return v === true ? 'มีของ' : 'ไม่มีของ';
   if (k === 'status') return ({ show:'สะสม', wait:'รอขาย', sold:'ขายแล้ว' })[v] || v;
   return v;
 }
@@ -366,7 +366,7 @@ t('หัวตารางกับ colspan ของแถบวันที�
 t('แถวปกติมีช่องครบตามหัวตาราง', () => {
   const e = { id: 'x', at: Date.now(), who: 'Cielcard', act: 'stock', name: 'Luffy', topic: 'One Piece',
     cert: '144153428', psa: '10', grader: 'PSA', image: 'https://blob/a.png', stockTally: '178/1118',
-    changes: [{ k: 'inStock', label: 'เช็คของ', from: 'ของไม่มี', to: 'มีของ' }] };
+    changes: [{ k: 'inStock', label: 'เช็คของ', from: 'ไม่มีของ', to: 'มีของ' }] };
   const rows = rowsOf(view.actRowHTML([e]));
   assert.equal(rows.length, 1);
   assert.equal(cellsOf(rows[0]), COLS);
@@ -392,7 +392,7 @@ t('รูปกดดูได้ · ไม่มีรูปก็ไม่พ�
 
 t('ยอดเช็คของโผล่เฉพาะแถวที่ติ๊กเช็คของ', () => {
   const stock = { id: 'x', at: 1, who: 'a', act: 'stock', name: 'n', stockTally: '178/1118',
-    changes: [{ k: 'inStock', label: 'เช็คของ', from: 'ของไม่มี', to: 'มีของ' }] };
+    changes: [{ k: 'inStock', label: 'เช็คของ', from: 'ไม่มีของ', to: 'มีของ' }] };
   assert.ok(view.actLeafRowHTML(stock, null).includes('178/1118'));
   const edit = { id: 'y', at: 1, who: 'a', act: 'edit', name: 'n', changes: [{ k: 'sell', label: 'ราคาขาย', to: '฿600' }] };
   assert.ok(!view.actLeafRowHTML(edit, null).includes('act-tally'));
@@ -407,6 +407,44 @@ t('รายการคืนสินค้า: สถานะเป็น �
   assert.ok(no.includes('act-chip no') && no.includes('ยกเลิก'), 'ไม่อนุมัติต้องขึ้น "ยกเลิก" สีแดง');
   const ask = view.actLeafRowHTML({ id: 'r3', at: 1, who: 'a', act: 'retask', name: 'n', changes: [] }, null);
   assert.ok(ask.includes('act-chip pend') && ask.includes('รอดำเนินการ'));
+});
+
+t('แถวขอคืน: เรื่องจบแล้วต้องบอกผลตามจริง ไม่ค้างเป็นรอดำเนินการ', () => {
+  const ask = { id: 'r4', at: 1000, who: 'a', act: 'retask', name: 'n', cardId: 'k1', changes: [] };
+  view.setViewCards([{ id: 'k1', retState: 'pending' }]);
+  assert.ok(view.actLeafRowHTML(ask, null).includes('รอดำเนินการ'), 'ยังรออยู่');
+  view.setViewCards([{ id: 'k1', retState: 'done', retDoneAt: 2000 }]);
+  assert.ok(view.actLeafRowHTML(ask, null).includes('สำเร็จ'), 'อนุมัติแล้ว → สำเร็จ');
+  view.setViewCards([{ id: 'k1', retState: '', retFails: 1 }]);
+  assert.ok(view.actLeafRowHTML(ask, null).includes('ยกเลิก'), 'ไม่อนุมัติ → ยกเลิก');
+  view.setViewCards([]);
+  assert.ok(view.actLeafRowHTML(ask, null).includes('รอดำเนินการ'), 'ไม่มีการ์ดให้ดู = ไม่เดาผล');
+});
+
+t('เช็คของโชว์แค่ค่าปัจจุบัน (ไม่มีลูกศร) แต่ยอดรวมยังอยู่', () => {
+  const e = { id: 'x', at: 1, who: 'a', act: 'stock', name: 'n', stockTally: '198/1118',
+    changes: [{ k: 'inStock', label: 'เช็คของ', from: 'ไม่มีของ', to: 'มีของ' }] };
+  const out = view.actLeafRowHTML(e, null);
+  assert.ok(out.includes('มีของ'));
+  assert.ok(!out.includes('act-chip-ar'), 'ต้องไม่มีลูกศรจากค่าเดิม');
+  assert.ok(!out.includes('act-chip-from'), 'ต้องไม่โชว์ค่าเดิม');
+  assert.ok(out.includes('198/1118'), 'ยอดรวมต้องยังอยู่');
+});
+
+t('รายการเช็คของเก่าที่บันทึกคำว่า "ของไม่มี" ไว้ ต้องอ่านเป็น "ไม่มีของ"', () => {
+  const e = { id: 'x', at: 1, who: 'a', act: 'stock', name: 'n',
+    changes: [{ k: 'inStock', label: 'เช็คของ', from: 'มีของ', to: 'ของไม่มี' }] };
+  const out = view.actLeafRowHTML(e, null);
+  assert.ok(out.includes('ไม่มีของ') && !out.includes('>ของไม่มี<'));
+});
+
+t('บรรทัดรายละเอียดของคืนสินค้าเหลือแค่คำว่า "คืนสินค้า"', () => {
+  const e = { id: 'x', at: 1, who: 'a', act: 'retask', name: 'n',
+    changes: [{ k: 'retState', label: 'คืนสินค้า', from: 'ไม่ได้คืน', to: 'รอดำเนินการ' }] };
+  const out = view.actLeafRowHTML(e, null);
+  assert.ok(out.includes('คืนสินค้า'));
+  assert.ok(!out.includes('ไม่ได้คืน'), 'ต้องไม่มีค่าเดิม');
+  assert.ok(!out.includes('act-to'), 'ต้องไม่มีค่าใหม่ต่อท้าย');
 });
 
 t('รายการอื่นยังใช้ชิปสถานะเดิม ไม่โดนกลบ', () => {
