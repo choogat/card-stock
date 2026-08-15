@@ -1260,10 +1260,17 @@
       <button class="btn btn-primary btn-sm" onclick="shopSellAction()">+ ขายสินค้า</button>
     </div>
   </header>
+  <!-- แถบหัวของหน้าแดชบอร์ด (บัญชีทั่วไป) — หัวข้ออยู่บนแถบแทน h2 จะได้ไม่ซ้ำกัน -->
+  <header class="topbar" id="mainTopbar" style="display:none">
+    <button class="tb-burger" onclick="toggleNav()" title="เมนู">☰</button>
+    <div class="tb-titles"><div class="tb-title">📊 แดชบอร์ด</div><div class="tb-sub">ภาพรวมธุรกิจ</div></div>
+    <div class="tb-right">
+      <button class="tb-icon" id="themeToggleMain" onclick="toggleShopTheme()" title="สลับธีม สว่าง/มืด">🌙</button>
+    </div>
+  </header>
   <div id="shopBanner" class="shop-banner" style="display:none"></div>
 
   <div id="viewDashboard" style="display:none">
-    <h2 class="view-title">📊 แดชบอร์ด <span style="color:var(--muted);font-weight:400;font-size:.7em">ภาพรวมธุรกิจ</span></h2>
     <div class="dash-range" id="dashRangeBar">
       <button class="rbtn" data-range="today" onclick="setDashRange('today')">วันนี้</button>
       <button class="rbtn" data-range="7d" onclick="setDashRange('7d')">7 วัน</button>
@@ -3382,6 +3389,9 @@ function switchView(view) {
   updateShopBanner();
   document.querySelectorAll('.nav-item').forEach(b => b.classList.toggle('active', b.dataset.view === view));
   document.getElementById('viewDashboard').style.display = view === 'dashboard' ? '' : 'none';
+  // แถบหัวแดชบอร์ด — เฉพาะบัญชีทั่วไป (บัญชีร้านมีแถบของตัวเองอยู่แล้ว จะได้ไม่ซ้อนกัน 2 แถบ)
+  const mtb = document.getElementById('mainTopbar');
+  if (mtb) mtb.style.display = (view === 'dashboard' && !isShopAccount()) ? '' : 'none';
   document.getElementById('viewStock').style.display = view === 'stock' ? '' : 'none';
   document.getElementById('viewSoldStock').style.display = view === 'soldstock' ? '' : 'none';
   document.getElementById('viewActivity').style.display = view === 'activity' ? '' : 'none';
@@ -3455,7 +3465,7 @@ function applyShopTheme() {
   document.body.classList.toggle('shop-ui', isShop); // ซ่อนหัวข้อ h2 ซ้ำ (มีหัวข้อบน topbar แล้ว)
   const tb = document.getElementById('shopTopbar');
   if (tb) tb.style.display = isShop ? '' : 'none';
-  for (const id of ['themeToggleBtn', 'themeToggleSide']) {
+  for (const id of ['themeToggleBtn', 'themeToggleSide', 'themeToggleMain']) {
     const el = document.getElementById(id);
     if (!el) continue;
     el.textContent = dark ? '🌙' : '☀️';
