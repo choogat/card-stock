@@ -86,12 +86,14 @@ t('รออนุมัติ: ฝั่งรวมได้ปุ่มตั
   assert.ok(!mod.returnActionsHTML(c).includes('requestReturn'), 'ขอซ้ำไม่ได้');
 });
 
-t('คืนไม่สำเร็จ → ปุ่มขายเป็นสีส้ม + บอกจำนวนครั้ง', () => {
+t('คืนไม่สำเร็จ → ปุ่มขายยังเป็นปุ่มขายปกติ ไม่มีข้อความห้อยใต้แถว (ไปบอกใน popup แทน)', () => {
   const c = { ...mk(), retFails: 2 };
   mod.setShop(null);
   const html = mod.returnActionsHTML(c);
-  assert.ok(html.includes('ret-failed'), 'ปุ่มขายต้องถูกย้อมสีส้ม');
-  assert.ok(html.includes('คืนไม่สำเร็จ 2 ครั้ง'));
+  assert.ok(html.includes('btn-primary btn-act'), 'ต้องเป็นปุ่มขายสีฟ้าแบบเดียวกับใบอื่น');
+  assert.ok(!html.includes('ret-failed'), 'ห้ามย้อมสีส้ม');
+  assert.ok(!/>คืนไม่สำเร็จ/.test(html), 'ห้ามมีข้อความห้อยใต้ปุ่ม');
+  assert.ok(html.includes('title="เคยขอคืนแล้วไม่สำเร็จ 2 ครั้ง"'), 'เก็บไว้เป็น tooltip ได้');
 });
 
 console.log('\nการตัดสินของฝั่งรวม');

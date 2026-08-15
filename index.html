@@ -20,11 +20,11 @@
     --danger: #e23b4e;
     --border: #e2e6ee;
   }
-  /* ธีมมืด (teal/navy) — เฉพาะบัญชีร้านที่ล็อกอินเข้ามา (ตามรูปอ้างอิง) */
+  /* ธีมมืด — พื้นหลังน้ำเงินค่อนไปทางดำ · เลือกได้เองทุกบัญชี (บัญชีร้านเริ่มที่มืดตามดีไซน์เดิม) */
   body.dark-shop {
-    --bg: #0b1220;
-    --card: #131d2e;
-    --card2: #1c2942;
+    --bg: #0c1526;
+    --card: #14203a;
+    --card2: #1d2c4c;
     --text: #e9eef7;
     --muted: #8b97ab;
     --gray: #8b97ab;
@@ -34,9 +34,23 @@
     --accent: #18bfd4;
     --accent2: #0f9fb5;
     --border: #263650;
-    background: radial-gradient(1100px 560px at 12% -12%, #14243f 0%, #0b1524 46%, #070d18 100%) fixed;
+    background: radial-gradient(1100px 560px at 12% -12%, #17294a 0%, #0d1930 46%, #080f1e 100%) fixed;
   }
   body.dark-shop .sidebar::-webkit-scrollbar-thumb { background: #2c3d5a; }
+  /* ป้าย/ชิปที่ตั้งสีตัวอักษรเข้มไว้สำหรับพื้นสว่าง — บนพื้นมืดต้องกลับเป็นสีอ่อน ไม่งั้นอ่านไม่ออก */
+  body.dark-shop .badge.show, body.dark-shop .act-chip.show { color: #8ab4ff; }
+  body.dark-shop .badge.wait, body.dark-shop .act-chip.wait,
+  body.dark-shop .badge.retwait, body.dark-shop .act-chip.pend { color: #f0c04a; }
+  body.dark-shop .badge.sold, body.dark-shop .badge.retdone,
+  body.dark-shop .act-chip.sold, body.dark-shop .act-chip.ok { color: #4fdca4; }
+  body.dark-shop .badge.retask, body.dark-shop .sale-warn { color: #ffab5e; }
+  body.dark-shop .act-chip.no { color: #ff8f9c; }
+  body.dark-shop .act-tag.tosale, body.dark-shop .act-tag.untosale { color: #f0c04a; }
+  body.dark-shop .act-tag.sell, body.dark-shop .act-tag.stock { color: #4fdca4; }
+  body.dark-shop .act-tag.retok { color: #4fdca4; }
+  body.dark-shop .act-tag.retno { color: #ff8f9c; }
+  body.dark-shop .act-tag.retask { color: #ffab5e; }
+  body.dark-shop .set-hit b { color: var(--text); }
   /* ตารางทุกหน้าให้เข้าธีมมืด: hover สว่างขึ้น (ไม่มืดลง) + แถวสถานะไม่เป็นสีสว่างค้าง */
   body.dark-shop tbody tr:hover td { filter: brightness(1.1); }
   body.dark-shop tr.group-head:hover td { filter: brightness(1.12); }
@@ -386,7 +400,6 @@
   .topic-chip.unsold .t-dot { color: var(--yellow); }
   .topic-chip .t-name .t-dot.g { color: var(--green); }
   .btn-sm { padding: 7px 12px; font-size: .8rem; }
-  .btn-sold { padding: 4px 10px; font-size: .72rem; border-radius: 7px; line-height: 1.3; min-width: 46px; }
   .sale-check { width: 20px; height: 20px; accent-color: var(--accent); cursor: pointer; }
   .sale-check:disabled { cursor: not-allowed; opacity: .6; }
   /* หัวคอลัมน์ "เช็คของ" กดเรียงลำดับได้ */
@@ -417,6 +430,9 @@
   .act-tag.unsell { background: rgba(226,59,78,.12); color: var(--danger); }
   .act-tag.stock { background: rgba(24,165,88,.13); color: #0f7a3d; }
   .act-tag.del { background: rgba(226,59,78,.14); color: var(--danger); }
+  .act-tag.retask { background: rgba(240,140,20,.16); color: #a2560a; }
+  .act-tag.retok { background: rgba(24,165,88,.16); color: #0f7a3d; }
+  .act-tag.retno { background: rgba(226,59,78,.14); color: var(--danger); }
   /* แถวที่สร้างจากตัวการ์ด ไม่ใช่บันทึกจริง — ทำให้ต่างจากรายการจริงชัด ๆ */
   .act-tag.info { background: var(--card2); color: var(--muted); border: 1px dashed var(--border); }
   tr.act-cardrow > td { background: var(--card2); }
@@ -678,24 +694,28 @@
   .dates { font-size: .74rem; color: var(--muted); margin-top: 3px; }
   .dates .d { white-space: nowrap; }
 
-  .badge { display: inline-block; padding: 4px 11px; border-radius: 999px; font-size: .8rem; font-weight: 800; }
+  /* "สถานะ" กับ "กระทำ" อยู่ติดกัน — ป้ายและปุ่มจึงถูกบังคับให้สูงเท่ากัน ตัวอักษรเท่ากัน ไม่งั้นแถวดูเบี้ยว */
+  .badge, .act-chip, .btn-act {
+    display: inline-flex; align-items: center; justify-content: center;
+    min-height: 28px; padding: 3px 12px; border-radius: 999px;
+    font-size: .78rem; font-weight: 700; line-height: 1.35; white-space: nowrap;
+  }
+  .btn-act { min-width: 78px; border-radius: 9px; }
+  td.center .row-actions { justify-content: center; }
+  th.st-col, td.st-col, th.act-col, td.act-col { width: 112px; }
   .badge.show { background: rgba(47,111,237,.16); color: #1d4ed8; }
-  .badge.wait { background: rgba(192,138,0,.22); color: #111; }
-  .badge.sold { background: rgba(24,165,88,.22); color: #111; text-align: center; }
+  .badge.wait { background: rgba(192,138,0,.22); color: #6b4c00; }
+  .badge.sold { background: rgba(24,165,88,.22); color: #0f7a3d; flex-direction: column; gap: 0; }
   .badge.sold .sold-when { display: block; font-weight: 400; font-size: .72rem; margin-top: 1px; }
   /* คืนสินค้า: ร้านกดขอคืน → รอแอดมินตัดสิน → สำเร็จ / ไม่สำเร็จ */
   .badge.retwait { background: rgba(192,138,0,.28); color: #6b4c00; }
   .badge.retask { background: rgba(240,140,20,.22); color: #a2560a; }
   .badge.retdone { background: rgba(24,165,88,.22); color: #0f7a3d; }
-  .btn-return { padding: 4px 10px; font-size: .72rem; border-radius: 7px; line-height: 1.3; min-width: 46px; }
   .sale-warn {
     display: flex; gap: 9px; align-items: center; margin-bottom: 16px; padding: 11px 13px;
     background: rgba(240,140,20,.12); border: 1px solid rgba(240,140,20,.5); border-radius: 13px;
     color: #b3610a; font-size: .86rem; font-weight: 700;
   }
-  /* คืนไม่สำเร็จ → ปุ่มขายเป็นสีส้ม บอกว่าใบนี้เคยขอคืนแล้วไม่ผ่าน */
-  .btn-sold.ret-failed { background: rgba(240,140,20,.16); border-color: #f08c14; color: #b3610a; }
-  .ret-fail-note { display: block; font-size: .7rem; font-weight: 700; color: #b3610a; margin-top: 2px; }
 
   .row-actions { display: flex; gap: 6px; }
   .icon-btn {
@@ -1221,6 +1241,7 @@
       <div class="nav-group" id="navGrpSettings" style="display:none">ตั้งค่า</div>
       <button class="nav-sub" id="navUsers" onclick="switchView('users')" style="display:none">👥 ผู้ใช้งาน</button>
       <button class="nav-sub" id="navActivity" onclick="switchView('activity')" style="display:none">📜 รายงานการใช้งาน</button>
+      <button class="nav-sub" onclick="toggleShopTheme()"><span id="themeToggleSide">🌙</span> <span id="themeToggleLbl">โหมดมืด</span></button>
     </nav>
     <div class="sidebar-foot">
       <div id="footUser"></div>
@@ -3418,18 +3439,33 @@ function allowedTabs() {
 // ซ่อน/แสดงเมนูตามสิทธิ์ + ย้ายไปแถบที่เข้าได้
 // ธีมมืดเฉพาะบัญชีร้าน (พนักงานที่ผูกกับร้าน) — แอดมิน/เจ้าของเครื่อง = ธีมสว่างปกติ
 // มีปุ่มสลับธีม (สว่าง/มืด) บนแถบบน — จำค่าที่เลือกไว้
+// ธีมของทั้งระบบ — ผู้ใช้เลือกเองได้ทุกบัญชี เก็บไว้ในเครื่อง (app_theme)
+// ยังไม่เคยเลือก = บัญชีร้านเริ่มที่มืด (ตามดีไซน์เดิม) ที่เหลือเริ่มที่สว่าง
+function themePref() {
+  const v = localStorage.getItem('app_theme');
+  if (v === 'dark' || v === 'light') return v;
+  const old = localStorage.getItem('shop_theme');            // ค่าเก่าก่อนแยกเป็นธีมทั้งระบบ
+  if (old === 'light') return 'light';
+  return isShopAccount() ? 'dark' : 'light';
+}
 function applyShopTheme() {
   const isShop = isShopAccount();
-  const light = localStorage.getItem('shop_theme') === 'light';
-  document.body.classList.toggle('dark-shop', isShop && !light);
+  const dark = themePref() === 'dark';
+  document.body.classList.toggle('dark-shop', dark);
   document.body.classList.toggle('shop-ui', isShop); // ซ่อนหัวข้อ h2 ซ้ำ (มีหัวข้อบน topbar แล้ว)
   const tb = document.getElementById('shopTopbar');
   if (tb) tb.style.display = isShop ? '' : 'none';
-  const ti = document.getElementById('themeToggleBtn');
-  if (ti) ti.textContent = (isShop && !light) ? '🌙' : '☀️';
+  for (const id of ['themeToggleBtn', 'themeToggleSide']) {
+    const el = document.getElementById(id);
+    if (!el) continue;
+    el.textContent = dark ? '🌙' : '☀️';
+    el.title = dark ? 'ตอนนี้โหมดมืด — กดเพื่อสลับเป็นสว่าง' : 'ตอนนี้โหมดสว่าง — กดเพื่อสลับเป็นมืด';
+  }
+  const lbl = document.getElementById('themeToggleLbl');
+  if (lbl) lbl.textContent = dark ? 'โหมดมืด' : 'โหมดสว่าง';
 }
 function toggleShopTheme() {
-  localStorage.setItem('shop_theme', localStorage.getItem('shop_theme') === 'light' ? 'dark' : 'light');
+  localStorage.setItem('app_theme', themePref() === 'dark' ? 'light' : 'dark');
   applyShopTheme();
 }
 function shopSellAction() {
@@ -4636,8 +4672,8 @@ function renderSales() {
       <th class="center">จำนวน</th>
       <th class="num">ราคารับซื้อ</th>
       <th class="num">ราคาขาย</th>
-      <th class="center">สถานะ</th>
-      <th class="center">กระทำ</th>
+      <th class="center st-col">สถานะ</th>
+      <th class="center act-col">กระทำ</th>
     </tr></thead>
     <tbody>${rows}</tbody>
   </table>`;
@@ -4692,18 +4728,19 @@ function returnBadgeHTML(c) {
 function returnActionsHTML(c) {
   const st = retState(c), fails = retFails(c);
   if (st === 'done') return '<span class="muted">—</span>'; // คืนจบแล้ว ไม่ต้องมีปุ่ม
-  const failNote = fails ? `<span class="ret-fail-note" title="เคยขอคืนแล้วไม่สำเร็จ">คืนไม่สำเร็จ ${fails} ครั้ง</span>` : '';
-  const sellBtn = `<button class="btn btn-primary btn-sold${fails ? ' ret-failed' : ''}" onclick="markSold('${c.id}')">ขาย</button>`;
+  // เคยคืนไม่สำเร็จกี่ครั้ง ไปบอกใน popup ตอนกดขาย — ในตารางเก็บไว้เป็นแค่ tooltip ไม่ให้แถวรก
+  const tip = fails ? ` title="เคยขอคืนแล้วไม่สำเร็จ ${fails} ครั้ง"` : '';
+  const sellBtn = `<button class="btn btn-primary btn-act" onclick="markSold('${c.id}')"${tip}>ขาย</button>`;
   if (st === 'pending') {
     // ฝั่งรวมเท่านั้นที่ตัดสินได้ — ฝั่งร้านเห็นว่ากำลังรออยู่
     return viewShopId
-      ? `<span class="muted">รออนุมัติ</span>${failNote}`
-      : `<div class="row-actions" style="justify-content:center"><button class="btn btn-ghost btn-return" onclick="reviewReturn('${c.id}')">คืนสินค้า</button></div>${failNote}`;
+      ? '<span class="muted">รออนุมัติ</span>'
+      : `<div class="row-actions"><button class="btn btn-ghost btn-act" onclick="reviewReturn('${c.id}')">คืนสินค้า</button></div>`;
   }
   const askBtn = viewShopId
-    ? `<button class="btn btn-ghost btn-return" onclick="requestReturn('${c.id}')" title="ส่งคืนสินค้าให้เจ้าของ">คืนสินค้า</button>`
+    ? `<button class="btn btn-ghost btn-act" onclick="requestReturn('${c.id}')" title="ส่งคืนสินค้าให้เจ้าของ">คืนสินค้า</button>`
     : '';
-  return `<div class="row-actions" style="justify-content:center">${sellBtn}${askBtn}</div>${failNote}`;
+  return `<div class="row-actions">${sellBtn}${askBtn}</div>`;
 }
 // ฝั่งร้านกดขอคืน — มีผลทันทีตามที่ออกแบบไว้ (ไม่ถามซ้ำ) แล้วรอฝั่งรวมตัดสิน
 function requestReturn(id) {
@@ -4764,8 +4801,8 @@ function salesRow(c, isChild) {
     <td class="center"><span class="qty-badge">${qtyText}</span></td>
     <td class="num">${money(c.buy)}</td>
     <td class="num">${money(c.sell)}</td>
-    <td class="center">${statusCell}</td>
-    <td class="center">${actionCell}</td>
+    <td class="center st-col">${statusCell}</td>
+    <td class="center act-col">${actionCell}</td>
   </tr>`;
 }
 function salesGroupRow(g) {
