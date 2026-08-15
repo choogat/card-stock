@@ -29,8 +29,19 @@ const asked = [];
 function appConfirm(opt){ asked.push(opt); return Promise.resolve(answer); }
 `;
 
+// ชิปสรุป "รอดำเนินการ" อยู่คนละบล็อกกับตรรกะคืนสินค้า — ดึงมาต่อท้ายเพื่อทดสอบด้วยกัน
+const chipSrc = html.slice(html.indexOf('// ชิปท้ายแถว: ของที่ร้านกดคืนแล้ว'), html.indexOf('// คลิกชิปรอขาย'));
+const chipStubs = `
+function inShopScope(c){ return !viewShopId || c.shopId === viewShopId; }
+function matchShopFilter(){ return true; }
+const document = { getElementById: () => null };
+let salesRetFilter = false;
+`;
+
 const mod = await import('data:text/javascript;base64,' + Buffer.from(
-  stubs + html.slice(start, end)
+  stubs + chipStubs + chipSrc.replace(/^\/\/ คลิกชิป[\s\S]*$/m, '') + html.slice(start, end)
+    + '\nexport { returnChipHTML };'
+    + '\nexport const setRetFilter = v => { salesRetFilter = v; };'
   + '\nexport { retState, retFails, returnBadgeHTML, returnActionsHTML, requestReturn, reviewReturn, asked, saved, synced };'
   + '\nexport const setCards = v => { cards = v; };'
   + '\nexport const setShop = v => { viewShopId = v; };'
@@ -82,7 +93,7 @@ t('รออนุมัติ: ฝั่งรวมได้ปุ่มตั
   assert.ok(mod.returnActionsHTML(c).includes('reviewReturn'), 'ฝั่งรวมต้องกดตัดสินได้');
   assert.ok(!mod.returnActionsHTML(c).includes('markSold'), 'ระหว่างรอ ห้ามขายไปก่อน');
   mod.setShop('s1');
-  assert.ok(mod.returnActionsHTML(c).includes('รออนุมัติ'));
+  assert.ok(mod.returnActionsHTML(c).includes('รอดำเนินการ'), 'ใช้คำเดียวกับป้ายในตาราง ไม่มีคำพ้องซ้อน');
   assert.ok(!mod.returnActionsHTML(c).includes('requestReturn'), 'ขอซ้ำไม่ได้');
 });
 
@@ -161,6 +172,50 @@ await ta('popup บอกชื่อสินค้า ร้าน และ�
   assert.equal(last.okText, 'ยืนยันคืนสินค้า');
   assert.ok(last.sub.includes('Luffy') && last.sub.includes('สาขา 2') && last.sub.includes('got001'));
   assert.equal(last.count, '3 ครั้ง');
+});
+
+console.log('\nชิปสรุป "รอดำเนินการ"');
+
+// สถานการณ์จริงจากเซิร์ฟเวอร์ (16/08/2569): ร้าน 25Cardshop รอขาย 108 ชิ้น ในนั้นรออนุมัติคืน 41
+const shopStock = () => {
+  const list = [];
+  for (let i = 0; i < 41; i++) list.push({ id: 'p' + i, status: 'wait', shopId: 's1', retState: 'pending' });
+  for (let i = 0; i < 41; i++) list.push({ id: 'w' + i, status: 'wait', shopId: 's1' });
+  list.push({ id: 'set1', status: 'wait', shopId: 's1', type: 'set', qty: 26 });
+  list.push({ id: 'sold1', status: 'sold', shopId: 's1' });      // ขายแล้ว ไม่นับ
+  list.push({ id: 'show1', status: 'show', shopId: 's1' });      // สะสม ไม่นับ
+  list.push({ id: 'other', status: 'wait', shopId: 's2', retState: 'pending' }); // คนละร้าน
+  return list;
+};
+
+t('นับเฉพาะของที่รอขายในร้านที่กำลังดู → 41/108', () => {
+  mod.setCards(shopStock());
+  mod.setShop('s1');
+  const chip = mod.returnChipHTML();
+  assert.ok(chip.includes('41/108'), 'ได้ ' + (chip.match(/\d+\/\d+/) || [])[0]);
+  assert.ok(chip.includes('รอดำเนินการ'), 'หน้าร้านใช้คำว่า รอดำเนินการ');
+});
+
+t('หน้ารวมใช้คำว่า "คืนสินค้า" และนับทุกร้าน', () => {
+  mod.setCards(shopStock());
+  mod.setShop(null);
+  const chip = mod.returnChipHTML();
+  assert.ok(chip.includes('คืนสินค้า'));
+  assert.ok(chip.includes('42/109'), 'ได้ ' + (chip.match(/\d+\/\d+/) || [])[0]);
+});
+
+t('ไม่มีของรอคืน = ขึ้น 0/N ไม่ใช่ซ่อนชิป', () => {
+  mod.setCards([{ id: 'a', status: 'wait', shopId: 's1' }, { id: 'b', status: 'wait', shopId: 's1' }]);
+  mod.setShop('s1');
+  assert.ok(mod.returnChipHTML().includes('0/2'));
+});
+
+t('ไม่มีราคาในชิป และกดเพื่อกรองได้', () => {
+  mod.setCards(shopStock());
+  mod.setShop('s1');
+  const chip = mod.returnChipHTML();
+  assert.ok(!chip.includes('฿'), 'ห้ามมีราคา');
+  assert.ok(chip.includes('toggleReturnFilter()'), 'ต้องกดกรองได้เหมือนชิปอื่น');
 });
 
 console.log(`\n${fail ? '✗' : '✓'} ผ่าน ${pass} / ${pass + fail}\n`);

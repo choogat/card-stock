@@ -401,6 +401,10 @@
   .topic-chip.today { border-color: var(--green); background: rgba(46,204,113,.12); }
   .topic-chip.unsold { border-color: var(--yellow); background: rgba(192,138,0,.1); }
   .topic-chip.unsold .t-dot { color: var(--yellow); }
+  /* รอตัดสินเรื่องคืนสินค้า — ส้ม แยกจากชิปรอขายที่เป็นเหลืองทั้งแถว จะได้ไม่กลืนกัน */
+  .topic-chip.pending { border-color: var(--t-warn-fg); background: var(--t-warn-bg); }
+  .topic-chip.pending .t-dot { color: var(--t-warn-fg); }
+  .topic-chip.pending .t-meta { color: var(--t-warn-fg); font-weight: 700; }
   .topic-chip .t-name .t-dot.g { color: var(--green); }
   .btn-sm { padding: 7px 12px; font-size: .8rem; }
   .sale-check { width: 20px; height: 20px; accent-color: var(--accent); cursor: pointer; }
@@ -4674,6 +4678,8 @@ function renderSales() {
   if (salesUnitFilter) {
     list = list.filter(c => c.status === 'wait' && stockUnitOf(c) === salesUnitFilter);
   }
+  // กดชิป "รอดำเนินการ" → เหลือเฉพาะใบที่รอตัดสินเรื่องคืน จะได้ไล่กดอนุมัติรวดเดียว
+  if (salesRetFilter) list = list.filter(c => retState(c) === 'pending');
   const terms = setSearchTerms(q);
   if (terms.length) {
     list = list.filter(c => { const hay = cardHay(c); return terms.every(t => hay.includes(t)); });
@@ -4694,7 +4700,9 @@ function renderSales() {
   // แบนเนอร์บอกว่ากำลังกรองหน่วยไหน + ปุ่มล้าง
   const banner = salesUnitFilter
     ? `<div class="filter-banner">กรอง: <b>รอขาย ${esc(salesUnitFilter)}</b> <button class="fb-clear" onclick="toggleStockFilter('${salesUnitFilter.replace(/'/g, "\\'")}')">✕ ล้างตัวกรอง</button></div>`
-    : '';
+    : (salesRetFilter
+      ? `<div class="filter-banner">กรอง: <b>${viewShopId ? 'รอดำเนินการ' : 'คืนสินค้า'}</b> <button class="fb-clear" onclick="toggleReturnFilter()">✕ ล้างตัวกรอง</button></div>`
+      : '');
 
   if (list.length === 0) {
     const msg = salesUnitFilter
@@ -4776,7 +4784,7 @@ function returnActionsHTML(c) {
   if (st === 'pending') {
     // ฝั่งรวมเท่านั้นที่ตัดสินได้ — ฝั่งร้านเห็นว่ากำลังรออยู่
     return viewShopId
-      ? '<span class="muted">รออนุมัติ</span>'
+      ? '<span class="muted">รอดำเนินการ</span>'
       : `<div class="row-actions"><button class="btn btn-ghost btn-act" onclick="reviewReturn('${c.id}')">คืนสินค้า</button></div>`;
   }
   const askBtn = viewShopId
@@ -4925,7 +4933,7 @@ function unsoldChipsHTML() {
     buckets[unit].value += Number(c.sell) || 0;
   }
   const keys = units.concat(Object.keys(buckets).filter(u => !units.includes(u)));
-  return keys.map(u => {
+  const chips = keys.map(u => {
     const b = buckets[u];
     const arg = u.replace(/'/g, "\\'");
     const active = salesUnitFilter === u ? ' active' : '';
@@ -4933,13 +4941,42 @@ function unsoldChipsHTML() {
       <div class="t-name"><span class="t-dot">●</span> รอขาย ${esc(u)}</div>
       <div class="t-meta">${b.qty} ${esc(u)} · ${money(b.value)}</div>
     </div>`;
-  }).join('');
+  });
+  chips.push(returnChipHTML());
+  return chips.join('');
+}
+// ชิปท้ายแถว: ของที่ร้านกดคืนแล้วรอฝั่งรวมตัดสิน — เทียบกับของรอขายทั้งหมดในขอบเขตเดียวกัน (เช่น 41/108)
+// ไม่ใส่ราคา เพราะยังไม่รู้ว่าจะได้คืนจริงหรือถูกตีกลับ ใส่ไปก็อ่านผิดว่าเป็นยอดที่หายไปแล้ว
+function returnChipHTML() {
+  const shopVal = (() => { const s = document.getElementById('salesShopFilter'); return (s && !viewShopId) ? s.value : ''; })();
+  let pend = 0, total = 0;
+  for (const c of cards) {
+    if (c.status !== 'wait' || !inShopScope(c) || !matchShopFilter(c, shopVal)) continue;
+    const n = Number(c.qty) || 1;
+    total += n;
+    if (retState(c) === 'pending') pend += n;
+  }
+  const label = viewShopId ? 'รอดำเนินการ' : 'คืนสินค้า'; // เรียกให้ตรงกับป้ายในตารางของหน้านั้น
+  const active = salesRetFilter ? ' active' : '';
+  return `<div class="topic-chip pending${active}" onclick="toggleReturnFilter()" title="ของที่รอฝั่งรวมตัดสินว่าจะรับคืนหรือไม่">
+    <div class="t-name"><span class="t-dot">●</span> ${label}</div>
+    <div class="t-meta">${pend}/${total}</div>
+  </div>`;
 }
 
 // คลิกชิปรอขาย → กรองตารางสำหรับขายในหน้าเลย (เฉพาะ status=wait ของหน่วยนั้น); คลิกซ้ำ = ยกเลิก
 let salesUnitFilter = null;
+let salesRetFilter = false;   // กรองเหลือเฉพาะใบที่รอตัดสินเรื่องคืนสินค้า
+function toggleReturnFilter() {
+  salesRetFilter = !salesRetFilter;
+  if (salesRetFilter) salesUnitFilter = null;  // สองตัวกรองนี้ใช้พร้อมกันแล้วงง เลือกทีละอย่าง
+  renderSales();
+  const area = document.getElementById('salesTableArea');
+  if (salesRetFilter && area) area.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
 function toggleStockFilter(unit) {
   salesUnitFilter = (salesUnitFilter === unit) ? null : unit;
+  if (salesUnitFilter) salesRetFilter = false;
   renderSales();
   // เลื่อนให้เห็นตารางที่กรองแล้ว
   const area = document.getElementById('salesTableArea');
