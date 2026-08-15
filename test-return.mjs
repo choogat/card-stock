@@ -17,6 +17,8 @@ let shops = [{ id:'s1', name:'สาขา 2' }];
 let cards = [];
 let viewShopId = null;
 let loginId = 'got001';
+function actWho(){ return loginId || 'เจ้าของเครื่อง'; }
+function render(){}
 const saved = [];
 function save(){ saved.push(1); }
 function renderSales(){}
@@ -110,6 +112,24 @@ await ta('ยืนยัน → คืนสำเร็จ ไม่นับ�
   await mod.reviewReturn('c1');
   assert.equal(c.retState, 'done');
   assert.equal(c.retFails, 1, 'ยืนยันแล้วห้ามไปเพิ่มจำนวนครั้งที่ล้มเหลว');
+});
+
+await ta('คืนสำเร็จ → กลับเป็น "สะสม" ในคลัง และหลุดจากร้าน พร้อมจำว่าใครอนุมัติ', async () => {
+  const c = { ...mk(), retState: 'pending' };
+  mod.setCards([c]); mod.setShop(null); mod.setAnswer(true);
+  await mod.reviewReturn('c1');
+  assert.equal(c.status, 'show', 'ต้องกลับไปเป็นสะสม');
+  assert.equal(c.shopId, '', 'ต้องหลุดจากร้าน');
+  assert.equal(c.retDoneBy, 'got001', 'ต้องจำว่าใครอนุมัติ');
+  assert.ok(c.retDoneAt > 0);
+});
+
+await ta('ไม่อนุมัติ → ยังอยู่ในร้านและยังรอขายเหมือนเดิม', async () => {
+  const c = { ...mk(), retState: 'pending' };
+  mod.setCards([c]); mod.setShop(null); mod.setAnswer(false);
+  await mod.reviewReturn('c1');
+  assert.equal(c.status, 'wait');
+  assert.equal(c.shopId, 's1');
 });
 
 await ta('กดยกเลิก → กลับไปขายต่อได้ และนับครั้งเพิ่ม', async () => {

@@ -2344,6 +2344,8 @@ function stampUpdated() {
   let logged = 0;
   for (const c of cards) {
     if (!c || c.id == null) continue;
+    // ใบที่คืนจบไปแล้ว ถ้าถูกส่งกลับมาขายใหม่ ต้องล้างสถานะคืน ไม่งั้นแถวจะค้างเป็น "คืนสินค้าสำเร็จ" และกดขายไม่ได้
+    if (c.retState === 'done' && c.status === 'wait') c.retState = '';
     let body = cardBody(c);
     const prevBody = _cardSnap.get(c.id);
     // ใบใหม่หรือแก้จริง → ประทับเวลา (ต้องใหม่กว่าค่าที่เห็นล่าสุดเสมอ เผื่อนาฬิกาเครื่องช้ากว่าเครื่องอื่น)
@@ -2654,9 +2656,12 @@ const ACT_META = {
   sell:     { icon: '💰', label: 'ขายแล้ว' },
   unsell:   { icon: '🔓', label: 'ยกเลิกการขาย' },
   stock:    { icon: '📦', label: 'เช็คของ' },
+  retask:   { icon: '📤', label: 'ขอคืนสินค้า' },
+  retok:    { icon: '📥', label: 'คืนสินค้าสำเร็จ' },
+  retno:    { icon: '🚫', label: 'ไม่อนุมัติคืน' },
   del:      { icon: '🗑️', label: 'ลบการ์ด' },
 };
-const ACT_ORDER = ['add', 'edit', 'tosale', 'untosale', 'sell', 'unsell', 'stock', 'del'];
+const ACT_ORDER = ['add', 'edit', 'tosale', 'untosale', 'sell', 'unsell', 'stock', 'retask', 'retok', 'retno', 'del'];
 // ชื่อฟิลด์ที่คนอ่านรู้เรื่อง — ฟิลด์ที่ไม่อยู่ในนี้ถือว่าเป็นข้อมูลภายใน ไม่ต้องขึ้นรายงาน
 const ACT_FIELDS = {
   name: 'ชื่อสินค้า', topic: 'เรื่อง', set: 'รุ่น/ชุด', lang: 'ภาษา', psa: 'เกรด', grader: 'ผู้จัดเกรด',
@@ -2716,6 +2721,13 @@ function actDiff(prev, cur) {
 // อ่านจากฟิลด์ที่เปลี่ยน ว่านี่คือ "เหตุการณ์" อะไรในสายตาคนใช้
 function actKindOf(prev, cur, ch) {
   if (!prev) return 'add';
+  // คืนสินค้าอ่านก่อนสถานะ — คืนสำเร็จจะเปลี่ยนสถานะกลับเป็นสะสมไปพร้อมกัน
+  // ถ้าปล่อยให้กติกาสถานะตัดสิน รายการจะขึ้นว่า "ออกจากสินค้าขาย" แทนที่จะเป็น "คืนสินค้าสำเร็จ"
+  if (ch.some(x => x.k === 'retState')) {
+    if (cur.retState === 'pending') return 'retask';
+    if (cur.retState === 'done') return 'retok';
+    if (prev.retState === 'pending') return 'retno';   // pending → ว่าง = ฝั่งรวมไม่อนุมัติ
+  }
   if (ch.some(x => x.k === 'status')) {
     if (cur.status === 'sold') return 'sell';
     if (prev.status === 'sold') return 'unsell';
@@ -4667,7 +4679,7 @@ function requestReturn(id) {
   if (!c || retState(c)) return;
   c.retState = 'pending';
   c.retAt = Date.now();
-  c.retBy = (typeof loginId !== 'undefined' && loginId) || 'เจ้าของเครื่อง';
+  c.retBy = actWho();
   save();
   renderSales();
   setSync('📦 ส่งคำขอคืนสินค้าแล้ว — รอฝั่งรวมยืนยัน', 'ok');
@@ -4689,15 +4701,20 @@ async function reviewReturn(id) {
   });
   if (ans === null) return;                 // ปิดทิ้ง = ยังไม่ตัดสิน ไม่นับเป็นอะไรทั้งนั้น
   if (ans) {
+    // คืนสำเร็จ = ของกลับมาอยู่กับเจ้าของ → ออกจากสินค้าขาย กลับไปเป็น "สะสม" ในคลัง และหลุดจากร้าน
     c.retState = 'done';
     c.retDoneAt = Date.now();
+    c.retDoneBy = actWho();
+    c.status = 'show';
+    c.shopId = '';
   } else {
     c.retState = '';
     c.retFails = retFails(c) + 1;           // ไว้เตือนตอนกดขายครั้งถัดไป
   }
   save();
   renderSales();
-  setSync(ans ? '✓ คืนสินค้าสำเร็จ' : '↩️ ยกเลิกการคืน — กลับไปขายต่อได้', ans ? 'ok' : 'err');
+  if (typeof render === 'function') render();   // ใบที่คืนแล้วโผล่ในคลังสินค้าทันที ไม่ต้องรีเฟรช
+  setSync(ans ? `✓ คืนสินค้าสำเร็จ — ${shop ? (shop.name || 'ร้าน') + ' ' : ''}ส่งกลับเข้าคลังเป็น "สะสม" แล้ว` : '↩️ ยกเลิกการคืน — กลับไปขายต่อได้', ans ? 'ok' : 'err');
 }
 function salesRow(c, isChild) {
   const img = c.image

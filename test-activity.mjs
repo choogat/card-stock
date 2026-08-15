@@ -112,6 +112,36 @@ t('รอขาย → สะสม = ออกจากสินค้าขา
   assert.equal(last().act, 'untosale');
 });
 
+t('ร้านขอคืนสินค้า = ขอคืนสินค้า พร้อมบอกว่าใครทำ', () => {
+  mod.resetLogs();
+  const prev = { id: 'c1', name: 'Luffy', status: 'wait', shopId: 's1' };
+  mod.logCardChange(body(prev), { ...prev, retState: 'pending' });
+  const e = last();
+  assert.equal(e.act, 'retask');
+  assert.equal(e.who, 'Cielcard', 'ต้องบันทึกว่า user ไหนกด');
+  assert.ok(e.changes.some(x => x.label === 'คืนสินค้า' && x.to === 'รอดำเนินการ'));
+});
+
+t('อนุมัติคืน = คืนสินค้าสำเร็จ (ไม่ใช่ "ออกจากสินค้าขาย" ทั้งที่สถานะเปลี่ยนพร้อมกัน)', () => {
+  mod.resetLogs();
+  const prev = { id: 'c1', name: 'Luffy', status: 'wait', shopId: 's1', retState: 'pending' };
+  mod.logCardChange(body(prev), { ...prev, retState: 'done', status: 'show', shopId: '' });
+  const e = last();
+  assert.equal(e.act, 'retok');
+  assert.ok(e.changes.some(x => x.label === 'สถานะ' && x.to === 'สะสม'), 'ต้องเห็นว่ากลับไปเป็นสะสม');
+  assert.ok(e.changes.some(x => x.label === 'ร้านค้า' && x.from === 'สาขา 2'), 'ต้องเห็นว่าหลุดจากร้านไหน');
+});
+
+t('ไม่อนุมัติคืน = ไม่อนุมัติคืน พร้อมจำนวนครั้ง', () => {
+  mod.resetLogs();
+  const prev = { id: 'c1', name: 'Luffy', status: 'wait', retState: 'pending' };
+  mod.logCardChange(body(prev), { ...prev, retState: '', retFails: 1 });
+  const e = last();
+  assert.equal(e.act, 'retno');
+  assert.ok(e.changes.some(x => x.label === 'คืนไม่สำเร็จ (ครั้ง)' && String(x.to) === '1'));
+  assert.ok(e.changes.some(x => x.label === 'คืนสินค้า' && x.to === 'ไม่ได้คืน'));
+});
+
 t('→ ขายแล้ว = ขายแล้ว พร้อมราคาสุทธิ/ส่วนลด/ช่องทางจ่าย', () => {
   mod.resetLogs();
   const prev = { id: 'c1', name: 'Luffy', status: 'wait', sell: 900 };
