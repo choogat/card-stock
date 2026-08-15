@@ -534,6 +534,41 @@
   h1 { font-size: 1.6rem; font-weight: 700; letter-spacing: .3px; }
   .header-right { display: flex; align-items: center; gap: 12px; }
   .btn-sm { padding: 8px 14px; font-size: .82rem; }
+  /* ===== ตัวบอกว่า "กำลังคุยกับเซิร์ฟเวอร์อยู่" ===== */
+  @keyframes cc-spin { to { transform: rotate(360deg); } }
+  .spinner {
+    display: inline-block; width: 16px; height: 16px; flex: none; border-radius: 50%;
+    border: 2px solid currentColor; border-top-color: transparent; animation: cc-spin .7s linear infinite;
+  }
+  /* ป้ายลอยกลางบน — ไม่บังปุ่ม กดทะลุได้ ขึ้นทุกครั้งที่มีงานค้างกับเซิร์ฟเวอร์ */
+  .busy-pill {
+    position: fixed; top: 14px; left: 50%; transform: translateX(-50%) translateY(-14px);
+    display: flex; align-items: center; gap: 9px; z-index: 60; pointer-events: none;
+    background: var(--card); border: 1px solid var(--border); color: var(--text);
+    padding: 8px 16px; border-radius: 999px; box-shadow: 0 8px 24px rgba(0,0,0,.22);
+    font-size: .82rem; font-weight: 600; opacity: 0; transition: opacity .18s, transform .18s;
+  }
+  .busy-pill.on { opacity: 1; transform: translateX(-50%) translateY(0); }
+  .busy-pill .spinner { color: var(--accent); }
+  /* ปุ่มที่กดแล้วกำลังทำงาน — กดซ้ำไม่ได้ และเห็นชัดว่ากำลังทำอยู่ */
+  .btn.is-busy { position: relative; color: transparent !important; pointer-events: none; opacity: .85; }
+  .btn.is-busy::after {
+    content: ''; position: absolute; inset: 0; margin: auto; width: 16px; height: 16px;
+    border: 2px solid #fff; border-top-color: transparent; border-radius: 50%; animation: cc-spin .7s linear infinite;
+  }
+  .btn-ghost.is-busy::after { border-color: var(--muted); border-top-color: transparent; }
+  /* จอตอนเปิดแอป — บังไว้จนข้อมูลชุดแรกมาครบ กันกดตอนข้อมูลยังไม่มา */
+  .boot-screen {
+    position: fixed; inset: 0; z-index: 90; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 16px; background: var(--bg);
+    transition: opacity .25s;
+  }
+  .boot-screen.done { opacity: 0; pointer-events: none; }
+  .boot-brand { font-size: 1.5rem; font-weight: 800; letter-spacing: .5px; }
+  .boot-screen .spinner { width: 30px; height: 30px; border-width: 3px; color: var(--accent); }
+  .boot-sub { font-size: .82rem; color: var(--muted); }
+  .boot-retry { display: none; }
+  .boot-screen.slow .boot-retry { display: inline-block; }
   .sync { font-size: .8rem; color: var(--muted); white-space: nowrap; }
   /* บนแถบหัว: ข้อความซิงก์ยาว ๆ ห้ามดันปุ่มขวาตกขอบ — ตัดด้วย ... และซ่อนบนจอแคบ */
   #syncStatusTop { max-width: 260px; overflow: hidden; text-overflow: ellipsis; font-size: .76rem; }
@@ -1225,6 +1260,13 @@
 </style>
 </head>
 <body>
+<div class="boot-screen" id="bootScreen">
+  <div class="boot-brand">🃏 Cielcard</div>
+  <div class="spinner"></div>
+  <div class="boot-sub" id="bootSub">กำลังเตรียมข้อมูล...</div>
+  <button class="btn btn-ghost btn-sm boot-retry" onclick="location.reload()">ลองใหม่</button>
+</div>
+<div class="busy-pill" id="busyPill" aria-live="polite"><span class="spinner"></span><span id="busyText">กำลังโหลด</span></div>
 <button class="nav-fab" onclick="toggleNav()" aria-label="เปิดเมนู" title="เมนู">☰</button>
 <div class="nav-backdrop" onclick="closeNav()"></div>
 <div class="layout">
@@ -2077,7 +2119,7 @@
     </div>
     <div class="modal-actions">
       <button class="btn btn-ghost" onclick="closeSale()">ยกเลิก</button>
-      <button class="btn btn-primary" onclick="confirmSale()">ยืนยันการขาย</button>
+      <button class="btn btn-primary" id="saleConfirmBtn" onclick="runBusy(this, confirmSale)">ยืนยันการขาย</button>
     </div>
   </div>
 </div>
@@ -2442,13 +2484,61 @@ function save() {
   return true;
 }
 
+// ================= ตัวบอกว่ากำลังคุยกับเซิร์ฟเวอร์ =================
+// ดักที่ fetch ที่เดียว → ทุกอย่างที่ยิงเซิร์ฟเวอร์ (โหลด/บันทึก/อัปโหลดรูป/ดึงข้อมูล PSA/ล็อกอิน)
+// ได้ตัวหมุนอัตโนมัติ ไม่ต้องไล่ใส่ทีละที่ และของที่เขียนเพิ่มทีหลังก็ได้ไปด้วยเลย
+let _busyN = 0, _busyTimer = null;
+function busyLabel(url) {
+  const u = String(url || '');
+  if (u.includes('/api/upload')) return 'กำลังอัปโหลดรูป';
+  if (u.includes('/api/psa') || u.includes('/api/namtcg')) return 'กำลังดึงข้อมูลการ์ด';
+  if (u.includes('/api/login') || u.includes('/api/users')) return 'กำลังตรวจสอบสิทธิ์';
+  return 'กำลังโหลด';
+}
+function busyStart(url) {
+  _busyN++;
+  const pill = document.getElementById('busyPill');
+  if (!pill) return;
+  const t = document.getElementById('busyText');
+  if (t) t.textContent = busyLabel(url);
+  // งานที่เสร็จไวกว่า 250ms ไม่ต้องโชว์ ไม่งั้นป้ายกะพริบถี่จนน่ารำคาญ
+  if (!_busyTimer) _busyTimer = setTimeout(() => { if (_busyN > 0) pill.classList.add('on'); }, 250);
+}
+function busyEnd() {
+  _busyN = Math.max(0, _busyN - 1);
+  if (_busyN > 0) return;
+  clearTimeout(_busyTimer); _busyTimer = null;
+  const pill = document.getElementById('busyPill');
+  if (pill) pill.classList.remove('on');
+}
+(function wrapFetch() {
+  const orig = window.fetch.bind(window);
+  window.fetch = function (input, init) {
+    const url = (typeof input === 'string') ? input : (input && input.url) || '';
+    busyStart(url);
+    return orig(input, init).finally(busyEnd);
+  };
+})();
+// ปุ่มที่กดแล้วต้องรอ — ล็อกปุ่มไว้จนกว่าจะเสร็จ กันกดซ้ำแล้วบันทึกซ้อน
+async function runBusy(btn, fn) {
+  const el = (typeof btn === 'string') ? document.getElementById(btn) : btn;
+  if (el) { if (el.classList.contains('is-busy')) return; el.classList.add('is-busy'); }
+  try { return await fn(); }
+  finally { if (el) el.classList.remove('is-busy'); }
+}
+
 // ---- ซิงก์กับเซิร์ฟเวอร์ ----
+let _syncClear = null;
 function setSync(text, cls) {
-  // มี 2 ที่: ท้ายเมนูซ้าย (เห็นตอนเมนูเปิด) และบนแถบหัว (เห็นตลอดเวลาทำงาน)
+  // "กำลัง..." ไม่ต้องขึ้นเป็นตัวหนังสือแล้ว — มีป้ายหมุนกลางบนบอกอยู่ (busyPill)
+  // เหลือไว้เฉพาะผลลัพธ์: สำเร็จ (จางหายเองใน 2.5 วิ) กับ ผิดพลาด (ค้างไว้ให้เห็น)
+  const show = cls === 'load' ? '' : text;
   for (const id of ['syncStatus', 'syncStatusTop']) {
     const el = document.getElementById(id);
-    if (el) { el.textContent = text; el.className = 'sync ' + (cls || ''); }
+    if (el) { el.textContent = show; el.className = 'sync ' + (cls || ''); }
   }
+  clearTimeout(_syncClear);
+  if (cls === 'ok' && show) _syncClear = setTimeout(() => setSync('', ''), 2500);
 }
 
 // แปลงรูป base64 ที่ยังค้างในก้อนข้อมูล (ของเก่าใน cache / นำเข้า / อัปไม่ทัน) → URL บน Blob
@@ -5063,7 +5153,7 @@ function updateNet() {
 function confirmSale() {
   const id = document.getElementById('sale_id').value;
   const c = cards.find(x => x.id === id);
-  if (!c) return;
+  if (!c || c.status === 'sold') return;   // กดซ้ำเร็ว ๆ / ใบนี้ถูกบันทึกขายไปแล้ว → ไม่บันทึกซ้อน
   const price = parseFloat(document.getElementById('sale_price').value) || 0;
   const disc = parseFloat(document.getElementById('sale_discount').value) || 0;
   const net = price - disc;
@@ -8791,7 +8881,24 @@ updatePoViewBtn();  // ปุ่มสลับมุมมองพรีออ
 applyPermissions(); // ตั้งเมนู/แถบตามสิทธิ์ + คงแถบ/ร้านล่าสุดหลัง F5 (รวมคืนหน้าร้านจากแคชทันที)
 gachaBooting = false; // คืนหน้าล่าสุด (F5) เสร็จแล้ว — จากนี้กดเมนูอื่นกลับเข้ายอดจุ่ม = รีเซ็ตเป็น "ใช้งานอยู่"
 updateAuthGate();   // ยังไม่ล็อกอิน → ล็อกหน้าจอ เหลือแต่หน้าล็อกอิน
-syncOnStart();
+// เปิดแอป: บังจอไว้จนข้อมูลชุดแรกมาครบ กันกดปุ่มตอนข้อมูลยังไม่มา
+// ถ้าช้าเกิน 15 วิ ขึ้นปุ่ม "ลองใหม่" ให้ ไม่ปล่อยค้างจอตาย
+(function bootWithScreen() {
+  const scr = document.getElementById('bootScreen');
+  const slow = setTimeout(() => {
+    if (!scr) return;
+    scr.classList.add('slow');
+    const sub = document.getElementById('bootSub');
+    if (sub) sub.textContent = 'เซิร์ฟเวอร์ตอบช้ากว่าปกติ';
+  }, 15000);
+  const done = () => {
+    clearTimeout(slow);
+    if (!scr) return;
+    scr.classList.add('done');
+    setTimeout(() => { scr.style.display = 'none'; }, 300);
+  };
+  Promise.resolve(syncOnStart()).catch(() => {}).finally(done);
+})();
 
 // เปิดฟอร์ม "เพิ่มการ์ด" อัตโนมัติ ถ้า URL ลงท้ายด้วย #add หรือ ?add
 // แล้วลบ #add ออกจาก URL ทันที เพื่อไม่ให้เด้งซ้ำเวลา F5
