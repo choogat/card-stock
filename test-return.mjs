@@ -228,5 +228,58 @@ t('ไม่มีราคาในชิป และกดเพื่อก�
   assert.ok(chip.includes('toggleReturnFilter()'), 'ต้องกดกรองได้เหมือนชิปอื่น');
 });
 
+console.log('\nกดหัวคอลัมน์ "กระทำ" เพื่อเรียง');
+
+// ดึงตัวเรียงจริงออกมาจาก index.html แล้วรันกับข้อมูลจำลอง
+const sortSrc = html.slice(html.indexOf('let salesActSort = '), html.indexOf('function actionTH()'));
+const sorter = new Function('renderSales', `
+  ${sortSrc}
+  const retState = c => c.retState || '';
+  return {
+    cycle: () => { sortByAction(); return salesActSort; },
+    order: (groups) => {
+      if (!salesActSort) return groups.map(g => g.key);
+      const hasRet = g => g.items.some(c => retState(c) === 'pending') ? 1 : 0;
+      const dir = salesActSort === 'ret' ? -1 : 1;
+      return groups.slice().sort((a, b) => (hasRet(a) - hasRet(b)) * dir).map(g => g.key);
+    },
+  };
+`)(() => {});
+
+const groups = () => ([
+  { key: 'ขายปกติ', items: [{ id: 'a' }, { id: 'b' }] },
+  { key: 'มีใบรอคืน', items: [{ id: 'c' }, { id: 'd', retState: 'pending' }] },
+  { key: 'ขายปกติ2', items: [{ id: 'e' }] },
+]);
+
+t('กดวน 3 จังหวะ: คืนสินค้าก่อน → ขายก่อน → ลำดับเดิม', () => {
+  assert.equal(sorter.cycle(), 'ret');
+  assert.equal(sorter.cycle(), 'sell');
+  assert.equal(sorter.cycle(), '');
+});
+
+t('จังหวะที่ 1 ดันกลุ่มที่มีใบรอคืนขึ้นบนสุด', () => {
+  sorter.cycle(); // → ret
+  assert.equal(sorter.order(groups())[0], 'มีใบรอคืน');
+});
+
+t('จังหวะที่ 2 ดันกลุ่มขายปกติขึ้นก่อน', () => {
+  sorter.cycle(); // → sell
+  assert.equal(sorter.order(groups()).pop(), 'มีใบรอคืน');
+});
+
+t('จังหวะที่ 3 คืนลำดับเดิม ไม่ยุ่งกับการเรียงที่ผู้ใช้เลือกไว้', () => {
+  sorter.cycle(); // → ''
+  assert.deepEqual(sorter.order(groups()), ['ขายปกติ', 'มีใบรอคืน', 'ขายปกติ2']);
+});
+
+t('กลุ่มที่มีทั้งใบรอคืนและใบขายปกติ ไม่ถูกฉีกออกจากกัน', () => {
+  sorter.cycle(); // → ret
+  const out = sorter.order(groups());
+  assert.equal(out.length, 3, 'จำนวนกลุ่มต้องเท่าเดิม ไม่มีกลุ่มไหนถูกแยก');
+  assert.equal(new Set(out).size, 3);
+  sorter.cycle(); sorter.cycle(); // คืนค่าเดิมให้เทสต์ถัดไป
+});
+
 console.log(`\n${fail ? '✗' : '✓'} ผ่าน ${pass} / ${pass + fail}\n`);
 process.exit(fail ? 1 : 0);

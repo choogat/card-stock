@@ -4823,7 +4823,7 @@ function renderSales() {
       <th class="num">ราคารับซื้อ</th>
       <th class="num">ราคาขาย</th>
       <th class="center st-col">สถานะ</th>
-      <th class="center act-col">กระทำ</th>
+      ${actionTH()}
     </tr></thead>
     <tbody>${rows}</tbody>
   </table>`;
@@ -4991,6 +4991,15 @@ function buildSalesRows(list) {
     if (!g) { g = { key: k, items: [] }; gmap.set(k, g); groups.push(g); }
     g.items.push(c);
   }
+  // เรียงตามคอลัมน์ "กระทำ" — เรียงที่ระดับกลุ่ม ไม่ให้กลุ่มชื่อเดียวกันถูกฉีกออกจากกัน
+  // กลุ่มที่มีใบรอตัดสินเรื่องคืนแม้ใบเดียว ถือว่าเป็นกลุ่ม "คืนสินค้า"
+  if (salesActSort) {
+    const hasRet = g => g.items.some(c => retState(c) === 'pending') ? 1 : 0;
+    const dir = salesActSort === 'ret' ? -1 : 1;   // ret = คืนสินค้าขึ้นก่อน · sell = ขายขึ้นก่อน
+    groups.sort((a, b) => (hasRet(a) - hasRet(b)) * dir);
+    groups.forEach(g => g.items.sort((a, b) =>
+      ((retState(a) === 'pending' ? 1 : 0) - (retState(b) === 'pending' ? 1 : 0)) * dir));
+  }
   return groups.map(g => {
     if (g.items.length === 1) {
       const c = g.items[0];
@@ -5069,6 +5078,20 @@ function returnChipHTML() {
 // คลิกชิปรอขาย → กรองตารางสำหรับขายในหน้าเลย (เฉพาะ status=wait ของหน่วยนั้น); คลิกซ้ำ = ยกเลิก
 let salesUnitFilter = null;
 let salesRetFilter = false;   // กรองเหลือเฉพาะใบที่รอตัดสินเรื่องคืนสินค้า
+// กดหัวคอลัมน์ "กระทำ" วน 3 จังหวะ เหมือนคอลัมน์ "เช็คของ" ในหน้าคลังสินค้า
+let salesActSort = '';        // '' = ลำดับเดิม · 'ret' = คืนสินค้าก่อน · 'sell' = ขายก่อน
+function sortByAction() {
+  salesActSort = salesActSort === 'ret' ? 'sell' : salesActSort === 'sell' ? '' : 'ret';
+  renderSales();
+}
+function actionTH() {
+  const on = salesActSort ? ' sorted' : '';
+  const arrow = salesActSort === 'ret' ? '▲' : salesActSort === 'sell' ? '▼' : '↕';
+  const tip = salesActSort === 'ret' ? 'กำลังเรียง: คืนสินค้าก่อน (กดเพื่อสลับเป็นขายก่อน)'
+    : salesActSort === 'sell' ? 'กำลังเรียง: ขายก่อน (กดเพื่อกลับลำดับเดิม)'
+      : 'กดเพื่อเรียง คืนสินค้า / ขาย';
+  return `<th class="center act-col stock-th${on}" onclick="sortByAction()" title="${tip}">กระทำ<span class="stock-th-ar">${arrow}</span></th>`;
+}
 function toggleReturnFilter() {
   salesRetFilter = !salesRetFilter;
   if (salesRetFilter) salesUnitFilter = null;  // สองตัวกรองนี้ใช้พร้อมกันแล้วงง เลือกทีละอย่าง
