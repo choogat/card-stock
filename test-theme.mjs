@@ -70,5 +70,18 @@ t('applyShopTheme ใส่/ถอดคลาสธีมมืดตามท�
   assert.equal(mod.isDark(), false);
 });
 
+console.log('\nแถบหัวหน้า');
+
+t('ทุกหน้าที่กดจากเมนูมีหัวข้อบนแถบหัว (ไม่มีหน้าไหนหัวข้อหาย)', () => {
+  const views = [...new Set([...html.matchAll(/switchView\('(\w+)'\)/g)].map(m => m[1]))];
+  const block = html.slice(html.indexOf('const MAIN_TB = {'), html.indexOf('function updateMainTopbar'));
+  const missing = views.filter(v => !new RegExp('\\b' + v + ':').test(block));
+  assert.deepEqual(missing, [], 'หน้าที่ยังไม่มีหัวข้อ: ' + missing.join(', '));
+});
+
+t('หัวข้อ h2 ถูกซ่อนเมื่อมีแถบหัวแล้ว จะได้ไม่ซ้ำกัน', () => {
+  assert.ok(/body\.shop-ui \.view-title, body\.main-ui \.view-title \{ display: none/.test(html));
+});
+
 console.log(`\n${fail ? '✗' : '✓'} ผ่าน ${pass} / ${pass + fail}\n`);
 process.exit(fail ? 1 : 0);

@@ -19,6 +19,14 @@
     --muted: #6b7280;
     --danger: #e23b4e;
     --border: #e2e6ee;
+    /* สีตาม "ความหมาย" ไม่ใช่ตามความสวย — ป้าย/ชิป/แท็กทุกอันดึงจากตรงนี้ที่เดียว
+       โหมดมืดแก้แค่ตัวอักษร (พื้นโปร่งใสอยู่แล้ว) จะได้ไม่ต้องไล่แก้ทีละจุดอีก */
+    --t-ok-bg: rgba(24,165,88,.2);    --t-ok-fg: #0f7a3d;   /* สำเร็จ / ขายแล้ว / มีของ */
+    --t-wait-bg: rgba(192,138,0,.22); --t-wait-fg: #6b4c00;  /* รอ / ค้างอยู่ */
+    --t-info-bg: rgba(47,111,237,.16);--t-info-fg: #1d4ed8;  /* ข้อมูลทั่วไป / สะสม */
+    --t-warn-bg: rgba(240,140,20,.2); --t-warn-fg: #a2560a;  /* ต้องระวัง / รออนุมัติ */
+    --t-bad-bg: rgba(226,59,78,.14);  --t-bad-fg: #c02b3c;   /* ยกเลิก / อันตราย */
+    --t-alt-bg: rgba(108,92,231,.14); --t-alt-fg: #5a48c9;   /* หมวดพิเศษ เช่น ร้าน/ชุด */
   }
   /* ธีมมืด — พื้นหลังน้ำเงินค่อนไปทางดำ · เลือกได้เองทุกบัญชี (บัญชีร้านเริ่มที่มืดตามดีไซน์เดิม) */
   body.dark-shop {
@@ -34,23 +42,16 @@
     --accent: #18bfd4;
     --accent2: #0f9fb5;
     --border: #263650;
+    /* โหมดมืดแก้แค่สีตัวอักษรของชุดสีความหมาย — พื้นโปร่งใสใช้ค่าเดิมได้เลย */
+    --t-ok-fg: #4fdca4;
+    --t-wait-fg: #f0c04a;
+    --t-info-fg: #8ab4ff;
+    --t-warn-fg: #ffab5e;
+    --t-bad-fg: #ff8f9c;
+    --t-alt-fg: #b6a9ff;
     background: radial-gradient(1100px 560px at 12% -12%, #17294a 0%, #0d1930 46%, #080f1e 100%) fixed;
   }
   body.dark-shop .sidebar::-webkit-scrollbar-thumb { background: #2c3d5a; }
-  /* ป้าย/ชิปที่ตั้งสีตัวอักษรเข้มไว้สำหรับพื้นสว่าง — บนพื้นมืดต้องกลับเป็นสีอ่อน ไม่งั้นอ่านไม่ออก */
-  body.dark-shop .badge.show, body.dark-shop .act-chip.show { color: #8ab4ff; }
-  body.dark-shop .badge.wait, body.dark-shop .act-chip.wait,
-  body.dark-shop .badge.retwait, body.dark-shop .act-chip.pend { color: #f0c04a; }
-  body.dark-shop .badge.sold, body.dark-shop .badge.retdone,
-  body.dark-shop .act-chip.sold, body.dark-shop .act-chip.ok { color: #4fdca4; }
-  body.dark-shop .badge.retask, body.dark-shop .sale-warn { color: #ffab5e; }
-  body.dark-shop .act-chip.no { color: #ff8f9c; }
-  body.dark-shop .act-tag.tosale, body.dark-shop .act-tag.untosale { color: #f0c04a; }
-  body.dark-shop .act-tag.sell, body.dark-shop .act-tag.stock { color: #4fdca4; }
-  body.dark-shop .act-tag.retok { color: #4fdca4; }
-  body.dark-shop .act-tag.retno { color: #ff8f9c; }
-  body.dark-shop .act-tag.retask { color: #ffab5e; }
-  body.dark-shop .set-hit b { color: var(--text); }
   /* ตารางทุกหน้าให้เข้าธีมมืด: hover สว่างขึ้น (ไม่มืดลง) + แถวสถานะไม่เป็นสีสว่างค้าง */
   body.dark-shop tbody tr:hover td { filter: brightness(1.1); }
   body.dark-shop tr.group-head:hover td { filter: brightness(1.12); }
@@ -91,7 +92,9 @@
   .tb-icon { width: 34px; height: 34px; border-radius: 9px; background: var(--card2); border: 1px solid var(--border); color: var(--text); cursor: pointer; font-size: 1rem; }
   .tb-icon:hover { border-color: var(--accent); }
   /* บัญชีร้าน: หัวข้อหน้าอยู่บน topbar แล้ว → ซ่อน h2 ในเนื้อหา (กันหัวข้อซ้ำ) */
-  body.shop-ui .view-title { display: none; }
+  body.shop-ui .view-title, body.main-ui .view-title { display: none; }
+  /* มีแถบหัวแล้ว ปุ่ม ☰ ลอยบนจอแคบไม่ต้องมี — กันปุ่มซ้อนกัน 2 อัน */
+  body.main-ui .nav-fab { display: none; }
   .nav { display: flex; flex-direction: column; gap: 5px; }
   .sidebar .brand { font-size: 1.15rem; font-weight: 700; padding: 6px 8px 14px; }
   .nav-group { font-size: .68rem; font-weight: 700; letter-spacing: .6px; color: var(--muted); text-transform: uppercase; padding: 2px 14px 3px; margin-top: 11px; opacity: .7; }
@@ -311,8 +314,8 @@
   /* รายงาน: แถวที่ยกเลิก — โชว์อยู่แต่จางลง + ป้ายยกเลิก (ไม่นับยอด) */
   tr.cancelled-row td { opacity: .5; }
   tr.cancelled-row td .badge-cancelled { opacity: 1; }
-  .badge-cancelled { display: inline-block; background: rgba(226,59,78,.18); color: var(--danger); padding: 1px 8px; border-radius: 999px; font-size: .72rem; font-weight: 700; }
-  .badge-ok { display: inline-block; background: rgba(24,165,88,.18); color: var(--green); padding: 1px 8px; border-radius: 999px; font-size: .72rem; font-weight: 700; }
+  .badge-cancelled { display: inline-block; background: var(--t-bad-bg); color: var(--t-bad-fg); padding: 1px 8px; border-radius: 999px; font-size: .72rem; font-weight: 700; }
+  .badge-ok { display: inline-block; background: var(--t-ok-bg); color: var(--t-ok-fg); padding: 1px 8px; border-radius: 999px; font-size: .72rem; font-weight: 700; }
   .seller-tag { display: inline-block; background: var(--accent2); color: #fff; padding: 1px 9px; border-radius: 999px; font-size: .72rem; font-weight: 600; }
   .shop-tag { display: inline-block; background: rgba(47,111,237,.14); color: var(--accent); border: 1px solid var(--accent); padding: 1px 9px; border-radius: 999px; font-size: .72rem; font-weight: 600; white-space: nowrap; }
   tr.cancelled-row td .badge-ok { opacity: 1; }
@@ -361,12 +364,12 @@
   .u-info { flex: 1; min-width: 0; }
   .u-name { font-weight: 700; font-size: .98rem; margin-bottom: 5px; }
   .u-badges { display: flex; flex-wrap: wrap; gap: 5px; }
-  .u-badge { font-size: .72rem; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: rgba(47,111,237,.12); color: #1d4ed8; white-space: nowrap; }
+  .u-badge { font-size: .72rem; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: var(--t-info-bg); color: var(--t-info-fg); white-space: nowrap; }
   .u-badge.none { background: var(--card2); color: var(--muted); }
-  .u-badge.money { background: rgba(24,165,88,.16); color: #0f7a3d; }
-  .u-badge.off { background: rgba(226,59,78,.12); color: var(--danger); }
-  .u-badge.shop { background: rgba(108,92,231,.14); color: #5a48c9; }
-  .u-badge.extra { background: rgba(192,138,0,.16); color: #92600a; }
+  .u-badge.money { background: var(--t-ok-bg); color: var(--t-ok-fg); }
+  .u-badge.off { background: var(--t-bad-bg); color: var(--t-bad-fg); }
+  .u-badge.shop { background: var(--t-alt-bg); color: var(--t-alt-fg); }
+  .u-badge.extra { background: var(--t-wait-bg); color: var(--t-wait-fg); }
   .u-actions { display: flex; align-items: center; gap: 6px; flex: none; }
   /* แผงตั้งค่าผู้ใช้ (แบบตาราง 2 แผง) */
   .set-panel { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 18px 20px; margin-bottom: 20px; box-shadow: 0 1px 3px rgba(20,30,60,.05); }
@@ -376,9 +379,9 @@
   .set-panel-head .sp-spacer { flex: 1; }
   .sp-desc { color: var(--muted); font-size: .84rem; line-height: 1.5; margin-bottom: 14px; }
   .role-badge { display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: .72rem; font-weight: 700; white-space: nowrap; }
-  .role-badge.admin { background: rgba(24,165,88,.16); color: #0f7a3d; }
+  .role-badge.admin { background: var(--t-ok-bg); color: var(--t-ok-fg); }
   .role-badge.staff { background: var(--card2); color: var(--muted); }
-  .you-badge { display: inline-block; background: rgba(108,92,231,.16); color: #5a48c9; font-size: .64rem; font-weight: 700; padding: 1px 7px; border-radius: 999px; margin-left: 6px; vertical-align: middle; }
+  .you-badge { display: inline-block; background: var(--t-alt-bg); color: var(--t-alt-fg); font-size: .64rem; font-weight: 700; padding: 1px 7px; border-radius: 999px; margin-left: 6px; vertical-align: middle; }
   .utable-wrap { overflow-x: auto; }
   .utable { width: 100%; border-collapse: separate; border-spacing: 0; min-width: 640px; }
   .utable th { text-align: left; font-size: .72rem; color: var(--muted); font-weight: 700; padding: 7px 10px; border-bottom: 1px solid var(--border); white-space: nowrap; }
@@ -424,15 +427,15 @@
   #actTable td.act-time { font-size: .82rem; font-weight: 700; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; width: 52px; }
   .act-tag { display: inline-block; font-size: .72rem; font-weight: 800; padding: 3px 10px; border-radius: 999px; background: var(--card2); color: var(--muted); white-space: nowrap; }
   .act-tag.add { background: rgba(47,111,237,.14); color: var(--accent); }
-  .act-tag.edit { background: rgba(108,92,231,.14); color: var(--accent2); }
-  .act-tag.tosale, .act-tag.untosale { background: rgba(192,138,0,.16); color: #92600a; }
-  .act-tag.sell { background: rgba(24,165,88,.16); color: #0f7a3d; }
-  .act-tag.unsell { background: rgba(226,59,78,.12); color: var(--danger); }
-  .act-tag.stock { background: rgba(24,165,88,.13); color: #0f7a3d; }
-  .act-tag.del { background: rgba(226,59,78,.14); color: var(--danger); }
-  .act-tag.retask { background: rgba(240,140,20,.16); color: #a2560a; }
-  .act-tag.retok { background: rgba(24,165,88,.16); color: #0f7a3d; }
-  .act-tag.retno { background: rgba(226,59,78,.14); color: var(--danger); }
+  .act-tag.edit { background: var(--t-alt-bg); color: var(--t-alt-fg); }
+  .act-tag.tosale, .act-tag.untosale { background: var(--t-wait-bg); color: var(--t-wait-fg); }
+  .act-tag.sell { background: var(--t-ok-bg); color: var(--t-ok-fg); }
+  .act-tag.unsell { background: var(--t-bad-bg); color: var(--t-bad-fg); }
+  .act-tag.stock { background: var(--t-ok-bg); color: var(--t-ok-fg); }
+  .act-tag.del { background: var(--t-bad-bg); color: var(--t-bad-fg); }
+  .act-tag.retask { background: var(--t-warn-bg); color: var(--t-warn-fg); }
+  .act-tag.retok { background: var(--t-ok-bg); color: var(--t-ok-fg); }
+  .act-tag.retno { background: var(--t-bad-bg); color: var(--t-bad-fg); }
   /* แถวที่สร้างจากตัวการ์ด ไม่ใช่บันทึกจริง — ทำให้ต่างจากรายการจริงชัด ๆ */
   .act-tag.info { background: var(--card2); color: var(--muted); border: 1px dashed var(--border); }
   tr.act-cardrow > td { background: var(--card2); }
@@ -443,15 +446,15 @@
   .act-chip { display: inline-flex; align-items: center; gap: 5px; padding: 4px 11px; border-radius: 999px; font-size: .78rem; font-weight: 800; background: var(--card2); color: var(--text); border: 1px solid var(--border); white-space: nowrap; }
   .act-chip .act-chip-from { font-weight: 600; opacity: .6; text-decoration: line-through; }
   .act-chip .act-chip-ar { opacity: .5; font-weight: 600; }
-  .act-chip.show { background: rgba(47,111,237,.16); border-color: transparent; color: #1d4ed8; }
-  .act-chip.wait { background: rgba(192,138,0,.22); border-color: transparent; color: #92600a; }
-  .act-chip.sold { background: rgba(24,165,88,.22); border-color: transparent; color: #0f7a3d; }
-  .act-chip.have { background: rgba(24,165,88,.16); border-color: transparent; color: var(--green); }
+  .act-chip.show { background: var(--t-info-bg); border-color: transparent; color: var(--t-info-fg); }
+  .act-chip.wait { background: var(--t-wait-bg); border-color: transparent; color: var(--t-wait-fg); }
+  .act-chip.sold { background: var(--t-ok-bg); border-color: transparent; color: var(--t-ok-fg); }
+  .act-chip.have { background: var(--t-ok-bg); border-color: transparent; color: var(--t-ok-fg); }
   .act-chip.none { background: var(--card2); color: var(--muted); }
   /* ผลของการคืนสินค้าในคอลัมน์สถานะ — เห็นปุ๊บรู้ปั๊บว่าจบยังไง */
-  .act-chip.ok { background: rgba(24,165,88,.22); border-color: transparent; color: #0f7a3d; }
-  .act-chip.no { background: rgba(226,59,78,.18); border-color: transparent; color: var(--danger); }
-  .act-chip.pend { background: rgba(192,138,0,.22); border-color: transparent; color: #92600a; }
+  .act-chip.ok { background: var(--t-ok-bg); border-color: transparent; color: var(--t-ok-fg); }
+  .act-chip.no { background: var(--t-bad-bg); border-color: transparent; color: var(--t-bad-fg); }
+  .act-chip.pend { background: var(--t-wait-bg); border-color: transparent; color: var(--t-wait-fg); }
   .act-tally { margin-top: 3px; font-size: .78rem; font-weight: 800; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
   .act-chg { margin-top: 4px; font-size: .82rem; color: var(--muted); line-height: 1.65; overflow-wrap: anywhere; font-weight: 400; }
   .act-chg .act-f { font-weight: 700; color: var(--text); }
@@ -481,9 +484,9 @@
   tr.sold-date-head td { background: var(--card2); font-weight: 700; font-size: .9rem; box-shadow: inset 3px 0 0 var(--accent); padding: 10px 14px; }
   tr.sold-date-head .sdh-meta { color: var(--muted); font-weight: 500; font-size: .82rem; }
   .stat-pill { display: inline-block; padding: 3px 9px; border-radius: 999px; font-size: .72rem; font-weight: 700; margin: 1px 2px; }
-  .stat-pill.show { background: rgba(47,111,237,.16); color: #1d4ed8; }
-  .stat-pill.wait { background: rgba(192,138,0,.22); color: #92600a; }
-  .stat-pill.sold { background: rgba(24,165,88,.22); color: #0f7a3d; }
+  .stat-pill.show { background: var(--t-info-bg); color: var(--t-info-fg); }
+  .stat-pill.wait { background: var(--t-wait-bg); color: var(--t-wait-fg); }
+  .stat-pill.sold { background: var(--t-ok-bg); color: var(--t-ok-fg); }
   .lock-btn { background: var(--card2); border: 1px solid var(--border); color: var(--muted); width: 30px; height: 30px; border-radius: 8px; cursor: pointer; font-size: .85rem; }
   .lock-btn:hover { border-color: var(--accent); color: var(--text); }
 
@@ -528,6 +531,9 @@
   .header-right { display: flex; align-items: center; gap: 12px; }
   .btn-sm { padding: 8px 14px; font-size: .82rem; }
   .sync { font-size: .8rem; color: var(--muted); white-space: nowrap; }
+  /* บนแถบหัว: ข้อความซิงก์ยาว ๆ ห้ามดันปุ่มขวาตกขอบ — ตัดด้วย ... และซ่อนบนจอแคบ */
+  #syncStatusTop { max-width: 260px; overflow: hidden; text-overflow: ellipsis; font-size: .76rem; }
+  @media (max-width: 720px) { #syncStatusTop { display: none; } }
   .sync.ok { color: var(--green); }
   .sync.err { color: var(--danger); }
   .sync.load { color: var(--accent); }
@@ -568,25 +574,21 @@
   .btn-primary:hover { filter: brightness(1.1); }
   .btn-ghost { background: var(--card2); color: var(--text); border: 1px solid var(--border); }
   .btn-danger { background: var(--danger); }
-  .search {
-    flex: 1; min-width: 180px; background: var(--card); border: 1px solid var(--border);
-    color: var(--text); padding: 12px 16px; border-radius: 12px; font-size: .95rem;
-  }
-  .search:focus { outline: none; border-color: var(--accent); }
-  select.filter {
+  /* ช่องค้นหากับดรอปดาวน์อยู่แถวเดียวกัน — สูงเท่ากัน มุมเท่ากัน ตัวอักษรเท่ากัน (ดู DESIGN.md ข้อ 1) */
+  .search, select.filter, .price-filter, .report-controls input[type=date] {
+    height: 42px; border-radius: 12px; font-size: .9rem;
     background: var(--card); border: 1px solid var(--border); color: var(--text);
-    padding: 12px 14px; border-radius: 12px; font-size: .9rem;
   }
+  .search { flex: 1; min-width: 180px; padding: 0 16px; }
+  .search:focus, select.filter:focus { outline: none; border-color: var(--accent); }
+  select.filter { padding: 0 14px; cursor: pointer; }
   .filters-row {
     display: flex; gap: 10px; margin-bottom: 18px; align-items: stretch; flex-wrap: nowrap;
     overflow-x: auto; padding-bottom: 2px;
   }
   .filters-row select.filter { flex: 0 0 auto; }
   .filters-row .price-filter { flex: 0 0 auto; margin-left: auto; }
-  .price-filter {
-    display: flex; align-items: center; gap: 6px;
-    background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 0 12px;
-  }
+  .price-filter { display: flex; align-items: center; gap: 6px; padding: 0 12px; }
   .price-filter .pf-label { color: var(--muted); font-size: .82rem; font-weight: 600; }
   .price-filter .pf-dash { color: var(--muted); }
   .price-filter .pf-input {
@@ -703,18 +705,18 @@
   .btn-act { min-width: 78px; border-radius: 9px; }
   td.center .row-actions { justify-content: center; }
   th.st-col, td.st-col, th.act-col, td.act-col { width: 112px; }
-  .badge.show { background: rgba(47,111,237,.16); color: #1d4ed8; }
-  .badge.wait { background: rgba(192,138,0,.22); color: #6b4c00; }
-  .badge.sold { background: rgba(24,165,88,.22); color: #0f7a3d; flex-direction: column; gap: 0; }
+  .badge.show { background: var(--t-info-bg); color: var(--t-info-fg); }
+  .badge.wait { background: var(--t-wait-bg); color: var(--t-wait-fg); }
+  .badge.sold { background: var(--t-ok-bg); color: var(--t-ok-fg); flex-direction: column; gap: 0; }
   .badge.sold .sold-when { display: block; font-weight: 400; font-size: .72rem; margin-top: 1px; }
   /* คืนสินค้า: ร้านกดขอคืน → รอแอดมินตัดสิน → สำเร็จ / ไม่สำเร็จ */
-  .badge.retwait { background: rgba(192,138,0,.28); color: #6b4c00; }
-  .badge.retask { background: rgba(240,140,20,.22); color: #a2560a; }
-  .badge.retdone { background: rgba(24,165,88,.22); color: #0f7a3d; }
+  .badge.retwait { background: var(--t-wait-bg); color: var(--t-wait-fg); }
+  .badge.retask { background: var(--t-warn-bg); color: var(--t-warn-fg); }
+  .badge.retdone { background: var(--t-ok-bg); color: var(--t-ok-fg); }
   .sale-warn {
     display: flex; gap: 9px; align-items: center; margin-bottom: 16px; padding: 11px 13px;
-    background: rgba(240,140,20,.12); border: 1px solid rgba(240,140,20,.5); border-radius: 13px;
-    color: #b3610a; font-size: .86rem; font-weight: 700;
+    background: var(--t-warn-bg); border: 1px solid var(--t-warn-fg); border-radius: 13px;
+    color: var(--t-warn-fg); font-size: .86rem; font-weight: 700;
   }
 
   .row-actions { display: flex; gap: 6px; }
@@ -1260,11 +1262,12 @@
       <button class="btn btn-primary btn-sm" onclick="shopSellAction()">+ ขายสินค้า</button>
     </div>
   </header>
-  <!-- แถบหัวของหน้าแดชบอร์ด (บัญชีทั่วไป) — หัวข้ออยู่บนแถบแทน h2 จะได้ไม่ซ้ำกัน -->
+  <!-- แถบหัวของทุกหน้า (บัญชีทั่วไป) — หัวข้ออยู่บนแถบแทน h2 จะได้ไม่ซ้ำกัน -->
   <header class="topbar" id="mainTopbar" style="display:none">
     <button class="tb-burger" onclick="toggleNav()" title="เมนู">☰</button>
-    <div class="tb-titles"><div class="tb-title">📊 แดชบอร์ด</div><div class="tb-sub">ภาพรวมธุรกิจ</div></div>
+    <div class="tb-titles"><div class="tb-title" id="mainTbTitle">📊 แดชบอร์ด</div><div class="tb-sub" id="mainTbSub">ภาพรวมธุรกิจ</div></div>
     <div class="tb-right">
+      <span class="sync" id="syncStatusTop"></span>
       <button class="tb-icon" id="themeToggleMain" onclick="toggleShopTheme()" title="สลับธีม สว่าง/มืด">🌙</button>
     </div>
   </header>
@@ -2427,8 +2430,11 @@ function save() {
 
 // ---- ซิงก์กับเซิร์ฟเวอร์ ----
 function setSync(text, cls) {
-  const el = document.getElementById('syncStatus');
-  if (el) { el.textContent = text; el.className = 'sync ' + (cls || ''); }
+  // มี 2 ที่: ท้ายเมนูซ้าย (เห็นตอนเมนูเปิด) และบนแถบหัว (เห็นตลอดเวลาทำงาน)
+  for (const id of ['syncStatus', 'syncStatusTop']) {
+    const el = document.getElementById(id);
+    if (el) { el.textContent = text; el.className = 'sync ' + (cls || ''); }
+  }
 }
 
 // แปลงรูป base64 ที่ยังค้างในก้อนข้อมูล (ของเก่าใน cache / นำเข้า / อัปไม่ทัน) → URL บน Blob
@@ -3389,9 +3395,7 @@ function switchView(view) {
   updateShopBanner();
   document.querySelectorAll('.nav-item').forEach(b => b.classList.toggle('active', b.dataset.view === view));
   document.getElementById('viewDashboard').style.display = view === 'dashboard' ? '' : 'none';
-  // แถบหัวแดชบอร์ด — เฉพาะบัญชีทั่วไป (บัญชีร้านมีแถบของตัวเองอยู่แล้ว จะได้ไม่ซ้อนกัน 2 แถบ)
-  const mtb = document.getElementById('mainTopbar');
-  if (mtb) mtb.style.display = (view === 'dashboard' && !isShopAccount()) ? '' : 'none';
+  updateMainTopbar(view);
   document.getElementById('viewStock').style.display = view === 'stock' ? '' : 'none';
   document.getElementById('viewSoldStock').style.display = view === 'soldstock' ? '' : 'none';
   document.getElementById('viewActivity').style.display = view === 'activity' ? '' : 'none';
@@ -3481,6 +3485,34 @@ function toggleShopTheme() {
 function shopSellAction() {
   const sid = viewShopId || (userShops && userShops[0]);
   if (sid) switchShopView(sid, 'sales');
+}
+// แถบหัวของบัญชีทั่วไป — หัวข้อหน้าอยู่บนแถบที่เดียว (h2 ในเนื้อหาถูกซ่อนด้วยคลาส main-ui)
+// บัญชีร้านมีแถบของตัวเองอยู่แล้ว จะได้ไม่ซ้อนกัน 2 แถบ
+const MAIN_TB = {
+  dashboard: ['📊 แดชบอร์ด', 'ภาพรวมธุรกิจ'],
+  stock:     ['📦 คลังสินค้า', 'ของทั้งหมดที่ถืออยู่'],
+  soldstock: ['🗂️ คลังสินค้าขายแล้ว', 'ของที่ขายออกไปแล้ว ย้อนหลังทั้งหมด'],
+  activity:  ['📜 รายงานการใช้งาน', 'ใครทำอะไรไว้บ้างในระบบ'],
+  preorder:  ['📝 พรีออเดอร์', 'ของที่สั่งไว้ รอเข้า'],
+  product:   ['📋 ข้อมูลสินค้า', 'ราคาและรายละเอียดสินค้า'],
+  buy:       ['🛒 รับซื้อสินค้า', 'เช็คราคาและรับของเข้า'],
+  sales:     ['🏷️ สินค้าขาย', 'ของที่รอขายอยู่ตอนนี้'],
+  report:    ['📊 การขายทั้งหมด', 'ปิดยอดรายวัน'],
+  gacha:     ['🎲 ยอดจุ่ม', 'ตู้จุ่มและรางวัล'],
+  shop:      ['🏬 ร้านค้า', 'ร้านคู่ค้าทั้งหมด'],
+  users:     ['👥 จัดการผู้ใช้งาน', 'สิทธิ์การเข้าถึงของแต่ละคน'],
+  settings:  ['⚙️ ตั้งค่า', 'ตั้งค่าระบบ'],
+};
+function updateMainTopbar(view) {
+  const bar = document.getElementById('mainTopbar');
+  if (!bar) return;
+  const show = !isShopAccount() && !!MAIN_TB[view];
+  bar.style.display = show ? '' : 'none';
+  document.body.classList.toggle('main-ui', show); // ซ่อน h2 ในเนื้อหา กันหัวข้อซ้ำ
+  if (!show) return;
+  const [title, sub] = MAIN_TB[view];
+  document.getElementById('mainTbTitle').textContent = title;
+  document.getElementById('mainTbSub').textContent = sub;
 }
 // อัปเดตหัวข้อบนแถบบนตามหน้าที่เปิดอยู่
 function updateTopbarTitle() {
