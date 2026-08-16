@@ -650,6 +650,22 @@
   .price-filter .pf-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
   .price-filter .pf-input { -moz-appearance: textfield; }
 
+  /* สรุปตู้จุ่ม: 2 ฝั่งซ้าย-ขวา · จอแคบเรียงบน-ล่างแทน ไม่งั้นตัวหนังสือแคบจนอ่านไม่ออก */
+  .gsum-meta { color: var(--muted); font-size: .84rem; margin: -10px 0 14px; }
+  .gsum-wrap { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  @media (max-width: 640px) { .gsum-wrap { grid-template-columns: 1fr; } }
+  .gsum-side { background: var(--card2); border: 1px solid var(--border); border-radius: 13px; padding: 12px 14px; }
+  .gsum-side.left { border-color: var(--t-info-fg); }
+  .gsum-side.right { border-color: var(--t-ok-fg); }
+  .gsum-head { display: flex; align-items: center; gap: 8px; font-weight: 800; font-size: .92rem; }
+  .gsum-count { margin-left: auto; font-size: .78rem; font-weight: 700; padding: 2px 10px; border-radius: 999px; background: var(--card); }
+  .gsum-side.left .gsum-count { color: var(--t-info-fg); }
+  .gsum-side.right .gsum-count { color: var(--t-ok-fg); }
+  .gsum-sub { color: var(--muted); font-size: .78rem; margin: 3px 0 8px; }
+  .gsum-table { width: 100%; border-collapse: collapse; }
+  .gsum-table td { padding: 6px 0; border-top: 1px solid var(--border); font-size: .86rem; }
+  .gsum-table td.num { text-align: right; font-weight: 700; white-space: nowrap; padding-left: 10px; }
+  .gsum-table td.muted { color: var(--muted); font-weight: 600; }
   /* ปุ่มกรอง (เช่น ปุ่มราคา) หน้าตาเหมือน select.filter */
   .fbtn { padding: 0 14px; cursor: pointer; white-space: nowrap; }
   .fbtn:hover { border-color: var(--accent); }
@@ -1830,6 +1846,17 @@
       <button class="btn btn-ghost" id="cfDismiss" style="display:none" onclick="closeAppConfirm(null)">ยกเลิก</button>
       <button class="btn btn-ghost" id="cfCancel" onclick="closeAppConfirm(false)">ยกเลิก</button>
       <button class="btn btn-primary" id="cfOk" onclick="closeAppConfirm(true)">ตกลง</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="gachaSumOverlay" onclick="if(event.target===this)closeGachaSummary()">
+  <div class="modal" style="max-width:720px">
+    <h2 id="gachaSumTitle">📊 สรุปตู้</h2>
+    <div class="gsum-meta" id="gachaSumMeta"></div>
+    <div class="gsum-wrap" id="gachaSumBody"></div>
+    <div class="modal-actions">
+      <button class="btn btn-primary" onclick="closeGachaSummary()">ปิด</button>
     </div>
   </div>
 </div>
@@ -7443,9 +7470,23 @@ function enterGachaView(preserve) {
 // กด "จบงาน" / "เปิดงานใหม่" ให้ตู้ — ทำงานทันทีไม่มี popup (ย้อนได้ด้วย ↩️) · ซิงก์ข้ามเครื่องผ่าน stamp updatedAt อัตโนมัติ
 // อ้างอิงด้วย id ไม่ใช่ลำดับ + จัดลิสต์ใหม่ครั้งเดียวหลังหยุดกด → กดรัวหลายใบไม่หลุด "กดแล้วไม่ไป"
 let gachaReflowTimer = null;
-function markGachaDone(btn, id, val) {
+async function markGachaDone(btn, id, val) {
   if (!canEditGacha()) return;
   const b = gachaBoxes.find(x => x && String(x.id) === String(id)); if (!b) return;
+  // จบงาน = ย้ายตู้ออกจากแท็บที่ใช้อยู่ ถามยืนยันก่อน พร้อมโชว์ตัวเลขให้ทวนว่าติ๊กครบแล้วจริง
+  // (เปิดงานใหม่ไม่ต้องถาม — ไม่ได้ทำอะไรเสียหาย)
+  if (val) {
+    const st = gachaBoxStats(b);
+    const shop = shopById(b.shopId);
+    const okd = await appConfirm({
+      icon: '🏁', tone: 'warn', title: 'จบงานตู้จุ่มนี้?',
+      sub: [`${b.name || '(ไม่มีชื่อ)'}${shop ? ' · ' + (shop.name || 'ร้าน') : ''}`,
+        `ออกไปแล้ว ${st.drawn} จาก ${st.realPrizes.length} รางวัล`,
+        `${st.profit >= 0 ? 'กำไร' : 'ขาดทุน'} ${money(Math.abs(st.profit))}`].join('\n'),
+      okText: 'จบงาน',
+    });
+    if (!okd) return;
+  }
   b.done = !!val;
   saveGacha(); // push แบบ debounce — กดรัวหลายใบรวมส่งขึ้นเซิร์ฟเวอร์ครั้งเดียว
   // ฟีดแบ็กทันทีต่อใบที่กด (จางลง + กดซ้ำไม่ได้) โดยยังไม่ rebuild ทั้งลิสต์ กัน DOM เพี้ยนตอนกดรัว
@@ -7455,6 +7496,50 @@ function markGachaDone(btn, id, val) {
   clearTimeout(gachaReflowTimer);
   gachaReflowTimer = setTimeout(() => { gachaReflowTimer = null; renderGacha(); }, 500);
 }
+// ===== สรุปรวมตู้ที่จบงานแล้ว: ของคงเหลือ (ซ้าย) / ของที่ออกไป (ขวา) =====
+// รางวัลชื่อเดียวกันรวมเป็นแถวเดียวแล้วบอกจำนวน — ตู้หนึ่งมีของซ้ำได้เป็นสิบ ไล่ดูทีละแถวไม่ไหว
+// ชื่อเทียบแบบตัดช่องว่างหัวท้าย + ไม่สนตัวพิมพ์ใหญ่เล็ก แต่โชว์ตามที่พิมพ์ครั้งแรก
+function groupPrizes(list) {
+  const m = new Map();
+  for (const p of list) {
+    const name = (p.name || '(ไม่มีชื่อ)').trim();
+    const k = name.toLowerCase();
+    const g = m.get(k) || { name, n: 0, value: 0 };
+    g.n += 1;
+    g.value += prizeValueOf(p);
+    m.set(k, g);
+  }
+  return [...m.values()].sort((a, b) => b.n - a.n || a.name.localeCompare(b.name, 'th'));
+}
+function gachaSummarySideHTML(title, icon, list, cls) {
+  const rows = groupPrizes(list);
+  const value = rows.reduce((s, r) => s + r.value, 0);
+  const body = rows.length
+    ? rows.map(r => `<tr><td>${esc(r.name)}</td><td class="num">× ${r.n}</td><td class="num muted">${money(r.value)}</td></tr>`).join('')
+    : '<tr><td colspan="3" class="muted">ไม่มีรายการ</td></tr>';
+  return `<div class="gsum-side ${cls}">
+    <div class="gsum-head">${icon} ${title}<span class="gsum-count">${list.length} รางวัล</span></div>
+    <div class="gsum-sub">มูลค่ารวม ${money(value)}</div>
+    <table class="gsum-table"><tbody>${body}</tbody></table>
+  </div>`;
+}
+function openGachaSummary(id) {
+  const b = gachaBoxes.find(x => x && String(x.id) === String(id));
+  if (!b) return;
+  const st = gachaBoxStats(b);
+  const left = st.realPrizes.filter(p => !p.drawn);
+  const right = st.realPrizes.filter(p => p.drawn);
+  const shop = shopById(b.shopId);
+  document.getElementById('gachaSumTitle').textContent = `📊 สรุปตู้ ${b.name || '(ไม่มีชื่อ)'}`;
+  document.getElementById('gachaSumMeta').textContent =
+    [shop ? shop.name || 'ร้าน' : '', b.date ? fmtDate(b.date) : '', `${st.realPrizes.length} รางวัลทั้งหมด`]
+      .filter(Boolean).join(' · ');
+  document.getElementById('gachaSumBody').innerHTML =
+    gachaSummarySideHTML('ของคงเหลือ', '🎁', left, 'left') + gachaSummarySideHTML('ของที่ออกไป', '📤', right, 'right');
+  document.getElementById('gachaSumOverlay').classList.add('open');
+}
+function closeGachaSummary() { document.getElementById('gachaSumOverlay').classList.remove('open'); }
+
 // กล่องสรุป 4 ช่อง (จำนวนจุ่ม · ยอดขาย · ทุน · กำไร)
 function gachaSummaryHTML(draws, sales, cost) {
   const profit = sales - cost, cls = profit >= 0 ? 'pos' : 'neg';
@@ -7571,7 +7656,9 @@ function gachaBoxHTML(b, i) {
         ${b.done
           ? `<button class="icon-btn" onclick="event.stopPropagation();markGachaDone(this,'${b.id}',false)" title="เปิดงานใหม่ (กลับไปใช้งานอยู่)">↩️</button>`
           : `<button class="icon-btn" onclick="event.stopPropagation();markGachaDone(this,'${b.id}',true)" title="จบงาน — ย้ายไปแท็บจบงานแล้ว">🏁</button>`}
-        <button class="icon-btn" onclick="event.stopPropagation();openGachaForm(${i})" title="แก้ไข">✏️</button>
+        ${b.done
+          ? `<button class="icon-btn" onclick="event.stopPropagation();openGachaSummary('${b.id}')" title="สรุปรวม — ของคงเหลือ / ของที่ออกไป">📊</button>`
+          : `<button class="icon-btn" onclick="event.stopPropagation();openGachaForm(${i})" title="แก้ไข">✏️</button>`}
         <button class="icon-btn del" onclick="event.stopPropagation();deleteGachaBox(${i})" title="ลบ">🗑️</button>
       </div>`}
     </div>
@@ -8942,7 +9029,7 @@ document.getElementById('shopOverlay').addEventListener('click', e => {
 document.getElementById('saleShopOverlay').addEventListener('click', e => {
   if (e.target.id === 'saleShopOverlay') closeSaleShop();
 });
-document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeLogin(); closePSASearch(); closeSale(); closeSplit(); closeProductEdit(); closeBuyConfirm(); closeBuyPopup(); closeGachaForm(); closeBuyEdit(); closeNewBuy(); closeSaleEdit(); closePreorderForm(); closeShopForm(); closeSaleShop(); closeNotePopup(); closeAppConfirm(null); } });
+document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeLogin(); closePSASearch(); closeSale(); closeSplit(); closeProductEdit(); closeBuyConfirm(); closeBuyPopup(); closeGachaForm(); closeBuyEdit(); closeNewBuy(); closeSaleEdit(); closePreorderForm(); closeShopForm(); closeSaleShop(); closeNotePopup(); closeGachaSummary(); closeAppConfirm(null); } });
 
 render();
 updatePoViewBtn();  // ปุ่มสลับมุมมองพรีออเดอร์ให้ตรงกับที่เลือกไว้ครั้งก่อน

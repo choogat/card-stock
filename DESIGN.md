@@ -79,7 +79,7 @@
 
 ## 10. ก่อน deploy ทุกครั้ง
 
-1. `node test-activity.mjs && node test-return.mjs && node test-merge.mjs && node test-theme.mjs && node test-busy.mjs && node test-rows.mjs`
+1. `node test-activity.mjs && node test-return.mjs && node test-merge.mjs && node test-theme.mjs && node test-busy.mjs && node test-rows.mjs && node test-gacha.mjs`
 2. เปิดดูทั้งโหมดสว่างและมืด
 3. `git push` แล้ว **ต้อง** `vercel --prod --yes` และ `vercel alias set <url> cielcard.vercel.app`
 4. เทียบ md5 ของไฟล์บนเว็บกับในเครื่องว่าตรงกัน
