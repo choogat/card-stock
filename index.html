@@ -7473,20 +7473,19 @@ let gachaReflowTimer = null;
 async function markGachaDone(btn, id, val) {
   if (!canEditGacha()) return;
   const b = gachaBoxes.find(x => x && String(x.id) === String(id)); if (!b) return;
-  // จบงาน = ย้ายตู้ออกจากแท็บที่ใช้อยู่ ถามยืนยันก่อน พร้อมโชว์ตัวเลขให้ทวนว่าติ๊กครบแล้วจริง
-  // (เปิดงานใหม่ไม่ต้องถาม — ไม่ได้ทำอะไรเสียหาย)
-  if (val) {
-    const st = gachaBoxStats(b);
-    const shop = shopById(b.shopId);
-    const okd = await appConfirm({
-      icon: '🏁', tone: 'warn', title: 'จบงานตู้จุ่มนี้?',
-      sub: [`${b.name || '(ไม่มีชื่อ)'}${shop ? ' · ' + (shop.name || 'ร้าน') : ''}`,
-        `ออกไปแล้ว ${st.drawn} จาก ${st.realPrizes.length} รางวัล`,
-        `${st.profit >= 0 ? 'กำไร' : 'ขาดทุน'} ${money(Math.abs(st.profit))}`].join('\n'),
-      okText: 'จบงาน',
-    });
-    if (!okd) return;
-  }
+  // ทั้งจบงานและเปิดงานใหม่ = ย้ายตู้ข้ามแท็บ ถามยืนยันก่อนทั้งคู่
+  // พร้อมโชว์ตัวเลขให้ทวน (จบงาน = ติ๊กครบหรือยัง · เปิดใหม่ = ตู้นี้ปิดไปด้วยยอดเท่าไร)
+  const st = gachaBoxStats(b);
+  const shop = shopById(b.shopId);
+  const head = `${b.name || '(ไม่มีชื่อ)'}${shop ? ' · ' + (shop.name || 'ร้าน') : ''}`;
+  const nums = [`ออกไปแล้ว ${st.drawn} จาก ${st.realPrizes.length} รางวัล`,
+    `${st.profit >= 0 ? 'กำไร' : 'ขาดทุน'} ${money(Math.abs(st.profit))}`];
+  const okd = await appConfirm(val
+    ? { icon: '🏁', tone: 'warn', title: 'จบงานตู้จุ่มนี้?', okText: 'จบงาน',
+      sub: [head, ...nums].join('\n') }
+    : { icon: '↩️', title: 'เปิดงานตู้จุ่มนี้ใหม่?', okText: 'เปิดงานใหม่',
+      sub: [head, ...nums, 'ตู้จะกลับไปอยู่แท็บ "ใช้งานอยู่" และแก้ไขได้อีกครั้ง'].join('\n') });
+  if (!okd) return;
   b.done = !!val;
   saveGacha(); // push แบบ debounce — กดรัวหลายใบรวมส่งขึ้นเซิร์ฟเวอร์ครั้งเดียว
   // ฟีดแบ็กทันทีต่อใบที่กด (จางลง + กดซ้ำไม่ได้) โดยยังไม่ rebuild ทั้งลิสต์ กัน DOM เพี้ยนตอนกดรัว

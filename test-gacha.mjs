@@ -106,5 +106,51 @@ t('เนื้อหาจากผู้ใช้ถูก escape ไม่ห
   assert.ok(!h.includes('<script'));
 });
 
+console.log('\nยืนยันก่อนย้ายตู้ข้ามแท็บ');
+
+// ดึงตัวเลือกที่ส่งเข้า popup ออกมาจากโค้ดจริง (ทั้ง 2 ทิศทาง)
+const doneSrc = html.slice(html.indexOf('async function markGachaDone'), html.indexOf('// กล่องสรุป 4 ช่อง'));
+const asked = [];
+const runDone = new Function('appConfirm', 'gachaBoxStats', 'shopById', 'money', 'saveGacha', 'canEditGacha', 'gachaBoxes', `
+  let gachaReflowTimer = null;
+  const setTimeout = () => {};
+  const clearTimeout = () => {};
+  ${doneSrc}
+  return markGachaDone;
+`)(
+  o => { asked.push(o); return Promise.resolve(false); },   // กดยกเลิกทุกครั้ง
+  b => ({ realPrizes: (b.prizes || []), drawn: 12, profit: -500 }),
+  () => ({ name: '25Cardshop' }),
+  n => '฿' + n,
+  () => {}, () => true,
+  [box()],
+);
+
+await (async () => {
+  await runDone(null, 'b1', true);
+  await runDone(null, 'b1', false);
+})();
+
+t('จบงาน: ถามยืนยัน พร้อมตัวเลขให้ทวนก่อนกด', () => {
+  const o = asked[0];
+  assert.equal(o.title, 'จบงานตู้จุ่มนี้?');
+  assert.equal(o.okText, 'จบงาน');
+  assert.ok(o.sub.includes('OP16 Booster') && o.sub.includes('25Cardshop'));
+  assert.ok(o.sub.includes('ออกไปแล้ว 12'), 'ต้องบอกว่าติ๊กไปแล้วกี่รางวัล');
+  assert.ok(o.sub.includes('ขาดทุน'), 'กำไรติดลบต้องอ่านว่าขาดทุน');
+});
+
+t('เปิดงานใหม่: ถามยืนยันเหมือนกัน และบอกว่าจะเกิดอะไรขึ้น', () => {
+  const o = asked[1];
+  assert.equal(o.title, 'เปิดงานตู้จุ่มนี้ใหม่?');
+  assert.equal(o.okText, 'เปิดงานใหม่');
+  assert.ok(o.sub.includes('ใช้งานอยู่'), 'ต้องบอกว่าตู้จะกลับไปแท็บไหน');
+});
+
+t('กดยกเลิกใน popup แล้วสถานะตู้ต้องไม่เปลี่ยน', () => {
+  assert.equal(box().done, true, 'ตู้ตั้งต้นจบงานอยู่');
+  assert.equal(asked.length, 2, 'ถามครบทั้ง 2 ทิศทาง');
+});
+
 console.log(`\n${fail ? '✗' : '✓'} ผ่าน ${pass} / ${pass + fail}\n`);
 process.exit(fail ? 1 : 0);
