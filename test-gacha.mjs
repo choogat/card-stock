@@ -8,6 +8,9 @@ const start = html.indexOf('// ===== สรุปรวมตู้ที่จ�
 const end = html.indexOf('// กล่องสรุป 4 ช่อง');
 assert.ok(start > 0 && end > start, 'หาบล็อกโค้ดสรุปตู้จุ่มไม่เจอ');
 
+// refind ตัวจริง — ใช้หาตู้ใหม่หลัง await (กันลิสต์ถูกซิงก์ทับระหว่าง popup เปิดค้าง)
+const refindSrc = html.slice(html.indexOf('function refind(arr, id)'), html.indexOf('// คืนค่า true = กดปุ่มหลัก'));
+
 const stubs = `
 function esc(s){ return String(s ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
 function money(n){ return '฿' + (Number(n)||0).toLocaleString('th-TH'); }
@@ -20,15 +23,30 @@ function gachaBoxStats(b){
   return { realPrizes, drawn: realPrizes.filter(p => p.drawn).length };
 }
 let gachaBoxes = [];
+function actWho(){ return 'Cielcard'; }
+function actDayKey(t){ const d = new Date(Number(t)||0); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+function canEditGacha(){ return canEdit; }
+let canEdit = true;
+const saves = [];
+function saveGacha(){ saves.push(1); }
+function renderGacha(){}
+function setSync(){}
+function openImgUrl(){}
+let answer = true;
+const asked = [];
+function appConfirm(o){ asked.push(o); return Promise.resolve(answer); }
 const out = {};
 const el = id => ({ set textContent(v){ out[id] = v; }, set innerHTML(v){ out[id] = v; },
+  style: {}, set disabled(v){ out[id + ':disabled'] = v; },
   classList: { add(){ out._open = true; }, remove(){ out._open = false; } } });
 const document = { getElementById: el };
 `;
 
 const mod = await import('data:text/javascript;base64,' + Buffer.from(
-  stubs + html.slice(start, end)
-  + '\nexport { groupPrizes, gachaSummarySideHTML, openGachaSummary };'
+  refindSrc + stubs + html.slice(start, end)
+  + '\nexport { groupPrizes, gachaSummarySideHTML, openGachaSummary, toggleSumGroup, toggleSumPrize, toggleSumGroupAll, finishGachaReturn, prizeKey, asked, saves };'
+  + '\nexport const setCanEdit = v => { canEdit = v; };'
+  + '\nexport const setAnswer = v => { answer = v; };'
   + '\nexport const setBoxes = v => { gachaBoxes = v; };'
   + '\nexport const rendered = () => out;',
 ).toString('base64'));
@@ -106,13 +124,104 @@ t('เนื้อหาจากผู้ใช้ถูก escape ไม่ห
   assert.ok(!h.includes('<script'));
 });
 
+console.log('\nกางดูรายใบ + ติ๊กเช็คของ');
+
+const openSum = () => { mod.setBoxes([box()]); mod.openGachaSummary('b1'); };
+
+t('กดแถวแล้วกางรายใบออกมา กดซ้ำแล้วยุบ', () => {
+  openSum();
+  assert.ok(!mod.rendered().gachaSumBody.includes('gsum-items'), 'ตอนแรกยังไม่กาง');
+  mod.toggleSumGroup('left', 'op 16');
+  assert.ok(mod.rendered().gachaSumBody.includes('gsum-items'), 'กดแล้วต้องกาง');
+  mod.toggleSumGroup('left', 'op 16');
+  assert.ok(!mod.rendered().gachaSumBody.includes('gsum-items'), 'กดซ้ำต้องยุบ');
+});
+
+t('รางวัลที่ไม่มีรูป/cert แสดงแค่ชื่อ ไม่มีช่องว่างเปล่า', () => {
+  mod.setBoxes([{ id: 'b2', name: 'x', prizes: [{ no: '', name: 'ของไม่มีข้อมูล' }] }]);
+  mod.openGachaSummary('b2');
+  mod.toggleSumGroup('left', 'ของไม่มีข้อมูล');
+  const h = mod.rendered().gachaSumBody;
+  assert.ok(h.includes('ของไม่มีข้อมูล'));
+  assert.ok(h.includes('gsum-thumb none'), 'ไม่มีรูป = ไอคอนแทน');
+  assert.ok(!h.includes('gsum-ibits'), 'ไม่มีเลข/cert/มูลค่า = ไม่ต้องมีบรรทัดรายละเอียด');
+});
+
+t('ติ๊กได้เฉพาะฝั่งคงเหลือ ฝั่งที่ออกไปแล้วไม่มีช่องติ๊ก', () => {
+  openSum();
+  const h = mod.rendered().gachaSumBody;
+  const left = h.slice(h.indexOf('gsum-side left'), h.indexOf('gsum-side right'));
+  const right = h.slice(h.indexOf('gsum-side right'));
+  assert.ok(left.includes('gsum-tick'), 'ฝั่งคงเหลือต้องติ๊กได้');
+  assert.ok(!right.includes('gsum-tick'), 'ฝั่งออกไปแล้วไม่ต้องมีช่องติ๊ก');
+});
+
+t('ติ๊กรายใบแล้วบันทึกลงรางวัลใบนั้น และนับรวมให้ที่หัวตาราง', () => {
+  openSum();
+  mod.toggleSumGroup('left', 'luffy leader');
+  mod.toggleSumPrize('n100');
+  const b = mod.rendered();
+  assert.ok(b.gachaSumBody.includes('ติ๊กแล้ว 1/28'), 'หัวตารางต้องอัปเดตยอด');
+  assert.ok(b.gachaSumBody.includes('1/10'), 'หัวกองต้องบอก 1/10');
+});
+
+t('ติ๊กทั้งกองทีเดียว และติ๊กออกทั้งกองได้', () => {
+  openSum();
+  mod.toggleSumGroupAll('luffy leader', true);
+  assert.ok(mod.rendered().gachaSumBody.includes('ติ๊กแล้ว 10/28'));
+  mod.toggleSumGroupAll('luffy leader', false);
+  assert.ok(mod.rendered().gachaSumBody.includes('ติ๊กแล้ว 0/28'));
+});
+
+t('ติ๊กทั้งกองต้องไม่ไปโดนใบที่ออกไปแล้ว (ชื่อเดียวกันแต่คนละฝั่ง)', () => {
+  openSum();
+  mod.toggleSumGroupAll('op 16', true);
+  assert.ok(mod.rendered().gachaSumBody.includes('ติ๊กแล้ว 18/28'), 'ต้องได้แค่ 18 ใบที่ยังไม่ออก');
+});
+
+console.log('\nคืนของสำเร็จ');
+
+await (async () => {
+  openSum();
+  mod.toggleSumGroupAll('op 16', true);
+  mod.setAnswer(true);
+  await mod.finishGachaReturn();
+  t('กดคืนของสำเร็จ → ล็อก ติ๊กไม่ได้อีก และขึ้นป้ายบอกว่าใครทำ', () => {
+    const r = mod.rendered();
+    assert.ok(r.gachaSumMeta.includes('คืนของสำเร็จแล้ว') && r.gachaSumMeta.includes('Cielcard'));
+    assert.ok(r.gachaSumBody.includes('gsum-tick on locked') || r.gachaSumBody.includes('locked'), 'ช่องติ๊กต้องถูกล็อก');
+    assert.equal(r['gachaSumDoneBtn:disabled'], true, 'ปุ่มต้องกดซ้ำไม่ได้');
+  });
+  t('popup ยืนยันบอกจำนวนที่ติ๊กไปแล้ว และเตือนเมื่อยังไม่ครบ', () => {
+    const o = mod.asked[mod.asked.length - 1];
+    assert.equal(o.title, 'ยืนยันคืนของสำเร็จ?');
+    assert.equal(o.count, '18 / 28 ใบ');
+    assert.ok(o.sub.includes('ยังติ๊กไม่ครบ'), 'ติ๊กไม่ครบต้องเตือน แต่ยังไปต่อได้');
+  });
+  t('ล็อกแล้วติ๊กเพิ่มไม่ได้จริง ๆ (ไม่ใช่แค่ซ่อนปุ่ม)', () => {
+    const before = mod.rendered().gachaSumBody;
+    mod.toggleSumPrize('n100');
+    mod.toggleSumGroupAll('luffy leader', true);
+    assert.equal(mod.rendered().gachaSumBody, before, 'ข้อมูลต้องไม่ขยับเลย');
+  });
+})();
+
+await (async () => {
+  openSum();
+  mod.setCanEdit(false);
+  await mod.finishGachaReturn();
+  t('คนที่ไม่มีสิทธิ์แก้ตู้จุ่ม กดคืนของสำเร็จไม่ได้', () => {
+    assert.ok(!mod.rendered().gachaSumMeta.includes('คืนของสำเร็จแล้ว'));
+  });
+  mod.setCanEdit(true);
+})();
+
 console.log('\nยืนยันก่อนย้ายตู้ข้ามแท็บ');
 
 // ดึงตัวเลือกที่ส่งเข้า popup ออกมาจากโค้ดจริง (ทั้ง 2 ทิศทาง)
 const doneSrc = html.slice(html.indexOf('async function markGachaDone'), html.indexOf('// ===== สรุปรวมตู้ที่จบงานแล้ว'));
-const refindSrc = html.slice(html.indexOf('function refind(arr, id)'), html.indexOf('// คืนค่า true = กดปุ่มหลัก'));
-const asked = [];
-let onAsk = null, answer = false;
+const asked2 = [];
+let onAsk = null, answer2 = false;
 const mkRunner = (boxesRef) => new Function('appConfirm', 'gachaBoxStats', 'shopById', 'money', 'saveGacha', 'canEditGacha', 'gachaBoxes', 'renderGacha', `
   let gachaReflowTimer = null;
   const setTimeout = () => {};
@@ -121,7 +230,7 @@ const mkRunner = (boxesRef) => new Function('appConfirm', 'gachaBoxStats', 'shop
   ${doneSrc}
   return markGachaDone;
 `)(
-  o => { asked.push(o); if (onAsk) onAsk(); return Promise.resolve(answer); },
+  o => { asked2.push(o); if (onAsk) onAsk(); return Promise.resolve(answer2); },
   b => ({ realPrizes: (b.prizes || []), drawn: 12, profit: -500 }),
   () => ({ name: '25Cardshop' }),
   n => '฿' + n,
@@ -137,7 +246,7 @@ await (async () => {
 })();
 
 t('จบงาน: ถามยืนยัน พร้อมตัวเลขให้ทวนก่อนกด', () => {
-  const o = asked[0];
+  const o = asked2[0];
   assert.equal(o.title, 'จบงานตู้จุ่มนี้?');
   assert.equal(o.okText, 'จบงาน');
   assert.ok(o.sub.includes('OP16 Booster') && o.sub.includes('25Cardshop'));
@@ -146,7 +255,7 @@ t('จบงาน: ถามยืนยัน พร้อมตัวเล�
 });
 
 t('เปิดงานใหม่: ถามยืนยันเหมือนกัน และบอกว่าจะเกิดอะไรขึ้น', () => {
-  const o = asked[1];
+  const o = asked2[1];
   assert.equal(o.title, 'เปิดงานตู้จุ่มนี้ใหม่?');
   assert.equal(o.okText, 'เปิดงานใหม่');
   assert.ok(o.sub.includes('ใช้งานอยู่'), 'ต้องบอกว่าตู้จะกลับไปแท็บไหน');
@@ -154,7 +263,7 @@ t('เปิดงานใหม่: ถามยืนยันเหมือ
 
 t('กดยกเลิกใน popup แล้วสถานะตู้ต้องไม่เปลี่ยน', () => {
   assert.equal(boxesRef[0].done, true, 'ตู้ยังจบงานอยู่เหมือนเดิม');
-  assert.equal(asked.length, 2, 'ถามครบทั้ง 2 ทิศทาง');
+  assert.equal(asked2.length, 2, 'ถามครบทั้ง 2 ทิศทาง');
 });
 
 await (async () => {
@@ -162,7 +271,7 @@ await (async () => {
   // ตู้ที่ find() ไว้ก่อน await กลายเป็นออบเจ็กต์ลอย — กดเปิดงานใหม่แล้วตู้ไม่กลับมาแท็บ "ใช้งานอยู่"
   const stale = boxesRef[0];
   const fresh = { ...box(), done: true };
-  answer = true;
+  answer2 = true;
   onAsk = () => { boxesRef.length = 0; boxesRef.push(fresh); };
   await runDone(null, 'b1', false);
   onAsk = null;

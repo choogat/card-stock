@@ -662,10 +662,35 @@
   .gsum-side.left .gsum-count { color: var(--t-info-fg); }
   .gsum-side.right .gsum-count { color: var(--t-ok-fg); }
   .gsum-sub { color: var(--muted); font-size: .78rem; margin: 3px 0 8px; }
-  .gsum-table { width: 100%; border-collapse: collapse; }
-  .gsum-table td { padding: 6px 0; border-top: 1px solid var(--border); font-size: .86rem; }
-  .gsum-table td.num { text-align: right; font-weight: 700; white-space: nowrap; padding-left: 10px; }
-  .gsum-table td.muted { color: var(--muted); font-weight: 600; }
+  .gsum-empty { padding: 8px 0; font-size: .86rem; }
+  /* หัวกอง: กดเพื่อกางดูรายใบ */
+  .gsum-grow { border-top: 1px solid var(--border); }
+  .gsum-ghead { display: flex; align-items: center; gap: 7px; padding: 7px 0; cursor: pointer; font-size: .86rem; }
+  .gsum-ghead:hover { color: var(--accent); }
+  .gsum-caret { color: var(--muted); font-size: .7rem; flex: none; }
+  .gsum-gname { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+  .gsum-gtick { font-size: .72rem; font-weight: 700; color: var(--t-ok-fg); flex: none; }
+  .gsum-gn { font-weight: 800; white-space: nowrap; flex: none; }
+  .gsum-gval { color: var(--muted); font-size: .78rem; white-space: nowrap; flex: none; min-width: 62px; text-align: right; }
+  /* รายใบในกอง */
+  .gsum-items { padding: 2px 0 8px; }
+  .gsum-item { display: flex; align-items: center; gap: 8px; padding: 4px 0 4px 4px; font-size: .82rem; }
+  .gsum-thumb { width: 26px; height: 36px; object-fit: cover; border-radius: 5px; flex: none; cursor: pointer; background: var(--card); }
+  .gsum-thumb.none { display: flex; align-items: center; justify-content: center; font-size: .9rem; opacity: .5; cursor: default; }
+  .gsum-iname { min-width: 0; overflow: hidden; }
+  .gsum-ibits { display: block; color: var(--muted); font-size: .72rem; }
+  /* ช่องติ๊กเช็คของ — ติ๊กครบทั้งกองเป็นเขียวเต็ม ติ๊กบางส่วนเป็นขีด */
+  .gsum-tick {
+    width: 20px; height: 20px; flex: none; border-radius: 6px; cursor: pointer;
+    border: 1.5px solid var(--border); background: var(--card);
+    display: inline-flex; align-items: center; justify-content: center;
+    font-size: .78rem; font-weight: 800; color: transparent;
+  }
+  .gsum-tick:hover { border-color: var(--t-ok-fg); }
+  .gsum-tick.on { background: var(--t-ok-bg); border-color: var(--t-ok-fg); color: var(--t-ok-fg); }
+  .gsum-tick.part { border-color: var(--t-wait-fg); color: var(--t-wait-fg); }
+  .gsum-tick.locked { cursor: not-allowed; opacity: .55; }
+  .gsum-locked { margin-top: 6px; color: var(--t-ok-fg); font-weight: 700; font-size: .82rem; }
   /* ปุ่มกรอง (เช่น ปุ่มราคา) หน้าตาเหมือน select.filter */
   .fbtn { padding: 0 14px; cursor: pointer; white-space: nowrap; }
   .fbtn:hover { border-color: var(--accent); }
@@ -1856,7 +1881,8 @@
     <div class="gsum-meta" id="gachaSumMeta"></div>
     <div class="gsum-wrap" id="gachaSumBody"></div>
     <div class="modal-actions">
-      <button class="btn btn-primary" onclick="closeGachaSummary()">ปิด</button>
+      <button class="btn btn-ghost" onclick="closeGachaSummary()">ปิด</button>
+      <button class="btn btn-primary" id="gachaSumDoneBtn" onclick="runBusy(this, finishGachaReturn)">✅ คืนของสำเร็จ</button>
     </div>
   </div>
 </div>
@@ -7501,6 +7527,7 @@ async function markGachaDone(btn, id, val) {
   const cur = refind(gachaBoxes, id); // ระหว่างถามยืนยัน ลิสต์อาจถูกซิงก์ทับไปแล้ว ต้องหาตัวจริงใหม่
   if (!cur) return;
   cur.done = !!val;
+  if (!val) cur.retDone = false;      // เปิดงานใหม่ = ปลดล็อกการติ๊กเช็คของด้วย
   saveGacha(); // push แบบ debounce — กดรัวหลายใบรวมส่งขึ้นเซิร์ฟเวอร์ครั้งเดียว
   // ฟีดแบ็กทันทีต่อใบที่กด (จางลง + กดซ้ำไม่ได้) โดยยังไม่ rebuild ทั้งลิสต์ กัน DOM เพี้ยนตอนกดรัว
   const boxEl = btn && btn.closest('.gacha-box');
@@ -7517,41 +7544,156 @@ function groupPrizes(list) {
   for (const p of list) {
     const name = (p.name || '(ไม่มีชื่อ)').trim();
     const k = name.toLowerCase();
-    const g = m.get(k) || { name, n: 0, value: 0 };
+    const g = m.get(k) || { key: k, name, n: 0, value: 0, items: [] };
     g.n += 1;
     g.value += prizeValueOf(p);
+    g.items.push(p);
     m.set(k, g);
   }
   return [...m.values()].sort((a, b) => b.n - a.n || a.name.localeCompare(b.name, 'th'));
 }
-function gachaSummarySideHTML(title, icon, list, cls) {
-  const rows = groupPrizes(list);
-  const value = rows.reduce((s, r) => s + r.value, 0);
-  const body = rows.length
-    ? rows.map(r => `<tr><td>${esc(r.name)}</td><td class="num">× ${r.n}</td><td class="num muted">${money(r.value)}</td></tr>`).join('')
-    : '<tr><td colspan="3" class="muted">ไม่มีรายการ</td></tr>';
-  return `<div class="gsum-side ${cls}">
-    <div class="gsum-head">${icon} ${title}<span class="gsum-count">${list.length} รางวัล</span></div>
-    <div class="gsum-sub">มูลค่ารวม ${money(value)}</div>
-    <table class="gsum-table"><tbody>${body}</tbody></table>
+// รหัสอ้างรางวัล 1 ใบในตู้ — ใช้เลขช่องเป็นหลัก (ไม่ซ้ำกันในตู้เดียว) เผื่อลิสต์ถูกซิงก์ทับก็ยังชี้ถูกใบ
+function prizeKey(p, i) { return (p && p.no !== '' && p.no != null) ? 'n' + p.no : 'i' + i; }
+function findPrize(b, key) {
+  const list = (b && b.prizes) || [];
+  for (let i = 0; i < list.length; i++) if (prizeKey(list[i], i) === key) return list[i];
+  return null;
+}
+let gachaSumId = null;                 // ตู้ที่เปิดสรุปอยู่
+const gachaSumOpen = new Set();        // กองที่กางดูรายละเอียดอยู่
+function sumLocked(b) { return !!(b && b.retDone); }   // คืนของสำเร็จแล้ว = ติ๊กไม่ได้อีก
+// รายการย่อยของกอง — ไม่มีรูป/cert/มูลค่า ก็โชว์แค่ชื่อ ไม่ต้องมีช่องว่างเปล่า ๆ
+function sumItemHTML(p, i, canTick, locked) {
+  const k = prizeKey(p, i);
+  const thumb = p.image
+    ? `<img class="gsum-thumb" loading="lazy" src="${esc(p.image)}" onclick="event.stopPropagation();openImgUrl('${esc(p.image)}')" alt="">`
+    : '<span class="gsum-thumb none">🃏</span>';
+  const bits = [p.no ? `#${esc(String(p.no))}` : '', p.cert ? `cert ${esc(p.cert)}` : '',
+    prizeValueOf(p) ? money(prizeValueOf(p)) : ''].filter(Boolean).join(' · ');
+  const tick = canTick
+    ? `<span class="gsum-tick${p.checked ? ' on' : ''}${locked ? ' locked' : ''}"
+        onclick="event.stopPropagation();${locked ? '' : `toggleSumPrize('${k}')`}"
+        title="${locked ? 'คืนของสำเร็จแล้ว แก้ไม่ได้' : 'ติ๊กเมื่อเช็คของใบนี้แล้ว'}">${p.checked ? '✔' : ''}</span>`
+    : '';
+  return `<div class="gsum-item">${tick}${thumb}
+    <span class="gsum-iname">${esc(p.name || '(ไม่มีชื่อ)')}${bits ? `<span class="gsum-ibits">${bits}</span>` : ''}</span>
   </div>`;
 }
-function openGachaSummary(id) {
-  const b = gachaBoxes.find(x => x && String(x.id) === String(id));
-  if (!b) return;
+function gachaSummarySideHTML(title, icon, list, cls, opt) {
+  const { canTick = false, locked = false, idxOf = null } = opt || {};
+  const rows = groupPrizes(list);
+  const value = rows.reduce((s, r) => s + r.value, 0);
+  const ticked = canTick ? list.filter(p => p.checked).length : 0;
+  const body = rows.length
+    ? rows.map(r => {
+      const open = gachaSumOpen.has(cls + '|' + r.key);
+      const gTicked = r.items.filter(p => p.checked).length;
+      const allTick = canTick
+        ? `<span class="gsum-tick${gTicked === r.n ? ' on' : gTicked ? ' part' : ''}${locked ? ' locked' : ''}"
+            onclick="event.stopPropagation();${locked ? '' : `toggleSumGroupAll('${esc(r.key)}', ${gTicked < r.n})`}"
+            title="${locked ? 'คืนของสำเร็จแล้ว แก้ไม่ได้' : 'ติ๊กทั้งกอง'}">${gTicked === r.n ? '✔' : gTicked ? '–' : ''}</span>`
+        : '';
+      const kids = open
+        ? `<div class="gsum-items">${r.items.map(p => sumItemHTML(p, idxOf ? idxOf(p) : 0, canTick, locked)).join('')}</div>`
+        : '';
+      return `<div class="gsum-grow${open ? ' open' : ''}">
+        <div class="gsum-ghead" onclick="toggleSumGroup('${cls}','${esc(r.key)}')">
+          ${allTick}<span class="gsum-caret">${open ? '▾' : '▸'}</span>
+          <span class="gsum-gname">${esc(r.name)}</span>
+          ${canTick && gTicked ? `<span class="gsum-gtick">${gTicked}/${r.n}</span>` : ''}
+          <span class="gsum-gn">× ${r.n}</span>
+          <span class="gsum-gval">${money(r.value)}</span>
+        </div>${kids}
+      </div>`;
+    }).join('')
+    : '<div class="gsum-empty muted">ไม่มีรายการ</div>';
+  return `<div class="gsum-side ${cls}">
+    <div class="gsum-head">${icon} ${title}<span class="gsum-count">${list.length} รางวัล</span></div>
+    <div class="gsum-sub">มูลค่ารวม ${money(value)}${canTick ? ` · ติ๊กแล้ว ${ticked}/${list.length}` : ''}</div>
+    ${body}
+  </div>`;
+}
+function renderGachaSummary() {
+  const b = refind(gachaBoxes, gachaSumId);
+  if (!b) { closeGachaSummary(); return; }
   const st = gachaBoxStats(b);
+  const idxOf = p => (b.prizes || []).indexOf(p);
   const left = st.realPrizes.filter(p => !p.drawn);
   const right = st.realPrizes.filter(p => p.drawn);
   const shop = shopById(b.shopId);
+  const locked = sumLocked(b);
   document.getElementById('gachaSumTitle').textContent = `📊 สรุปตู้ ${b.name || '(ไม่มีชื่อ)'}`;
-  document.getElementById('gachaSumMeta').textContent =
-    [shop ? shop.name || 'ร้าน' : '', b.date ? fmtDate(b.date) : '', `${st.realPrizes.length} รางวัลทั้งหมด`]
-      .filter(Boolean).join(' · ');
+  document.getElementById('gachaSumMeta').innerHTML =
+    esc([shop ? shop.name || 'ร้าน' : '', b.date ? fmtDate(b.date) : '', `${st.realPrizes.length} รางวัลทั้งหมด`]
+      .filter(Boolean).join(' · '))
+    + (locked ? `<div class="gsum-locked">✅ คืนของสำเร็จแล้ว · ${esc(fmtDate(actDayKey(b.retDoneAt || 0)))}${b.retDoneBy ? ' · โดย ' + esc(b.retDoneBy) : ''}</div>` : '');
   document.getElementById('gachaSumBody').innerHTML =
-    gachaSummarySideHTML('ของคงเหลือ', '🎁', left, 'left') + gachaSummarySideHTML('ของที่ออกไป', '📤', right, 'right');
+    gachaSummarySideHTML('ของคงเหลือ', '🎁', left, 'left', { canTick: true, locked, idxOf })
+    + gachaSummarySideHTML('ของที่ออกไป', '📤', right, 'right', { idxOf });
+  const btn = document.getElementById('gachaSumDoneBtn');
+  if (btn) {
+    btn.style.display = canEditGacha() ? '' : 'none';
+    btn.disabled = locked;
+    btn.textContent = locked ? '✅ คืนของสำเร็จแล้ว' : '✅ คืนของสำเร็จ';
+  }
+}
+function openGachaSummary(id) {
+  if (!refind(gachaBoxes, id)) return;
+  gachaSumId = id;
+  gachaSumOpen.clear();
+  renderGachaSummary();
   document.getElementById('gachaSumOverlay').classList.add('open');
 }
 function closeGachaSummary() { document.getElementById('gachaSumOverlay').classList.remove('open'); }
+function toggleSumGroup(side, key) {
+  const k = side + '|' + key;
+  if (gachaSumOpen.has(k)) gachaSumOpen.delete(k); else gachaSumOpen.add(k);
+  renderGachaSummary();
+}
+function toggleSumPrize(key) {
+  const b = refind(gachaBoxes, gachaSumId);
+  if (!b || sumLocked(b)) return;
+  const p = findPrize(b, key);
+  if (!p) return;
+  p.checked = !p.checked;
+  saveGacha();
+  renderGachaSummary();
+}
+function toggleSumGroupAll(key, on) {
+  const b = refind(gachaBoxes, gachaSumId);
+  if (!b || sumLocked(b)) return;
+  (b.prizes || []).forEach(p => {
+    if (p && !p.header && !p.drawn && (p.name || '(ไม่มีชื่อ)').trim().toLowerCase() === key) p.checked = !!on;
+  });
+  saveGacha();
+  renderGachaSummary();
+}
+// ปิดงานคืนของ: ล็อกการติ๊กถาวร (ปลดได้ทางเดียวคือกด ↩️ เปิดงานใหม่ให้ตู้)
+async function finishGachaReturn() {
+  const b0 = refind(gachaBoxes, gachaSumId);
+  if (!b0 || !canEditGacha() || sumLocked(b0)) return;
+  const left = gachaBoxStats(b0).realPrizes.filter(p => !p.drawn);
+  const ticked = left.filter(p => p.checked).length;
+  const okd = await appConfirm({
+    icon: '✅', tone: ticked === left.length ? 'ok' : 'warn',
+    title: 'ยืนยันคืนของสำเร็จ?',
+    sub: [b0.name || '(ไม่มีชื่อ)',
+      ticked === left.length ? 'ติ๊กครบทุกใบแล้ว' : 'ยังติ๊กไม่ครบ — ปิดแล้วจะติ๊กเพิ่มไม่ได้',
+      'ปลดล็อกได้ด้วยการกด ↩️ เปิดงานใหม่ ของตู้นี้'].join('\n'),
+    countLabel: 'ติ๊กแล้ว', count: `${ticked} / ${left.length} ใบ`,
+    okText: 'คืนของสำเร็จ',
+  });
+  if (!okd) return;
+  const b = refind(gachaBoxes, gachaSumId);   // ระหว่างถามยืนยัน ลิสต์อาจถูกซิงก์ทับไปแล้ว
+  if (!b || sumLocked(b)) return;
+  b.retDone = true;
+  b.retDoneAt = Date.now();
+  b.retDoneBy = actWho();
+  saveGacha();
+  renderGachaSummary();
+  renderGacha();
+  setSync('✅ บันทึกคืนของสำเร็จแล้ว', 'ok');
+}
 
 // กล่องสรุป 4 ช่อง (จำนวนจุ่ม · ยอดขาย · ทุน · กำไร)
 function gachaSummaryHTML(draws, sales, cost) {
