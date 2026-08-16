@@ -109,22 +109,27 @@ t('เนื้อหาจากผู้ใช้ถูก escape ไม่ห
 console.log('\nยืนยันก่อนย้ายตู้ข้ามแท็บ');
 
 // ดึงตัวเลือกที่ส่งเข้า popup ออกมาจากโค้ดจริง (ทั้ง 2 ทิศทาง)
-const doneSrc = html.slice(html.indexOf('async function markGachaDone'), html.indexOf('// กล่องสรุป 4 ช่อง'));
+const doneSrc = html.slice(html.indexOf('async function markGachaDone'), html.indexOf('// ===== สรุปรวมตู้ที่จบงานแล้ว'));
+const refindSrc = html.slice(html.indexOf('function refind(arr, id)'), html.indexOf('// คืนค่า true = กดปุ่มหลัก'));
 const asked = [];
-const runDone = new Function('appConfirm', 'gachaBoxStats', 'shopById', 'money', 'saveGacha', 'canEditGacha', 'gachaBoxes', `
+let onAsk = null, answer = false;
+const mkRunner = (boxesRef) => new Function('appConfirm', 'gachaBoxStats', 'shopById', 'money', 'saveGacha', 'canEditGacha', 'gachaBoxes', 'renderGacha', `
   let gachaReflowTimer = null;
   const setTimeout = () => {};
   const clearTimeout = () => {};
+  ${refindSrc}
   ${doneSrc}
   return markGachaDone;
 `)(
-  o => { asked.push(o); return Promise.resolve(false); },   // กดยกเลิกทุกครั้ง
+  o => { asked.push(o); if (onAsk) onAsk(); return Promise.resolve(answer); },
   b => ({ realPrizes: (b.prizes || []), drawn: 12, profit: -500 }),
   () => ({ name: '25Cardshop' }),
   n => '฿' + n,
   () => {}, () => true,
-  [box()],
+  boxesRef, () => {},
 );
+const boxesRef = [box()];
+const runDone = mkRunner(boxesRef);
 
 await (async () => {
   await runDone(null, 'b1', true);
@@ -148,9 +153,24 @@ t('เปิดงานใหม่: ถามยืนยันเหมือ
 });
 
 t('กดยกเลิกใน popup แล้วสถานะตู้ต้องไม่เปลี่ยน', () => {
-  assert.equal(box().done, true, 'ตู้ตั้งต้นจบงานอยู่');
+  assert.equal(boxesRef[0].done, true, 'ตู้ยังจบงานอยู่เหมือนเดิม');
   assert.equal(asked.length, 2, 'ถามครบทั้ง 2 ทิศทาง');
 });
+
+await (async () => {
+  // ของจริงที่เคยพัง: ระหว่าง popup เปิดค้าง การซิงก์ดึงข้อมูลใหม่มาแทนที่ทั้งอาร์เรย์
+  // ตู้ที่ find() ไว้ก่อน await กลายเป็นออบเจ็กต์ลอย — กดเปิดงานใหม่แล้วตู้ไม่กลับมาแท็บ "ใช้งานอยู่"
+  const stale = boxesRef[0];
+  const fresh = { ...box(), done: true };
+  answer = true;
+  onAsk = () => { boxesRef.length = 0; boxesRef.push(fresh); };
+  await runDone(null, 'b1', false);
+  onAsk = null;
+  t('ซิงก์มาทับระหว่าง popup เปิดค้าง — เปิดงานใหม่ต้องยังมีผลกับตู้ตัวจริง', () => {
+    assert.equal(fresh.done, false, 'ตู้ในลิสต์ล่าสุดต้องกลับไปใช้งานอยู่');
+    assert.equal(stale.done, true, 'ตัวเก่าที่หลุดจากลิสต์แล้ว ไม่ต้องไปยุ่ง');
+  });
+})();
 
 console.log(`\n${fail ? '✗' : '✓'} ผ่าน ${pass} / ${pass + fail}\n`);
 process.exit(fail ? 1 : 0);

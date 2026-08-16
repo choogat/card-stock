@@ -8,7 +8,10 @@ const start = html.indexOf('// ================= คืนสินค้า ===
 const end = html.indexOf('function salesRow(c, isChild) {');
 assert.ok(start > 0 && end > start, 'หาบล็อกโค้ดคืนสินค้าใน index.html ไม่เจอ');
 
-const stubs = `
+// ตัวจริงจาก index.html — ใช้หาออบเจ็กต์ใหม่หลัง await (กันลิสต์ถูกซิงก์ทับระหว่าง popup เปิดค้าง)
+const refindSrc = html.slice(html.indexOf('function refind(arr, id)'), html.indexOf('// คืนค่า true = กดปุ่มหลัก'));
+
+const stubs = refindSrc + `
 function esc(s){ return String(s ?? ''); }
 function fmtDate(d){ return d ? d.split('-').reverse().join('/') : ''; }
 function actDayKey(t){ const d = new Date(Number(t)||0); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
@@ -26,7 +29,8 @@ const synced = [];
 function setSync(t, c){ synced.push(c + ':' + t); }
 let answer = null;                       // ค่าที่ popup จะตอบกลับ (true / false / null)
 const asked = [];
-function appConfirm(opt){ asked.push(opt); return Promise.resolve(answer); }
+let onAsk = null;
+function appConfirm(opt){ asked.push(opt); if (onAsk) onAsk(); return Promise.resolve(answer); }
 `;
 
 // ชิปสรุป "รอดำเนินการ" อยู่คนละบล็อกกับตรรกะคืนสินค้า — ดึงมาต่อท้ายเพื่อทดสอบด้วยกัน
@@ -45,7 +49,8 @@ const mod = await import('data:text/javascript;base64,' + Buffer.from(
   + '\nexport { retState, retFails, returnBadgeHTML, returnActionsHTML, requestReturn, reviewReturn, asked, saved, synced };'
   + '\nexport const setCards = v => { cards = v; };'
   + '\nexport const setShop = v => { viewShopId = v; };'
-  + '\nexport const setAnswer = v => { answer = v; };',
+  + '\nexport const setAnswer = v => { answer = v; };'
+  + '\nexport const setOnAsk = f => { onAsk = f; };',   // จำลองการซิงก์ที่เกิดตอน popup เปิดค้าง
 ).toString('base64'));
 
 let pass = 0, fail = 0;
@@ -182,6 +187,21 @@ await ta('popup มี 3 ทางเลือก: ยกเลิก / ไม�
   assert.equal(o.cancelText, 'ไม่อนุมัติ', 'ปุ่มกลาง = ไม่อนุมัติ (มีผลจริง)');
   assert.equal(o.dismissText, 'ยกเลิก', 'ปุ่มซ้าย = ออกเฉย ๆ');
   assert.equal(o.cancelTone, 'danger', 'ปุ่มไม่อนุมัติต้องเป็นสีแดง ไม่ให้กดสลับกับยกเลิก');
+});
+
+await ta('ซิงก์ดึงข้อมูลใหม่มาทับระหว่าง popup เปิดค้าง — การตัดสินต้องยังมีผลกับตัวจริง', async () => {
+  const before = { ...mk(), retState: 'pending' };
+  mod.setCards([before]);
+  mod.setShop(null);
+  mod.setAnswer(true);
+  // จำลองการซิงก์: อาร์เรย์ถูกแทนที่ด้วยออบเจ็กต์ชุดใหม่ (คนละ reference) ตอน popup กำลังเปิด
+  const after = { ...mk(), retState: 'pending' };
+  mod.setOnAsk(() => mod.setCards([after]));
+  await mod.reviewReturn('c1');
+  assert.equal(after.retState, 'done', 'ต้องแก้ที่ตัวจริงในลิสต์ล่าสุด');
+  assert.equal(after.status, 'show');
+  assert.equal(before.retState, 'pending', 'ตัวเก่าที่หลุดจากลิสต์แล้ว ไม่ต้องไปยุ่ง');
+  mod.setOnAsk(null);
 });
 
 console.log('\nชิปสรุป "รอดำเนินการ"');

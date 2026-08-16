@@ -4986,16 +4986,18 @@ async function reviewReturn(id) {
     dismissText: 'ยกเลิก',                // → ไม่ตัดสินอะไร ค้างรอไว้เหมือนเดิม
   });
   if (ans === null) return;                 // ปิดทิ้ง = ยังไม่ตัดสิน ไม่นับเป็นอะไรทั้งนั้น
+  const cur = refind(cards, id);            // ระหว่างถามยืนยัน ลิสต์อาจถูกซิงก์ทับไปแล้ว
+  if (!cur || retState(cur) !== 'pending') return;
   if (ans) {
     // คืนสำเร็จ = ของกลับมาอยู่กับเจ้าของ → ออกจากสินค้าขาย กลับไปเป็น "สะสม" ในคลัง และหลุดจากร้าน
-    c.retState = 'done';
-    c.retDoneAt = Date.now();
-    c.retDoneBy = actWho();
-    c.status = 'show';
-    c.shopId = '';
+    cur.retState = 'done';
+    cur.retDoneAt = Date.now();
+    cur.retDoneBy = actWho();
+    cur.status = 'show';
+    cur.shopId = '';
   } else {
-    c.retState = '';
-    c.retFails = retFails(c) + 1;           // ไว้เตือนตอนกดขายครั้งถัดไป
+    cur.retState = '';
+    cur.retFails = retFails(cur) + 1;       // ไว้เตือนตอนกดขายครั้งถัดไป
   }
   save();
   renderSales();
@@ -5336,14 +5338,16 @@ async function toggleInStock(id, el) {
     count: next.toLocaleString('th-TH') + ' / ' + total.toLocaleString('th-TH') + ' ใบ',
   });
   if (!okd) { el.checked = !want; return; } // ไม่ยืนยัน → คืนติ๊กกลับเหมือนเดิม
-  c.inStock = want;
+  const cur = refind(cards, id); // ระหว่างถามยืนยัน ลิสต์อาจถูกซิงก์ทับไปแล้ว
+  if (!cur) { el.checked = !want; return; }
+  cur.inStock = want;
   // อัปเดตเฉพาะช่องนี้ ไม่ re-render ทั้งตาราง (กันกลุ่มที่กางไว้ยุบ + เร็วกว่ามากตอนมีการ์ดเยอะ)
   const td = el.closest('td');
   if (td) {
-    td.classList.toggle('on', c.inStock);
-    td.classList.toggle('off', !c.inStock);
+    td.classList.toggle('on', cur.inStock);
+    td.classList.toggle('off', !cur.inStock);
     const lbl = td.querySelector('.stock-lbl');
-    if (lbl) lbl.textContent = c.inStock ? 'มีของ' : 'ไม่มีของ';
+    if (lbl) lbl.textContent = cur.inStock ? 'มีของ' : 'ไม่มีของ';
     refreshGroupStockSum(td.closest('tr')); // ใบย่อยในกลุ่ม → อัปเดตเลข x/y ที่หัวข้อใหญ่ด้วย
   }
   updateStats(); // อัปเดตกล่อง "เช็คของแล้ว" ด้านบนให้ตรงทันที
@@ -5391,9 +5395,11 @@ async function toggleForSale(id) {
       okText: 'ยกเลิกการขาย',
     });
     if (!okd) { render(); return; } // ไม่ยืนยัน → คืนติ๊กกลับเป็นเหมือนเดิม
-    c.status = 'show'; // เอาออกจากขาย
-    if (c.gachaBoxId) removeCardFromGacha(c); // ยกเลิก → ดึงรางวัลออกจากตู้จุ่มให้ด้วย
-    delete c.gachaBoxId; delete c.gachaNo;
+    const cur = refind(cards, id); // ระหว่างถามยืนยัน ลิสต์อาจถูกซิงก์ทับไปแล้ว
+    if (!cur) { render(); return; }
+    cur.status = 'show'; // เอาออกจากขาย
+    if (cur.gachaBoxId) removeCardFromGacha(cur); // ยกเลิก → ดึงรางวัลออกจากตู้จุ่มให้ด้วย
+    delete cur.gachaBoxId; delete cur.gachaNo;
     saleSelection.delete(id);
     updateSaleBar();
     save();
@@ -7321,6 +7327,12 @@ function poListHTML(list) {
 // ---- popup ยืนยันของแอปเอง (แทน confirm ของเบราว์เซอร์ ที่ขึ้น "cielcard.vercel.app บอกว่า") ----
 // ใช้: if (!await appConfirm({...})) return;
 let _cfResolve = null;
+// ⚠️ ระหว่างที่ popup เปิดค้างอยู่ การซิงก์อาจดึงข้อมูลใหม่จากเซิร์ฟเวอร์มา "แทนที่ทั้งอาร์เรย์"
+// ตัวแปรที่ find() ไว้ก่อน await จึงกลายเป็นออบเจ็กต์ลอย ๆ ที่ไม่ได้อยู่ในลิสต์แล้ว — แก้ไปก็ไม่มีผล
+// หลัง await ทุกครั้ง ต้องหาใหม่ด้วย id ผ่าน refind() ก่อนจะแก้ค่า
+function refind(arr, id) {
+  return (Array.isArray(arr) ? arr : []).find(x => x && String(x.id) === String(id)) || null;
+}
 // คืนค่า true = กดปุ่มหลัก · false = กดปุ่มยกเลิก · null = ปิดทิ้งเฉย ๆ (คลิกนอกกล่อง)
 // การแยก false ออกจาก null สำคัญตอนที่ "ยกเลิก" มีผลจริง เช่นปฏิเสธการคืนสินค้า — ปิดทิ้งต้องไม่นับเป็นปฏิเสธ
 // dismissText = ใส่เมื่อ popup มี 3 ทางเลือก (ออกเฉย ๆ / ปฏิเสธ / ตกลง) — ไม่ใส่ = 2 ปุ่มเหมือนเดิม
@@ -7486,7 +7498,9 @@ async function markGachaDone(btn, id, val) {
     : { icon: '↩️', title: 'เปิดงานตู้จุ่มนี้ใหม่?', okText: 'เปิดงานใหม่',
       sub: [head, ...nums, 'ตู้จะกลับไปอยู่แท็บ "ใช้งานอยู่" และแก้ไขได้อีกครั้ง'].join('\n') });
   if (!okd) return;
-  b.done = !!val;
+  const cur = refind(gachaBoxes, id); // ระหว่างถามยืนยัน ลิสต์อาจถูกซิงก์ทับไปแล้ว ต้องหาตัวจริงใหม่
+  if (!cur) return;
+  cur.done = !!val;
   saveGacha(); // push แบบ debounce — กดรัวหลายใบรวมส่งขึ้นเซิร์ฟเวอร์ครั้งเดียว
   // ฟีดแบ็กทันทีต่อใบที่กด (จางลง + กดซ้ำไม่ได้) โดยยังไม่ rebuild ทั้งลิสต์ กัน DOM เพี้ยนตอนกดรัว
   const boxEl = btn && btn.closest('.gacha-box');
