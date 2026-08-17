@@ -3390,7 +3390,7 @@ function setCardsRow(c) {
   const cells = items.map((it, i) => {
     const name = setItemName(it), img = setItemImg(it);
     const pic = img
-      ? `<img src="${esc(img)}" alt="" onclick="openImgUrl('${esc(img)}')">`
+      ? `<img src="${esc(img)}" alt="" onclick="openImgUrl(unKey('${jsKey(img)}'))">`
       : `<div class="sc-empty">🃏</div>`;
     return `<div class="sc-card">${pic}<div class="sc-name">${i + 1}. ${esc(name)}</div></div>`;
   }).join('');
@@ -4618,7 +4618,7 @@ function actStockCellHTML(e, ch) {
 }
 function actThumbHTML(e) {
   return e.image
-    ? `<img class="act-thumb" loading="lazy" decoding="async" src="${esc(e.image)}" onclick="event.stopPropagation();openImgUrl('${esc(e.image)}')" title="กดเพื่อดูรูปเต็ม" alt="">`
+    ? `<img class="act-thumb" loading="lazy" decoding="async" src="${esc(e.image)}" onclick="event.stopPropagation();openImgUrl(unKey('${jsKey(e.image)}'))" title="กดเพื่อดูรูปเต็ม" alt="">`
     : '<div class="act-thumb-empty">🃏</div>';
 }
 // แถว "ข้อมูลการ์ด" — ไม่ใช่บันทึกจริง แต่สร้างสด ๆ จากตัวการ์ดตอนค้นหา
@@ -7554,6 +7554,11 @@ function groupPrizes(list) {
 }
 // รหัสอ้างรางวัล 1 ใบในตู้ — ใช้เลขช่องเป็นหลัก (ไม่ซ้ำกันในตู้เดียว) เผื่อลิสต์ถูกซิงก์ทับก็ยังชี้ถูกใบ
 function prizeKey(p, i) { return (p && p.no !== '' && p.no != null) ? 'n' + p.no : 'i' + i; }
+// ชื่อรางวัลมี ' หรือ " ได้จริง (เช่น YOU'LL FRIGHTEN ME... / EUSTASS "CAPTAIN" KID)
+// ถ้าเอาไปวางใน onclick ตรง ๆ เครื่องหมายจะไปปิดสตริง/แอตทริบิวต์ก่อนเวลา ปุ่มกดแล้วไม่ทำงานเลย
+// จึงเข้ารหัสก่อนใส่ แล้วถอดกลับในฟังก์ชัน (encodeURIComponent ไม่แตะ ' ต้องแทนเอง)
+function jsKey(s) { return encodeURIComponent(String(s ?? '')).replace(/'/g, '%27'); }
+function unKey(s) { try { return decodeURIComponent(String(s ?? '')); } catch (e) { return String(s ?? ''); } }
 function findPrize(b, key) {
   const list = (b && b.prizes) || [];
   for (let i = 0; i < list.length; i++) if (prizeKey(list[i], i) === key) return list[i];
@@ -7566,7 +7571,7 @@ function sumLocked(b) { return !!(b && b.retDone); }   // คืนของส�
 function sumItemHTML(p, i, canTick, locked) {
   const k = prizeKey(p, i);
   const thumb = p.image
-    ? `<img class="gsum-thumb" loading="lazy" src="${esc(p.image)}" onclick="event.stopPropagation();openImgUrl('${esc(p.image)}')" alt="">`
+    ? `<img class="gsum-thumb" loading="lazy" src="${esc(p.image)}" onclick="event.stopPropagation();openImgUrl(unKey('${jsKey(p.image)}'))" alt="">`
     : '<span class="gsum-thumb none">🃏</span>';
   const bits = [p.no ? `#${esc(String(p.no))}` : '', p.cert ? `cert ${esc(p.cert)}` : '',
     prizeValueOf(p) ? money(prizeValueOf(p)) : ''].filter(Boolean).join(' · ');
@@ -7587,17 +7592,18 @@ function gachaSummarySideHTML(title, icon, list, cls, opt) {
   const body = rows.length
     ? rows.map(r => {
       const open = gachaSumOpen.has(cls + '|' + r.key);
+      const ek = jsKey(r.key);   // ชื่อรางวัลมี ' หรือ " ได้ ต้องเข้ารหัสก่อนวางใน onclick
       const gTicked = r.items.filter(p => p.checked).length;
       const allTick = canTick
         ? `<span class="gsum-tick${gTicked === r.n ? ' on' : gTicked ? ' part' : ''}${locked ? ' locked' : ''}"
-            onclick="event.stopPropagation();${locked ? '' : `toggleSumGroupAll('${esc(r.key)}', ${gTicked < r.n})`}"
+            onclick="event.stopPropagation();${locked ? '' : `toggleSumGroupAll('${ek}', ${gTicked < r.n})`}"
             title="${locked ? 'คืนของสำเร็จแล้ว แก้ไม่ได้' : 'ติ๊กทั้งกอง'}">${gTicked === r.n ? '✔' : gTicked ? '–' : ''}</span>`
         : '';
       const kids = open
         ? `<div class="gsum-items">${r.items.map(p => sumItemHTML(p, idxOf ? idxOf(p) : 0, canTick, locked)).join('')}</div>`
         : '';
       return `<div class="gsum-grow${open ? ' open' : ''}">
-        <div class="gsum-ghead" onclick="toggleSumGroup('${cls}','${esc(r.key)}')">
+        <div class="gsum-ghead" onclick="toggleSumGroup('${cls}','${ek}')">
           ${allTick}<span class="gsum-caret">${open ? '▾' : '▸'}</span>
           <span class="gsum-gname">${esc(r.name)}</span>
           ${canTick && gTicked ? `<span class="gsum-gtick">${gTicked}/${r.n}</span>` : ''}
@@ -7646,7 +7652,7 @@ function openGachaSummary(id) {
 }
 function closeGachaSummary() { document.getElementById('gachaSumOverlay').classList.remove('open'); }
 function toggleSumGroup(side, key) {
-  const k = side + '|' + key;
+  const k = side + '|' + unKey(key);
   if (gachaSumOpen.has(k)) gachaSumOpen.delete(k); else gachaSumOpen.add(k);
   renderGachaSummary();
 }
@@ -7662,8 +7668,9 @@ function toggleSumPrize(key) {
 function toggleSumGroupAll(key, on) {
   const b = refind(gachaBoxes, gachaSumId);
   if (!b || sumLocked(b)) return;
+  const k = unKey(key);
   (b.prizes || []).forEach(p => {
-    if (p && !p.header && !p.drawn && (p.name || '(ไม่มีชื่อ)').trim().toLowerCase() === key) p.checked = !!on;
+    if (p && !p.header && !p.drawn && (p.name || '(ไม่มีชื่อ)').trim().toLowerCase() === k) p.checked = !!on;
   });
   saveGacha();
   renderGachaSummary();
@@ -7782,7 +7789,7 @@ function gachaBoxHTML(b, i) {
         const oi = (b.prizes || []).indexOf(p);
         const img = p.image || '';
         const thumb = img
-          ? `<img class="gb-pimg" src="${esc(img)}" onclick="event.stopPropagation();openImgUrl('${esc(img)}')" alt="">`
+          ? `<img class="gb-pimg" src="${esc(img)}" onclick="event.stopPropagation();openImgUrl(unKey('${jsKey(img)}'))" alt="">`
           : '<span class="gb-pimg gb-noimg">—</span>';
         const v = prizeValueOf(p);
         const noShow = (p.no != null && p.no !== '') ? p.no : (k + 1);

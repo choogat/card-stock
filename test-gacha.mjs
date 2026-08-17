@@ -179,6 +179,42 @@ t('ติ๊กทั้งกองต้องไม่ไปโดนใบ�
   assert.ok(mod.rendered().gachaSumBody.includes('ติ๊กแล้ว 18/28'), 'ต้องได้แค่ 18 ใบที่ยังไม่ออก');
 });
 
+// ชื่อจริงจากตู้ 19999/109 Onepiece Aisa Card Show ที่เคยกดติ๊กไม่ได้
+const quoteBox = () => ({
+  id: 'bq', name: 'quote', prizes: [
+    { no: 28, name: "YOU'LL FRIGHTEN ME...", value: 100 },
+    { no: 16, name: 'EUSTASS "CAPTAIN" KID', value: 200 },
+    { no: 17, name: 'EUSTASS "CAPTAIN" KID', value: 200 },
+    { no: 29, name: 'ปกติ<script>', value: 50 },
+  ],
+});
+
+t("ชื่อที่มี ' หรือ \" กดกางและติ๊กได้ (เคยกดแล้วเงียบ)", () => {
+  mod.setBoxes([quoteBox()]);
+  mod.openGachaSummary('bq');
+  const h = mod.rendered().gachaSumBody;
+  // คีย์ใน onclick ต้องไม่มีเครื่องหมายที่ทำให้สตริง/แอตทริบิวต์ปิดก่อนเวลา
+  const keys = [...h.matchAll(/toggleSumGroupAll\('([^']*)'/g)].map(m => m[1]);
+  assert.ok(keys.length, 'ต้องมีปุ่มติ๊กทั้งกอง');
+  assert.ok(!keys.some(k => /['"]|&#39;|&quot;/.test(k)), 'คีย์ต้องถูกเข้ารหัสแล้ว ได้: ' + keys.join(' | '));
+  // ติ๊กด้วยคีย์ที่เข้ารหัสแบบเดียวกับที่ปุ่มส่งมา ต้องมีผลจริง
+  const k = encodeURIComponent("you'll frighten me...").replace(/'/g, '%27');
+  mod.toggleSumGroupAll(k, true);
+  assert.ok(mod.rendered().gachaSumBody.includes('ติ๊กแล้ว 1/4'), 'ติ๊กใบที่ชื่อมี \' ต้องได้');
+  const k2 = encodeURIComponent('eustass "captain" kid').replace(/'/g, '%27');
+  mod.toggleSumGroupAll(k2, true);
+  assert.ok(mod.rendered().gachaSumBody.includes('ติ๊กแล้ว 3/4'), 'ติ๊กใบที่ชื่อมี " ต้องได้');
+});
+
+t("กางกองที่ชื่อมี ' ได้ และชื่อไม่หลุดเป็น HTML", () => {
+  mod.setBoxes([quoteBox()]);
+  mod.openGachaSummary('bq');
+  mod.toggleSumGroup('left', encodeURIComponent("you'll frighten me...").replace(/'/g, '%27'));
+  const h = mod.rendered().gachaSumBody;
+  assert.ok(h.includes('gsum-items'), 'ต้องกางได้');
+  assert.ok(!h.includes('<script>'), 'ชื่อที่มีแท็กต้องถูก escape');
+});
+
 console.log('\nคืนของสำเร็จ');
 
 await (async () => {

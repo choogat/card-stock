@@ -340,6 +340,7 @@ let activityLogs = [];
 function cardById(id){ return cards.find(c => c && c.id === id) || null; }
 function cardHay(c){ return [c.name, c.cert, (c.setItems||[]).map(i => i.name + ' ' + i.cert).join(' ')].filter(Boolean).join(' ').toLowerCase(); }
 function setHitHTML(c){ return c && c.setItems ? '<div class="set-hit">รวมเป็นชุด</div>' : ''; }
+${html.slice(html.indexOf('function jsKey(s)'), html.indexOf('let gachaSumId'))}
 function actVal(k, v){
   if (k === 'inStock') return v === true ? 'มีของ' : 'ไม่มีของ';
   if (k === 'status') return ({ show:'สะสม', wait:'รอขาย', sold:'ขายแล้ว' })[v] || v;
@@ -385,7 +386,8 @@ t('แถวกลุ่มที่ยุบไว้: หัวแถว + ใ
 t('รูปกดดูได้ · ไม่มีรูปก็ไม่พัง', () => {
   const base = { id: 'x', at: Date.now(), who: 'a', act: 'edit', name: 'n', changes: [] };
   const withImg = view.actLeafRowHTML({ ...base, image: 'https://blob/a.png' }, null);
-  assert.ok(withImg.includes("openImgUrl('https://blob/a.png')"), 'รูปต้องกดเปิดดูได้');
+  // ลิงก์รูปถูกเข้ารหัสก่อนวางใน onclick (กัน ' หรือ " ในลิงก์ทำให้ปุ่มพัง)
+  assert.ok(/openImgUrl\(unKey\('https%3A%2F%2Fblob%2Fa\.png'\)\)/.test(withImg), 'รูปต้องกดเปิดดูได้');
   assert.ok(withImg.includes('act-thumb'), 'ต้องมี class รูปย่อ');
   assert.ok(view.actLeafRowHTML(base, null).includes('act-thumb-empty'), 'ไม่มีรูป = ช่องว่างมีไอคอนแทน');
 });
