@@ -32,6 +32,10 @@ function saveGacha(){ saves.push(1); }
 function renderGacha(){}
 function setSync(){}
 function openImgUrl(){}
+let cards = [];
+function save(){ saves.push('cards'); }
+function todayISO(){ return '2026-08-18'; }
+function nowHM(){ return '10:00'; }
 let answer = true;
 const asked = [];
 function appConfirm(o){ asked.push(o); return Promise.resolve(answer); }
@@ -48,6 +52,7 @@ const mod = await import('data:text/javascript;base64,' + Buffer.from(
   + '\nexport const setCanEdit = v => { canEdit = v; };'
   + '\nexport const setAnswer = v => { answer = v; };'
   + '\nexport const setBoxes = v => { gachaBoxes = v; };'
+  + '\nexport const setCards = v => { cards = v; };'
   + '\nexport const rendered = () => out;',
 ).toString('base64'));
 
@@ -161,22 +166,22 @@ t('ติ๊กรายใบแล้วบันทึกลงรางว�
   mod.toggleSumGroup('left', 'luffy leader');
   mod.toggleSumPrize('n100');
   const b = mod.rendered();
-  assert.ok(b.gachaSumBody.includes('ติ๊กแล้ว 1/28'), 'หัวตารางต้องอัปเดตยอด');
-  assert.ok(b.gachaSumBody.includes('1/10'), 'หัวกองต้องบอก 1/10');
+  assert.ok(b.gachaSumBody.includes('ติ๊กรอปิดอีก 1'), 'หัวตารางต้องอัปเดตยอด');
+  assert.ok(b.gachaSumBody.includes('ติ๊ก 1'), 'หัวกองต้องบอกว่าติ๊กไว้ 1 ใบ');
 });
 
 t('ติ๊กทั้งกองทีเดียว และติ๊กออกทั้งกองได้', () => {
   openSum();
   mod.toggleSumGroupAll('luffy leader', true);
-  assert.ok(mod.rendered().gachaSumBody.includes('ติ๊กแล้ว 10/28'));
+  assert.ok(mod.rendered().gachaSumBody.includes('ติ๊กรอปิดอีก 10'));
   mod.toggleSumGroupAll('luffy leader', false);
-  assert.ok(mod.rendered().gachaSumBody.includes('ติ๊กแล้ว 0/28'));
+  assert.ok(!mod.rendered().gachaSumBody.includes('ติ๊กรอปิดอีก'));
 });
 
 t('ติ๊กทั้งกองต้องไม่ไปโดนใบที่ออกไปแล้ว (ชื่อเดียวกันแต่คนละฝั่ง)', () => {
   openSum();
   mod.toggleSumGroupAll('op 16', true);
-  assert.ok(mod.rendered().gachaSumBody.includes('ติ๊กแล้ว 18/28'), 'ต้องได้แค่ 18 ใบที่ยังไม่ออก');
+  assert.ok(mod.rendered().gachaSumBody.includes('ติ๊กรอปิดอีก 18'), 'ต้องได้แค่ 18 ใบที่ยังไม่ออก');
 });
 
 // ชื่อจริงจากตู้ 19999/109 Onepiece Aisa Card Show ที่เคยกดติ๊กไม่ได้
@@ -200,10 +205,10 @@ t("ชื่อที่มี ' หรือ \" กดกางและติ�
   // ติ๊กด้วยคีย์ที่เข้ารหัสแบบเดียวกับที่ปุ่มส่งมา ต้องมีผลจริง
   const k = encodeURIComponent("you'll frighten me...").replace(/'/g, '%27');
   mod.toggleSumGroupAll(k, true);
-  assert.ok(mod.rendered().gachaSumBody.includes('ติ๊กแล้ว 1/4'), 'ติ๊กใบที่ชื่อมี \' ต้องได้');
+  assert.ok(mod.rendered().gachaSumBody.includes('ติ๊กรอปิดอีก 1'), 'ติ๊กใบที่ชื่อมี \' ต้องได้');
   const k2 = encodeURIComponent('eustass "captain" kid').replace(/'/g, '%27');
   mod.toggleSumGroupAll(k2, true);
-  assert.ok(mod.rendered().gachaSumBody.includes('ติ๊กแล้ว 3/4'), 'ติ๊กใบที่ชื่อมี " ต้องได้');
+  assert.ok(mod.rendered().gachaSumBody.includes('ติ๊กรอปิดอีก 3'), 'ติ๊กใบที่ชื่อมี " ต้องได้');
 });
 
 t("กางกองที่ชื่อมี ' ได้ และชื่อไม่หลุดเป็น HTML", () => {
@@ -217,28 +222,84 @@ t("กางกองที่ชื่อมี ' ได้ และชื่�
 
 console.log('\nคืนของสำเร็จ');
 
+// รอบที่ 1 — ปิดแค่กอง OP 16 (18 ใบ) เหลือ Luffy 10 ใบไว้ปิดรอบหน้า
 await (async () => {
   openSum();
   mod.toggleSumGroupAll('op 16', true);
   mod.setAnswer(true);
   await mod.finishGachaReturn();
-  t('กดคืนของสำเร็จ → ล็อก ติ๊กไม่ได้อีก และขึ้นป้ายบอกว่าใครทำ', () => {
+  t('ปิดบางส่วน: ใบที่ปิดแล้วล็อก · ใบที่เหลือยังติ๊กได้ · ปุ่มยังกดได้', () => {
     const r = mod.rendered();
-    assert.ok(r.gachaSumMeta.includes('คืนของสำเร็จแล้ว') && r.gachaSumMeta.includes('Cielcard'));
-    assert.ok(r.gachaSumBody.includes('gsum-tick on locked') || r.gachaSumBody.includes('locked'), 'ช่องติ๊กต้องถูกล็อก');
-    assert.equal(r['gachaSumDoneBtn:disabled'], true, 'ปุ่มต้องกดซ้ำไม่ได้');
+    assert.ok(r.gachaSumMeta.includes('คืนของสำเร็จแล้ว 18/28'), 'ได้: ' + r.gachaSumMeta);
+    assert.ok(r.gachaSumBody.includes('คืนแล้ว 18'), 'หัวกองต้องบอกว่าคืนแล้วกี่ใบ');
+    assert.ok(!r['gachaSumDoneBtn:disabled'], 'ยังเหลือของ ปุ่มต้องกดได้อีก');
   });
-  t('popup ยืนยันบอกจำนวนที่ติ๊กไปแล้ว และเตือนเมื่อยังไม่ครบ', () => {
+  t('popup ยืนยันบอกว่ารอบนี้ปิดกี่ใบ และเหลืออีกกี่ใบ', () => {
     const o = mod.asked[mod.asked.length - 1];
     assert.equal(o.title, 'ยืนยันคืนของสำเร็จ?');
-    assert.equal(o.count, '18 / 28 ใบ');
-    assert.ok(o.sub.includes('ยังติ๊กไม่ครบ'), 'ติ๊กไม่ครบต้องเตือน แต่ยังไปต่อได้');
+    assert.equal(o.count, '18 ใบ', 'นับเฉพาะที่ติ๊กใหม่ในรอบนี้');
+    assert.ok(o.sub.includes('เหลืออีก 10 ใบ'), 'ได้: ' + o.sub);
   });
-  t('ล็อกแล้วติ๊กเพิ่มไม่ได้จริง ๆ (ไม่ใช่แค่ซ่อนปุ่ม)', () => {
-    const before = mod.rendered().gachaSumBody;
-    mod.toggleSumPrize('n100');
+  t('ใบที่ปิดแล้วติ๊กออกไม่ได้ แต่ใบที่ยังไม่ปิดติ๊กได้', () => {
+    mod.toggleSumPrize('n13');                    // ใบในกอง OP 16 ที่ปิดไปแล้ว
+    assert.ok(mod.rendered().gachaSumBody.includes('คืนแล้ว 18'), 'ใบที่ปิดแล้วต้องไม่ขยับ');
+    mod.toggleSumPrize('n100');                   // ใบในกอง Luffy ที่ยังเปิดอยู่
+    assert.ok(mod.rendered().gachaSumBody.includes('ติ๊กรอปิดอีก 1'), 'ใบที่ยังไม่ปิดต้องติ๊กได้');
+  });
+  // รอบที่ 2 — ปิดที่เหลือให้ครบ
+  t('ปิดครบทั้งตู้ → ปุ่มกดไม่ได้อีก', async () => {
     mod.toggleSumGroupAll('luffy leader', true);
-    assert.equal(mod.rendered().gachaSumBody, before, 'ข้อมูลต้องไม่ขยับเลย');
+    await mod.finishGachaReturn();
+    const r = mod.rendered();
+    assert.ok(r.gachaSumMeta.includes('คืนของสำเร็จแล้ว 28/28'), 'ได้: ' + r.gachaSumMeta);
+    assert.equal(r['gachaSumDoneBtn:disabled'], true);
+  });
+})();
+
+await (async () => {
+  openSum();
+  mod.setAnswer(true);
+  await mod.finishGachaReturn();
+  t('ยังไม่ติ๊กใบใหม่ แล้วกดปุ่ม → บอกให้ติ๊กก่อน ไม่ปิดอะไรให้', () => {
+    const o = mod.asked[mod.asked.length - 1];
+    assert.equal(o.title, 'ยังไม่ได้ติ๊กใบใหม่');
+    assert.ok(!mod.rendered().gachaSumMeta.includes('คืนของสำเร็จแล้ว'));
+  });
+})();
+
+console.log('\nปิดครบทั้งตู้ → จัดการ์ดในคลังให้');
+
+await (async () => {
+  // การ์ดในคลังผูกกับตู้ด้วย "เบอร์ในตู้" — #1 ยังอยู่ในตู้ · #13 จุ่มออกไปแล้ว · #999 หารางวัลไม่เจอ
+  const backCard = { id: 'k1', name: 'A', status: 'wait', gachaBoxId: 'b1', gachaNo: 100 };
+  const soldCard = { id: 'k2', name: 'B', status: 'wait', gachaBoxId: 'b1', gachaNo: 1, sell: 5000 };
+  const orphan = { id: 'k3', name: 'C', status: 'wait', gachaBoxId: 'b1', gachaNo: 999 };
+  const other = { id: 'k4', name: 'D', status: 'wait' };
+  mod.setCards([backCard, soldCard, orphan, other]);
+  openSum();
+  mod.toggleSumGroupAll('op 16', true);
+  mod.toggleSumGroupAll('luffy leader', true);
+  mod.setAnswer(true);
+  await mod.finishGachaReturn();
+  t('รางวัลที่ยังอยู่ในตู้ → การ์ดกลับเป็นสะสม และหลุดจากตู้', () => {
+    assert.equal(backCard.status, 'show');
+    assert.equal(backCard.gachaBoxId, undefined);
+    assert.equal(backCard.gachaNo, undefined);
+  });
+  t('รางวัลที่จุ่มออกไปแล้ว → การ์ดลงขายแล้ว ยอด 0 (ไม่นับเงินซ้ำกับยอดจุ่ม)', () => {
+    assert.equal(soldCard.status, 'sold');
+    assert.equal(soldCard.sell, 0, 'ยอดขายต้องเป็น 0 เพราะเงินอยู่ที่ยอดจุ่มแล้ว');
+    assert.equal(soldCard.viaGacha, true, 'ต้องติดป้ายว่าออกไปทางตู้จุ่ม');
+    assert.equal(soldCard.sellDate, '2026-08-16', 'ใช้วันของตู้');
+    assert.equal(soldCard.gachaBoxId, 'b1', 'คงการผูกไว้เป็นประวัติว่าออกจากตู้ไหน');
+  });
+  t('การ์ดที่จับคู่ไม่ได้ → ไม่แตะ และแจ้งเตือนให้ไปดูเอง', () => {
+    assert.equal(orphan.status, 'wait');
+    const o = mod.asked[mod.asked.length - 1];
+    assert.ok(o.title.includes('จับคู่ไม่ได้'), 'ได้: ' + o.title);
+  });
+  t('การ์ดที่ไม่เกี่ยวกับตู้นี้ ไม่ถูกแตะ', () => {
+    assert.equal(other.status, 'wait');
   });
 })();
 

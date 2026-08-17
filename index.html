@@ -669,7 +669,9 @@
   .gsum-ghead:hover { color: var(--accent); }
   .gsum-caret { color: var(--muted); font-size: .7rem; flex: none; }
   .gsum-gname { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
-  .gsum-gtick { font-size: .72rem; font-weight: 700; color: var(--t-ok-fg); flex: none; }
+  .gsum-gtick { font-size: .72rem; font-weight: 700; color: var(--t-wait-fg); flex: none; }
+  .gsum-gdone { font-size: .72rem; font-weight: 700; color: var(--t-ok-fg); flex: none; }
+  .gsum-item.done { opacity: .55; }   /* คืนไปแล้ว — จางลงให้เห็นว่าจบแล้ว ไม่ต้องมาสนใจอีก */
   .gsum-gn { font-weight: 800; white-space: nowrap; flex: none; }
   .gsum-gval { color: var(--muted); font-size: .78rem; white-space: nowrap; flex: none; min-width: 62px; text-align: right; }
   /* รายใบในกอง */
@@ -829,6 +831,8 @@
     display: none; align-items: center; justify-content: center; padding: 24px 16px; z-index: 50; overflow-y: auto;
   }
   .overlay.open { display: flex; }
+  /* popup ยืนยันต้องอยู่บนสุดเสมอ — ไม่งั้นถ้าเปิดจาก popup อื่นจะไปซ่อนอยู่ข้างหลัง กดอะไรไม่ได้ */
+  #confirmOverlay { z-index: 70; }
   .modal {
     background: var(--card); border: 1px solid var(--border); border-radius: 20px;
     width: 100%; max-width: 520px; padding: 26px;
@@ -1882,7 +1886,8 @@
     <div class="gsum-wrap" id="gachaSumBody"></div>
     <div class="modal-actions">
       <button class="btn btn-ghost" onclick="closeGachaSummary()">ปิด</button>
-      <button class="btn btn-primary" id="gachaSumDoneBtn" onclick="runBusy(this, finishGachaReturn)">✅ คืนของสำเร็จ</button>
+      <!-- ไม่ครอบด้วย runBusy — งานจริงหลังกดยืนยันเสร็จทันที ถ้าครอบไว้ปุ่มจะหมุนค้างตอนรอตอบ popup -->
+      <button class="btn btn-primary" id="gachaSumDoneBtn" onclick="finishGachaReturn()">✅ คืนของสำเร็จ</button>
     </div>
   </div>
 </div>
@@ -2883,7 +2888,7 @@ const ACT_FIELDS = {
   seller: 'ผู้ขาย', shopId: 'ร้านค้า', soldShopId: 'ร้านที่ขาย', gachaBoxId: 'ตู้จุ่ม', gachaNo: 'เบอร์ในตู้',
   snkr: 'ราคา SNKRDUNK', namCode: 'รหัส NamTCG', namRaw: 'ราคา RAW', namPsa10: 'ราคา PSA10',
   viaBuy: 'มาจากการรับซื้อ', productOnly: 'ข้อมูลสินค้าอย่างเดียว', cancelled: 'ยกเลิกการขาย',
-  retState: 'คืนสินค้า', retFails: 'คืนไม่สำเร็จ (ครั้ง)',
+  retState: 'คืนสินค้า', retFails: 'คืนไม่สำเร็จ (ครั้ง)', viaGacha: 'ออกไปทางตู้จุ่ม',
 };
 // สถานะคืนสินค้าเป็นรหัสสั้น ๆ ในข้อมูล — รายงานต้องอ่านเป็นภาษาคน
 const RET_LABEL = { pending: 'รอดำเนินการ', done: 'คืนสำเร็จ' };
@@ -7527,7 +7532,10 @@ async function markGachaDone(btn, id, val) {
   const cur = refind(gachaBoxes, id); // ระหว่างถามยืนยัน ลิสต์อาจถูกซิงก์ทับไปแล้ว ต้องหาตัวจริงใหม่
   if (!cur) return;
   cur.done = !!val;
-  if (!val) cur.retDone = false;      // เปิดงานใหม่ = ปลดล็อกการติ๊กเช็คของด้วย
+  if (!val) {                         // เปิดงานใหม่ = ปลดล็อกการติ๊กเช็คของทุกใบ
+    cur.retDone = false;
+    (cur.prizes || []).forEach(p => { if (p) { delete p.retOk; delete p.retOkAt; delete p.retOkBy; } });
+  }
   saveGacha(); // push แบบ debounce — กดรัวหลายใบรวมส่งขึ้นเซิร์ฟเวอร์ครั้งเดียว
   // ฟีดแบ็กทันทีต่อใบที่กด (จางลง + กดซ้ำไม่ได้) โดยยังไม่ rebuild ทั้งลิสต์ กัน DOM เพี้ยนตอนกดรัว
   const boxEl = btn && btn.closest('.gacha-box');
@@ -7566,7 +7574,11 @@ function findPrize(b, key) {
 }
 let gachaSumId = null;                 // ตู้ที่เปิดสรุปอยู่
 const gachaSumOpen = new Set();        // กองที่กางดูรายละเอียดอยู่
-function sumLocked(b) { return !!(b && b.retDone); }   // คืนของสำเร็จแล้ว = ติ๊กไม่ได้อีก
+// ล็อกเป็น "รายใบ" ไม่ใช่ทั้งตู้ — คืนของทีละรอบได้ ใบที่ปิดไปแล้วเป็นเทาแก้ไม่ได้
+// ส่วนใบที่ยังไม่ได้คืนก็ยังติ๊กได้ตามปกติ แล้วกดปิดรอบถัดไปทีหลัง
+function prizeLocked(p) { return !!(p && p.retOk); }
+function sumLeft(b) { return ((b && b.prizes) || []).filter(p => p && !p.header && !p.drawn); }
+function sumLocked(b) { const l = sumLeft(b); return l.length > 0 && l.every(prizeLocked); } // ปิดครบทั้งตู้แล้ว
 // รายการย่อยของกอง — ไม่มีรูป/cert/มูลค่า ก็โชว์แค่ชื่อ ไม่ต้องมีช่องว่างเปล่า ๆ
 function sumItemHTML(p, i, canTick, locked) {
   const k = prizeKey(p, i);
@@ -7575,12 +7587,13 @@ function sumItemHTML(p, i, canTick, locked) {
     : '<span class="gsum-thumb none">🃏</span>';
   const bits = [p.no ? `#${esc(String(p.no))}` : '', p.cert ? `cert ${esc(p.cert)}` : '',
     prizeValueOf(p) ? money(prizeValueOf(p)) : ''].filter(Boolean).join(' · ');
+  const lk = prizeLocked(p);   // ใบนี้ปิดรอบคืนของไปแล้ว → เทา แก้ไม่ได้อีก
   const tick = canTick
-    ? `<span class="gsum-tick${p.checked ? ' on' : ''}${locked ? ' locked' : ''}"
-        onclick="event.stopPropagation();${locked ? '' : `toggleSumPrize('${k}')`}"
-        title="${locked ? 'คืนของสำเร็จแล้ว แก้ไม่ได้' : 'ติ๊กเมื่อเช็คของใบนี้แล้ว'}">${p.checked ? '✔' : ''}</span>`
+    ? `<span class="gsum-tick${p.checked || lk ? ' on' : ''}${lk ? ' locked' : ''}"
+        onclick="event.stopPropagation();${lk ? '' : `toggleSumPrize('${k}')`}"
+        title="${lk ? 'คืนของสำเร็จแล้ว' + (p.retOkAt ? ' เมื่อ ' + esc(fmtDate(actDayKey(p.retOkAt))) : '') + ' — แก้ไม่ได้' : 'ติ๊กเมื่อเช็คของใบนี้แล้ว'}">${p.checked || lk ? '✔' : ''}</span>`
     : '';
-  return `<div class="gsum-item">${tick}${thumb}
+  return `<div class="gsum-item${lk ? ' done' : ''}">${tick}${thumb}
     <span class="gsum-iname">${esc(p.name || '(ไม่มีชื่อ)')}${bits ? `<span class="gsum-ibits">${bits}</span>` : ''}</span>
   </div>`;
 }
@@ -7588,16 +7601,21 @@ function gachaSummarySideHTML(title, icon, list, cls, opt) {
   const { canTick = false, locked = false, idxOf = null } = opt || {};
   const rows = groupPrizes(list);
   const value = rows.reduce((s, r) => s + r.value, 0);
-  const ticked = canTick ? list.filter(p => p.checked).length : 0;
+  const done = canTick ? list.filter(prizeLocked).length : 0;             // ปิดรอบไปแล้ว
+  const ticked = canTick ? list.filter(p => p.checked && !prizeLocked(p)).length : 0; // ติ๊กรอปิดรอบนี้
   const body = rows.length
     ? rows.map(r => {
       const open = gachaSumOpen.has(cls + '|' + r.key);
       const ek = jsKey(r.key);   // ชื่อรางวัลมี ' หรือ " ได้ ต้องเข้ารหัสก่อนวางใน onclick
-      const gTicked = r.items.filter(p => p.checked).length;
+      const gDone = r.items.filter(prizeLocked).length;
+      const gOpen = r.n - gDone;                                    // ใบที่ยังแก้ได้ในกองนี้
+      const gTicked = r.items.filter(p => p.checked && !prizeLocked(p)).length;
+      const gAll = gDone + gTicked;
+      const gLock = gOpen === 0;                                    // ทั้งกองปิดไปแล้ว
       const allTick = canTick
-        ? `<span class="gsum-tick${gTicked === r.n ? ' on' : gTicked ? ' part' : ''}${locked ? ' locked' : ''}"
-            onclick="event.stopPropagation();${locked ? '' : `toggleSumGroupAll('${ek}', ${gTicked < r.n})`}"
-            title="${locked ? 'คืนของสำเร็จแล้ว แก้ไม่ได้' : 'ติ๊กทั้งกอง'}">${gTicked === r.n ? '✔' : gTicked ? '–' : ''}</span>`
+        ? `<span class="gsum-tick${gAll === r.n ? ' on' : gAll ? ' part' : ''}${gLock ? ' locked' : ''}"
+            onclick="event.stopPropagation();${gLock ? '' : `toggleSumGroupAll('${ek}', ${gTicked < gOpen})`}"
+            title="${gLock ? 'คืนของสำเร็จแล้ว แก้ไม่ได้' : 'ติ๊กทั้งกอง'}">${gAll === r.n ? '✔' : gAll ? '–' : ''}</span>`
         : '';
       const kids = open
         ? `<div class="gsum-items">${r.items.map(p => sumItemHTML(p, idxOf ? idxOf(p) : 0, canTick, locked)).join('')}</div>`
@@ -7606,7 +7624,8 @@ function gachaSummarySideHTML(title, icon, list, cls, opt) {
         <div class="gsum-ghead" onclick="toggleSumGroup('${cls}','${ek}')">
           ${allTick}<span class="gsum-caret">${open ? '▾' : '▸'}</span>
           <span class="gsum-gname">${esc(r.name)}</span>
-          ${canTick && gTicked ? `<span class="gsum-gtick">${gTicked}/${r.n}</span>` : ''}
+          ${canTick && gDone ? `<span class="gsum-gdone" title="คืนของสำเร็จแล้ว">คืนแล้ว ${gDone}</span>` : ''}
+          ${canTick && gTicked ? `<span class="gsum-gtick" title="ติ๊กไว้ รอกดคืนของสำเร็จ">ติ๊ก ${gTicked}</span>` : ''}
           <span class="gsum-gn">× ${r.n}</span>
           <span class="gsum-gval">${money(r.value)}</span>
         </div>${kids}
@@ -7615,7 +7634,7 @@ function gachaSummarySideHTML(title, icon, list, cls, opt) {
     : '<div class="gsum-empty muted">ไม่มีรายการ</div>';
   return `<div class="gsum-side ${cls}">
     <div class="gsum-head">${icon} ${title}<span class="gsum-count">${list.length} รางวัล</span></div>
-    <div class="gsum-sub">มูลค่ารวม ${money(value)}${canTick ? ` · ติ๊กแล้ว ${ticked}/${list.length}` : ''}</div>
+    <div class="gsum-sub">มูลค่ารวม ${money(value)}${canTick ? ` · คืนแล้ว ${done}/${list.length}${ticked ? ` · ติ๊กรอปิดอีก ${ticked}` : ''}` : ''}</div>
     ${body}
   </div>`;
 }
@@ -7632,15 +7651,22 @@ function renderGachaSummary() {
   document.getElementById('gachaSumMeta').innerHTML =
     esc([shop ? shop.name || 'ร้าน' : '', b.date ? fmtDate(b.date) : '', `${st.realPrizes.length} รางวัลทั้งหมด`]
       .filter(Boolean).join(' · '))
-    + (locked ? `<div class="gsum-locked">✅ คืนของสำเร็จแล้ว · ${esc(fmtDate(actDayKey(b.retDoneAt || 0)))}${b.retDoneBy ? ' · โดย ' + esc(b.retDoneBy) : ''}</div>` : '');
+    + (() => {
+      const l = sumLeft(b), d = l.filter(prizeLocked).length;
+      if (!d) return '';
+      const when = b.retDoneAt ? ` · ล่าสุด ${esc(fmtDate(actDayKey(b.retDoneAt)))}` : '';
+      const who = b.retDoneBy ? ` โดย ${esc(b.retDoneBy)}` : '';
+      return `<div class="gsum-locked">✅ คืนของสำเร็จแล้ว ${d}/${l.length} ใบ${when}${who}</div>`;
+    })();
   document.getElementById('gachaSumBody').innerHTML =
     gachaSummarySideHTML('ของคงเหลือ', '🎁', left, 'left', { canTick: true, locked, idxOf })
     + gachaSummarySideHTML('ของที่ออกไป', '📤', right, 'right', { idxOf });
   const btn = document.getElementById('gachaSumDoneBtn');
   if (btn) {
     btn.style.display = canEditGacha() ? '' : 'none';
+    const pend = left.filter(p => p.checked && !prizeLocked(p)).length;
     btn.disabled = locked;
-    btn.textContent = locked ? '✅ คืนของสำเร็จแล้ว' : '✅ คืนของสำเร็จ';
+    btn.textContent = locked ? '✅ คืนของสำเร็จแล้ว' : (pend ? `✅ คืนของสำเร็จ (${pend} ใบ)` : '✅ คืนของสำเร็จ');
   }
 }
 function openGachaSummary(id) {
@@ -7658,48 +7684,106 @@ function toggleSumGroup(side, key) {
 }
 function toggleSumPrize(key) {
   const b = refind(gachaBoxes, gachaSumId);
-  if (!b || sumLocked(b)) return;
+  if (!b) return;
   const p = findPrize(b, key);
-  if (!p) return;
+  if (!p || prizeLocked(p)) return;   // ใบที่คืนไปแล้ว แก้ไม่ได้
   p.checked = !p.checked;
   saveGacha();
   renderGachaSummary();
 }
 function toggleSumGroupAll(key, on) {
   const b = refind(gachaBoxes, gachaSumId);
-  if (!b || sumLocked(b)) return;
+  if (!b) return;
   const k = unKey(key);
   (b.prizes || []).forEach(p => {
-    if (p && !p.header && !p.drawn && (p.name || '(ไม่มีชื่อ)').trim().toLowerCase() === k) p.checked = !!on;
+    if (p && !p.header && !p.drawn && !prizeLocked(p) && (p.name || '(ไม่มีชื่อ)').trim().toLowerCase() === k) p.checked = !!on;
   });
   saveGacha();
   renderGachaSummary();
 }
 // ปิดงานคืนของ: ล็อกการติ๊กถาวร (ปลดได้ทางเดียวคือกด ↩️ เปิดงานใหม่ให้ตู้)
+// การ์ดในคลังกับรางวัลในตู้จับคู่กันด้วย "เบอร์ในตู้" (card.gachaNo ↔ prize.no) — ไม่ต้องเดาจากชื่อ
+// เรียกตอนตู้ถูกคืนครบทั้งตู้: ใบที่ยังอยู่ในตู้ = คืนเข้าคลังเป็นสะสม · ใบที่จุ่มออกไปแล้ว = ขายแล้ว
+// ยอดขายลง 0 เพราะเงินถูกนับที่หน้ายอดจุ่มแล้ว (จำนวนจุ่ม × ราคาต่อครั้ง) ลงซ้ำจะทำให้ยอดรวมเกินจริง
+function syncGachaCardsBack(b) {
+  const out = { back: 0, sold: 0, skipped: 0 };
+  if (!b || !Array.isArray(cards)) return out;
+  const day = b.date || todayISO();
+  for (const c of cards) {
+    if (!c || c.gachaBoxId !== b.id) continue;
+    const p = (b.prizes || []).find(x => x && !x.header && String(x.no) === String(c.gachaNo));
+    if (!p) { out.skipped++; continue; }           // จับคู่ไม่ได้ → ไม่แตะ ให้คนไปดูเอง
+    if (p.drawn) {
+      if (c.status !== 'sold') {
+        c.status = 'sold';
+        c.sell = 0; c.discount = 0;                // เงินอยู่ที่ยอดจุ่มแล้ว
+        c.sellDate = c.sellDate || day;
+        c.sellTime = c.sellTime || nowHM();
+        c.viaGacha = true;                         // ป้ายบอกว่าออกไปทางตู้จุ่ม ไม่ใช่ขายหน้าร้าน
+      }
+      out.sold++;                                  // คงการผูกตู้ไว้เป็นประวัติว่าออกจากตู้ไหน
+    } else {
+      c.status = 'show';
+      delete c.gachaBoxId; delete c.gachaNo;       // กลับเข้าคลังแล้ว ไม่ได้อยู่ในตู้อีก
+      out.back++;
+    }
+  }
+  if (out.back || out.sold) save();                // save() ลงรายงานการใช้งานให้ทุกใบในตัว
+  return out;
+}
 async function finishGachaReturn() {
   const b0 = refind(gachaBoxes, gachaSumId);
   if (!b0 || !canEditGacha() || sumLocked(b0)) return;
-  const left = gachaBoxStats(b0).realPrizes.filter(p => !p.drawn);
-  const ticked = left.filter(p => p.checked).length;
+  const left = sumLeft(b0);
+  const now = left.filter(p => p.checked && !prizeLocked(p));   // ที่จะปิดในรอบนี้
+  const alreadyDone = left.filter(prizeLocked).length;
+  if (!now.length) {
+    await appConfirm({
+      icon: '☑️', title: 'ยังไม่ได้ติ๊กใบใหม่',
+      sub: 'ติ๊กใบที่เช็คของแล้วก่อน จึงจะกดคืนของสำเร็จได้\nใบที่คืนไปแล้วจะเป็นสีเทา แก้ไม่ได้',
+      okText: 'เข้าใจแล้ว', cancelText: 'ปิด',
+    });
+    return;
+  }
+  const willFinish = alreadyDone + now.length >= left.length;   // รอบนี้ปิดครบทั้งตู้ไหม
   const okd = await appConfirm({
-    icon: '✅', tone: ticked === left.length ? 'ok' : 'warn',
+    icon: '✅', tone: willFinish ? 'ok' : 'warn',
     title: 'ยืนยันคืนของสำเร็จ?',
     sub: [b0.name || '(ไม่มีชื่อ)',
-      ticked === left.length ? 'ติ๊กครบทุกใบแล้ว' : 'ยังติ๊กไม่ครบ — ปิดแล้วจะติ๊กเพิ่มไม่ได้',
-      'ปลดล็อกได้ด้วยการกด ↩️ เปิดงานใหม่ ของตู้นี้'].join('\n'),
-    countLabel: 'ติ๊กแล้ว', count: `${ticked} / ${left.length} ใบ`,
+      willFinish ? 'ปิดครบทั้งตู้ในรอบนี้' : `ปิดบางส่วน — เหลืออีก ${left.length - alreadyDone - now.length} ใบ ค่อยมาปิดทีหลังได้`,
+      willFinish ? 'การ์ดในคลังของตู้นี้จะถูกจัดให้อัตโนมัติ (คืนเข้าคลัง / ลงขายแล้ว)' : '',
+      'ใบที่ปิดแล้วจะแก้ไม่ได้ — ปลดได้ด้วยการกด ↩️ เปิดงานใหม่'].filter(Boolean).join('\n'),
+    countLabel: 'ปิดรอบนี้', count: `${now.length} ใบ`,
     okText: 'คืนของสำเร็จ',
   });
   if (!okd) return;
   const b = refind(gachaBoxes, gachaSumId);   // ระหว่างถามยืนยัน ลิสต์อาจถูกซิงก์ทับไปแล้ว
-  if (!b || sumLocked(b)) return;
-  b.retDone = true;
-  b.retDoneAt = Date.now();
-  b.retDoneBy = actWho();
+  if (!b) return;
+  const at = Date.now(), who = actWho();
+  let n = 0;
+  for (const p of sumLeft(b)) {
+    if (!p.checked || prizeLocked(p)) continue;
+    p.retOk = true; p.retOkAt = at; p.retOkBy = who;
+    n++;
+  }
+  if (!n) return;
+  b.retDoneAt = at; b.retDoneBy = who;
+  const full = sumLocked(b);
+  const res = full ? syncGachaCardsBack(b) : null;   // ปิดครบทั้งตู้ → จัดการ์ดในคลังให้ด้วย
+  if (full) b.retDone = true;
   saveGacha();
   renderGachaSummary();
   renderGacha();
-  setSync('✅ บันทึกคืนของสำเร็จแล้ว', 'ok');
+  setSync(res
+    ? `✅ คืนของครบทั้งตู้ · คืนเข้าคลัง ${res.back} ใบ · ลงขายแล้ว ${res.sold} ใบ${res.skipped ? ` · จับคู่ไม่ได้ ${res.skipped} ใบ` : ''}`
+    : `✅ ปิดคืนของ ${n} ใบแล้ว`, 'ok');
+  if (res && res.skipped) {
+    await appConfirm({
+      icon: '⚠️', tone: 'warn', title: `มี ${res.skipped} ใบจับคู่ไม่ได้`,
+      sub: 'การ์ดพวกนี้ผูกกับตู้นี้ไว้ แต่หารางวัลตามเบอร์ในตู้ไม่เจอ\nระบบไม่แตะให้ ต้องเข้าไปแก้สถานะเอง',
+      okText: 'เข้าใจแล้ว', cancelText: 'ปิด',
+    });
+  }
 }
 
 // กล่องสรุป 4 ช่อง (จำนวนจุ่ม · ยอดขาย · ทุน · กำไร)
