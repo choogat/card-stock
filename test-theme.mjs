@@ -97,5 +97,42 @@ t('ปุ่มออกเฉย ๆ ต้องไม่ถูกนับเ
   assert.ok(/id="cfCancel"[^>]*onclick="closeAppConfirm\(false\)"/.test(html));
 });
 
+console.log('\nเมนูเป็นลิงก์ / เปิดหลายแท็บ');
+
+t('เมนูหลักทุกอันเป็นลิงก์จริง มี href ตรงกับหน้า (คลิกกลางเปิดแท็บใหม่ได้)', () => {
+  const at = html.indexOf('id="adminNav"');
+  const nav = html.slice(at, html.indexOf('</nav>', at));   // ต้องนับจากจุดเริ่ม ไม่ใช่ </nav> ตัวแรกของไฟล์
+  assert.equal((nav.match(/<button class="nav-item/g) || []).length, 0, 'ไม่ควรเหลือปุ่มที่คลิกกลางไม่ได้');
+  const links = [...nav.matchAll(/<a class="nav-item[^"]*" data-view="(\w+)" href="#(\w+)"/g)];
+  assert.ok(links.length >= 9, 'ได้ลิงก์ ' + links.length + ' อัน');
+  for (const [, dv, href] of links) assert.equal(dv, href, 'href ต้องตรงกับหน้า: ' + dv + ' ≠ ' + href);
+});
+
+t('เมนูย่อยที่ผูกกับหน้า (ขายแล้ว/รายงาน/ผู้ใช้งาน) ก็เป็นลิงก์', () => {
+  for (const id of ['navSoldStock', 'navActivity', 'navUsers']) {
+    assert.ok(new RegExp('<a class="nav-sub" id="' + id + '" href="#\\w+"').test(html), id + ' ต้องเป็นลิงก์');
+  }
+});
+
+t('ทุกหน้าที่เมนูชี้ไป ต้องเปิดจาก URL ได้ และ #add ไม่ถูกนับเป็นหน้า', () => {
+  const list = html.slice(html.indexOf('const HASH_VIEWS'), html.indexOf('let curView'));
+  const views = new Set([...html.matchAll(/data-view="(\w+)"/g)].map(m => m[1]));
+  for (const v of views) assert.ok(list.includes("'" + v + "'"), 'หน้า ' + v + ' ต้องอยู่ใน HASH_VIEWS');
+  assert.ok(!list.includes("'add'"), '#add เป็นคำสั่งเปิดฟอร์ม ไม่ใช่หน้า');
+});
+
+t('แต่ละแท็บจำหน้าของตัวเอง แล้วค่อยถอยไปหน้าล่าสุดของเครื่อง', () => {
+  assert.ok(/sessionStorage\.setItem\('app_view'/.test(html), 'ต้องจำหน้าไว้ระดับแท็บ');
+  const boot = html.slice(html.indexOf('const BOOT_VIEW'), html.indexOf('const BOOT_SHOPVIEW'));
+  assert.ok(boot.indexOf('location.hash') < boot.indexOf('sessionStorage'), 'URL ต้องมาก่อนหน้าที่แท็บจำไว้');
+  assert.ok(boot.indexOf('sessionStorage') < boot.indexOf('localStorage'), 'หน้าของแท็บต้องมาก่อนหน้าล่าสุดของเครื่อง');
+  assert.ok(/if \(h && h !== 'add'\) return h/.test(html), '#add ต้องไม่ถูกอ่านเป็นหน้า');
+});
+
+t('URL อัปเดตตามหน้าที่เปิด และ hash เปลี่ยนแล้วสลับหน้าให้', () => {
+  assert.ok(/history\.replaceState\(null, '', '#' \+ view\)/.test(html), 'เปลี่ยนหน้าแล้ว URL ต้องตาม');
+  assert.ok(/hashchange[\s\S]{0,200}switchView\(v\)/.test(html), 'กดย้อนกลับ/แก้ URL ต้องสลับหน้าให้');
+});
+
 console.log(`\n${fail ? '✗' : '✓'} ผ่าน ${pass} / ${pass + fail}\n`);
 process.exit(fail ? 1 : 0);

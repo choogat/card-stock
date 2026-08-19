@@ -99,6 +99,9 @@
   .sidebar .brand { font-size: 1.15rem; font-weight: 700; padding: 6px 8px 14px; }
   .nav-group { font-size: .68rem; font-weight: 700; letter-spacing: .6px; color: var(--muted); text-transform: uppercase; padding: 2px 14px 3px; margin-top: 11px; opacity: .7; }
   .nav-group:first-child { margin-top: 0; }
+  /* เมนูเป็นลิงก์จริง (<a href="#view">) — คลิกกลาง / Ctrl+คลิก / คลิกขวา เปิดแท็บใหม่ได้เอง
+     ไม่ต้องเขียนโค้ดดัก และได้ปุ่มย้อนกลับของเบราว์เซอร์ + บุ๊กมาร์กแยกหน้ามาฟรี */
+  .nav-item, .nav-sub { display: block; text-decoration: none; }
   .nav-item {
     text-align: left; background: transparent; border: 1px solid transparent; color: var(--muted);
     padding: 12px 14px; border-radius: 12px; cursor: pointer; font-size: .95rem; font-weight: 600; font-family: inherit;
@@ -1333,28 +1336,28 @@
     <nav class="nav shop-acc-nav" id="shopAccountNav" style="display:none"></nav>
     <nav class="nav" id="adminNav">
       <div class="nav-group" id="navGrpOverview">ภาพรวม</div>
-      <button class="nav-item" data-view="dashboard" onclick="switchView('dashboard')" style="display:none">📊 แดชบอร์ด</button>
+      <a class="nav-item" data-view="dashboard" href="#dashboard" style="display:none">📊 แดชบอร์ด</a>
 
       <div class="nav-group" id="navGrpInventory">คลังสินค้าทั้งหมด</div>
-      <button class="nav-item active" data-view="stock" onclick="switchView('stock')">📦 คลังสินค้า</button>
-      <button class="nav-sub" id="navSoldStock" onclick="switchView('soldstock')" style="display:none">↳ คลังสินค้าขายแล้ว</button>
-      <button class="nav-item" data-view="preorder" onclick="switchView('preorder')">📝 พรีออเดอร์</button>
-      <button class="nav-item" data-view="product" onclick="switchView('product')">📋 ข้อมูลสินค้า</button>
+      <a class="nav-item active" data-view="stock" href="#stock">📦 คลังสินค้า</a>
+      <a class="nav-sub" id="navSoldStock" href="#soldstock" style="display:none">↳ คลังสินค้าขายแล้ว</a>
+      <a class="nav-item" data-view="preorder" href="#preorder">📝 พรีออเดอร์</a>
+      <a class="nav-item" data-view="product" href="#product">📋 ข้อมูลสินค้า</a>
 
       <div class="nav-group" id="navGrpTrade">การซื้อ-ขาย</div>
-      <button class="nav-item" data-view="buy" onclick="switchView('buy')">🛒 รับซื้อสินค้า</button>
-      <button class="nav-item" data-view="sales" onclick="switchView('sales')">🏷️ สินค้าขาย</button>
-      <button class="nav-item" data-view="report" onclick="switchView('report')">📊 การขายทั้งหมด</button>
-      <button class="nav-item" data-view="gacha" onclick="switchView('gacha')">🎲 ยอดจุ่ม</button>
+      <a class="nav-item" data-view="buy" href="#buy">🛒 รับซื้อสินค้า</a>
+      <a class="nav-item" data-view="sales" href="#sales">🏷️ สินค้าขาย</a>
+      <a class="nav-item" data-view="report" href="#report">📊 การขายทั้งหมด</a>
+      <a class="nav-item" data-view="gacha" href="#gacha">🎲 ยอดจุ่ม</a>
 
       <div class="nav-group" id="navGrpPartners">ร้านคู่ค้า</div>
-      <button class="nav-item" data-view="shop" onclick="switchView('shop')">🏬 ร้านค้า</button>
+      <a class="nav-item" data-view="shop" href="#shop">🏬 ร้านค้า</a>
       <div id="shopNav"></div>
       <button class="nav-sub" id="navAddShop" onclick="openShopForm()" style="display:none">➕ เพิ่มร้านค้า</button>
 
       <div class="nav-group" id="navGrpSettings" style="display:none">ตั้งค่า</div>
-      <button class="nav-sub" id="navUsers" onclick="switchView('users')" style="display:none">👥 ผู้ใช้งาน</button>
-      <button class="nav-sub" id="navActivity" onclick="switchView('activity')" style="display:none">📜 รายงานการใช้งาน</button>
+      <a class="nav-sub" id="navUsers" href="#users" style="display:none">👥 ผู้ใช้งาน</a>
+      <a class="nav-sub" id="navActivity" href="#activity" style="display:none">📜 รายงานการใช้งาน</a>
       <button class="nav-sub" onclick="toggleShopTheme()"><span id="themeToggleSide">🌙</span> <span id="themeToggleLbl">โหมดมืด</span></button>
     </nav>
     <div class="sidebar-foot">
@@ -2459,7 +2462,13 @@ let userBuyEdit = localStorage.getItem('app_buy_edit') === '1';
 let userShops = (() => { try { return JSON.parse(localStorage.getItem('app_shops')) || []; } catch (e) { return []; } })(); // ร้านที่เข้าได้ (ว่าง = ทุกร้าน)
 let userShopFeats = (() => { try { return JSON.parse(localStorage.getItem('app_shopfeats')) || {}; } catch (e) { return {}; } })(); // ฟังก์ชันที่เข้าได้ต่อร้าน { shopId: [feat] }
 // จับภาพหน้าที่เปิดอยู่ก่อน F5 ไว้ตั้งแต่ต้น (ก่อนมี switchView มาเขียนทับ) เพื่อคืนหน้าให้ตรง
-const BOOT_VIEW = localStorage.getItem('app_view');
+// หน้าที่ต้องเปิด: URL (#view) มาก่อน → หน้าที่แท็บนี้ค้างไว้ → หน้าที่ใช้ล่าสุดของเครื่อง
+const BOOT_VIEW = (() => {
+  const h = (location.hash || '').replace(/^#/, '').toLowerCase();
+  if (h && h !== 'add') return h;
+  try { const s = sessionStorage.getItem('app_view'); if (s) return s; } catch (e) {}
+  return localStorage.getItem('app_view');
+})();
 const BOOT_SHOPVIEW = localStorage.getItem('app_shopview');
 function canSeeProfit() { return userRole === 'admin' || !passcode || userSeeProfit; }
 // เห็นการ์ดสรุปยอดรวม (ราคากลาง/รับซื้อ/ขาย) ไหม — แอดมิน/เจ้าของเครื่องเห็นเสมอ
@@ -3585,9 +3594,20 @@ function updatePriceBtn() {
   b.textContent = (mn || mx) ? `💰 ${mn || 0}–${mx || '∞'}` : '💰 ราคาขาย';
   b.classList.toggle('active', !!(mn || mx));
 }
+// หน้าที่เปิดได้จาก URL — #stock #gacha ฯลฯ (ใช้เป็นลิงก์เมนู เปิดแท็บใหม่ได้ และบุ๊กมาร์กแยกหน้าได้)
+const HASH_VIEWS = ['dashboard', 'stock', 'soldstock', 'activity', 'preorder', 'product',
+  'buy', 'sales', 'report', 'gacha', 'shop', 'users', 'settings'];
+let curView = '';
+function viewFromHash() {
+  const h = (location.hash || '').replace(/^#/, '').toLowerCase();
+  return HASH_VIEWS.includes(h) ? h : '';
+}
 function switchView(view) {
   document.body.classList.remove('nav-open'); // เลือกเมนูแล้วปิดลิ้นชักอัตโนมัติ
   if (!canViewTab(view)) view = allowedTabs()[0] || 'stock';
+  curView = view;
+  // URL ต้องตรงกับหน้าที่เปิดอยู่เสมอ — คลิกกลางที่เมนูจะได้เปิดแท็บใหม่ถูกหน้า
+  if (HASH_VIEWS.includes(view) && viewFromHash() !== view) history.replaceState(null, '', '#' + view);
   // จำว่าหน้ายอดจุ่มโชว์อยู่ก่อนหรือไม่ — ถ้า re-apply วิวเดิมซ้ำ (เช่น applyPermissions) อย่ารีเซ็ตแท็บสถานะ
   const wasGacha = document.getElementById('viewGacha').style.display !== 'none';
   if (typeof saleSelection !== 'undefined' && saleSelection.size) { saleSelection.clear(); updateSaleBar(); }
@@ -3637,7 +3657,10 @@ function switchView(view) {
   if (view === 'shop') renderShopManage();
   if (view === 'users') renderUsers();
   renderShopNav();
-  localStorage.setItem('app_view', view); // จำแถบล่าสุด ไว้คงหน้าตอน F5
+  // จำ 2 ที่: sessionStorage = ของแท็บนี้เท่านั้น (F5 แล้วแต่ละแท็บอยู่หน้าเดิม ไม่กระโดดสลับกัน)
+  // localStorage = หน้าที่ใช้ล่าสุด ใช้เป็นค่าตั้งต้นตอนเปิดแท็บใหม่แบบไม่มี #view
+  try { sessionStorage.setItem('app_view', view); } catch (e) {}
+  localStorage.setItem('app_view', view);
   localStorage.removeItem('app_shopview'); // ออกจากบริบทร้านเฉพาะ
 }
 // แถบที่ผู้ใช้ปัจจุบันเข้าได้ (ไม่ล็อกอิน=ทุกแถบ / แอดมิน=ทุกแถบ+users / ผู้ช่วย=ตามสิทธิ์)
@@ -3752,7 +3775,7 @@ function applyPermissions() {
     const vs = visibleShops();
     if (vs.length) { switchShopView(vs[0].id, 'sales'); return; }
   }
-  const cur = localStorage.getItem('app_view') || 'stock';
+  const cur = BOOT_VIEW || 'stock';   // URL → หน้าของแท็บนี้ → หน้าล่าสุดของเครื่อง (ดู BOOT_VIEW)
   switchView(canViewTab(cur) ? cur : (allowed[0] || 'stock'));
 }
 
@@ -9313,7 +9336,13 @@ function maybeOpenAdd() {
   }
 }
 maybeOpenAdd();
-window.addEventListener('hashchange', maybeOpenAdd);
+// เมนูเป็นลิงก์ #view → URL เป็นตัวบอกว่าเปิดหน้าไหน
+// คลิกซ้าย = hash เปลี่ยน → สลับหน้าในแท็บเดิม · คลิกกลาง/Ctrl+คลิก = เบราว์เซอร์เปิดแท็บใหม่ให้เอง
+window.addEventListener('hashchange', () => {
+  maybeOpenAdd();
+  const v = viewFromHash();
+  if (v && v !== curView) switchView(v);
+});
 
 // เซฟขึ้นเซิร์ฟเวอร์ทันทีเมื่อสลับแท็บ/ย่อแอป/ปิดหน้า (กันข้อมูลค้างไม่ทันขึ้น)
 function flushPendingSave() {
