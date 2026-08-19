@@ -49,7 +49,7 @@ const document = { getElementById: el };
 
 const mod = await import('data:text/javascript;base64,' + Buffer.from(
   refindSrc + stubs + html.slice(start, end)
-  + '\nexport { groupPrizes, gachaSummarySideHTML, openGachaSummary, toggleSumGroup, toggleSumPrize, toggleSumGroupAll, finishGachaReturn, prizeKey, asked, saves, fixGachaCards, syncGachaCardsBack, gachaPendingCards, gachaSumAction };'
+  + '\nexport { groupPrizes, gachaSummarySideHTML, openGachaSummary, toggleSumGroup, toggleSumPrize, toggleSumGroupAll, finishGachaReturn, prizeKey, asked, saves, fixGachaCards, syncGachaCardsBack, gachaPendingCards, gachaSumAction, gachaClaimScan, claimGachaCards };'
   + '\nexport const setCanEdit = v => { canEdit = v; };'
   + '\nexport const setAnswer = v => { answer = v; };'
   + '\nexport const setBoxes = v => { gachaBoxes = v; };'
@@ -367,6 +367,96 @@ await (async () => {
     const r = mod.rendered();
     assert.equal(r['gachaSumDoneBtn:disabled'], true);
     assert.ok(r.gachaSumDoneBtn.includes('จบงานแล้ว'), 'ได้: ' + r.gachaSumDoneBtn);
+  });
+})();
+
+// เคสจริงตู้ 19999/109: ก็อปตู้มาใช้ซ้ำ รางวัลตามมาแต่การ์ดยังผูกตู้เดิม
+// ปิดคืนของตู้ใหม่แล้วของในคลังไม่เปลี่ยนสถานะ เพราะไม่มีการ์ดใบไหนผูกกับตู้ใหม่เลย
+console.log('\nการ์ดผูกค้างอยู่กับตู้ที่ก็อปมา');
+await (async () => {
+  const b = box();                                     // ตู้ใหม่ (ก็อปมา) — ปิดคืนของครบแล้ว
+  b.prizes.filter(p => !p.header && !p.drawn).forEach(p => { p.retOk = true; });
+  b.retDone = true;
+  b.prizes.find(p => String(p.no) === '1').cert = 'C1';
+  b.prizes.find(p => String(p.no) === '2').cert = 'C2';
+  b.prizes.find(p => String(p.no) === '3').cert = 'C3';
+  const old = { id: 'b0', name: 'ตู้เดิมที่ก็อปมา', prizes: b.prizes.slice() };
+  const other = { id: 'b9', name: 'ตู้โปเกมอนคนละงาน', prizes: [{ no: 100, name: 'Pikachu' }] };
+  mod.setBoxes([b, old, other]);
+  const good = { id: 'g1', name: 'OP 16', cert: 'C1', status: 'wait', gachaBoxId: 'b0', gachaNo: 1 };
+  const byName = { id: 'g2', name: 'Luffy Leader', status: 'wait', gachaBoxId: 'b0', gachaNo: 100 };
+  const wrong = { id: 'g3', name: 'OP 16', cert: 'C9', status: 'wait', gachaBoxId: 'b0', gachaNo: 3 };
+  const free = { id: 'g4', name: 'OP 16', cert: 'C1', status: 'show', gachaNo: 1 };
+  const moved = { id: 'g5', name: 'OP 16', cert: 'C2', status: 'wait', gachaBoxId: 'b0', gachaNo: 999 };
+  const alien = { id: 'g6', name: 'Luffy Leader', status: 'wait', gachaBoxId: 'b9', gachaNo: 100 };
+  mod.setCards([good, byName, wrong, free, moved, alien]);
+  mod.openGachaSummary('b1');
+
+  t('cert ตรง → ย้ายได้ · ไม่มี cert ทั้งคู่ → เทียบเบอร์+ชื่อแทน', () => {
+    const s = mod.gachaClaimScan(b);
+    assert.ok(s.ok.some(x => x.card.id === 'g1'), 'g1 ต้องเข้าด้วย cert');
+    assert.ok(s.ok.some(x => x.card.id === 'g2'), 'g2 ต้องเข้าด้วยเบอร์+ชื่อ');
+  });
+  t('cert ตรงแต่คนละเบอร์ ก็ยังจับคู่ได้ (เบอร์เริ่มใหม่ทุกตู้ จะยึดเบอร์ไม่ได้)', () => {
+    const hit = mod.gachaClaimScan(b).ok.find(x => x.card.id === 'g5');
+    assert.ok(hit, 'g5 มี cert C2 ต้องเจอรางวัล #2 แม้การ์ดจะเป็นเบอร์ 999');
+    assert.equal(String(hit.prize.no), '2');
+  });
+  t('เบอร์ตรงแต่ cert คนละใบ → ไม่ย้ายให้ แยกไว้เตือน', () => {
+    assert.deepEqual(mod.gachaClaimScan(b).clash.map(x => x.card.id), ['g3']);
+  });
+  // เบอร์ในตู้เริ่มที่ 1 ใหม่ทุกตู้ ถ้าจับคู่ด้วยเบอร์อย่างเดียว การ์ดจากงานอื่นจะถูกดูดมาด้วย
+  t('การ์ดจากตู้ที่ไม่มี cert ตรงกันเลย = คนละงาน ต้องไม่ถูกดูดมา', () => {
+    const s = mod.gachaClaimScan(b);
+    assert.ok(![...s.ok, ...s.clash].some(x => x.card.id === 'g6'),
+      'g6 อยู่ตู้ b9 ที่ไม่เกี่ยวกัน แม้เบอร์+ชื่อจะตรงก็ห้ามย้าย');
+  });
+  t('การ์ดที่ไม่ได้ผูกตู้ไหนอยู่ ไม่ถูกดึงมา (ไม่ใช่ของที่ค้าง)', () => {
+    const s = mod.gachaClaimScan(b);
+    assert.ok(![...s.ok, ...s.clash].some(x => x.card.id === 'g4'));
+  });
+  t('ขึ้นแถบชวนย้าย บอกจำนวน + ชื่อตู้ต้นทาง + เตือนใบที่ของไม่ตรง', () => {
+    const h = mod.rendered().gachaSumBody;
+    assert.ok(h.includes('gsum-claim') && h.includes('3 ใบ'), 'ต้องบอกว่าย้ายได้ 3 ใบ');
+    assert.ok(h.includes('ตู้เดิมที่ก็อปมา'), 'ต้องบอกว่าย้ายมาจากตู้ไหน');
+    assert.ok(h.includes('claimGachaCards()'), 'ต้องมีปุ่มย้าย');
+    assert.ok(h.includes('อีก 1 ใบ'), 'ต้องเตือนใบที่ของไม่ตรง');
+  });
+  t('ตู้ยังไม่มีการ์ดผูก → ปุ่มหลักยังเป็น "จบงานแล้ว" (ไม่มีอะไรให้จัด)', () => {
+    assert.ok(mod.rendered().gachaSumDoneBtn.includes('จบงานแล้ว'));
+  });
+
+  mod.setAnswer(true);
+  await mod.claimGachaCards();
+  t('กดย้ายแล้วถามยืนยันก่อน และบอกว่ายังไม่เปลี่ยนสถานะ', () => {
+    const o = mod.asked[mod.asked.length - 1];
+    assert.ok(o.title.includes('ย้ายการ์ดมาผูกตู้นี้'), 'ได้: ' + o.title);
+    assert.ok(o.sub.includes('ยังไม่เปลี่ยนสถานะ'), 'ต้องบอกว่าต้องกดจบงานอีกที');
+  });
+  t('ย้ายแล้วการ์ดมาผูกตู้นี้ แต่สถานะยังไม่เปลี่ยน (รอผู้ใช้ทวนก่อน)', () => {
+    assert.equal(good.gachaBoxId, 'b1');
+    assert.equal(byName.gachaBoxId, 'b1');
+    assert.equal(good.status, 'wait', 'ยังไม่จัดสถานะให้ในขั้นนี้');
+    assert.equal(wrong.gachaBoxId, 'b0', 'ใบที่ของไม่ตรงต้องอยู่ตู้เดิม');
+  });
+  t('ย้ายเสร็จ ปุ่มหลักเปลี่ยนเป็น "จบงาน" พร้อมจำนวนที่รอจัด', () => {
+    const r = mod.rendered();
+    assert.equal(r['gachaSumDoneBtn:disabled'], false);
+    assert.ok(r.gachaSumDoneBtn.includes('จบงาน') && r.gachaSumDoneBtn.includes('3 ใบรอจัด'),
+      'ได้: ' + r.gachaSumDoneBtn);
+  });
+
+  await mod.gachaSumAction();
+  t('กดจบงานต่อ → #1 จุ่มออกไปแล้วลงขายแล้ว · #100 ยังอยู่ในตู้กลับเป็นสะสม', () => {
+    assert.equal(good.status, 'sold', '#1 อยู่ใน 12 ใบแรกที่ drawn');
+    assert.equal(byName.status, 'show');
+    assert.equal(byName.gachaBoxId, undefined, 'ใบที่กลับเข้าคลังต้องหลุดจากตู้');
+  });
+  t('จัดครบแล้ว แถบชวนย้ายและปุ่มจบงานหายไป เหลือ "จบงานแล้ว"', () => {
+    const r = mod.rendered();
+    assert.ok(!r.gachaSumBody.includes('gsum-claim'), 'ไม่มีใบให้ย้ายแล้ว');
+    assert.equal(r['gachaSumDoneBtn:disabled'], true);
+    assert.ok(r.gachaSumDoneBtn.includes('จบงานแล้ว'));
   });
 })();
 

@@ -702,6 +702,13 @@
     background: var(--t-warn-bg); border: 1px solid var(--t-warn-fg); color: var(--t-warn-fg);
     border-radius: 13px; padding: 10px 14px; font-size: .84rem; font-weight: 700;
   }
+  /* แถบชวนย้ายการ์ด: การ์ดตรงกับรางวัลในตู้นี้ แต่ยังผูกอยู่กับตู้อื่น (เกิดตอนก็อปตู้มาใช้ซ้ำ) */
+  .gsum-claim {
+    grid-column: 1 / -1; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    background: var(--t-info-bg); border: 1px solid var(--t-info-fg); color: var(--t-info-fg);
+    border-radius: 13px; padding: 10px 14px; font-size: .84rem; font-weight: 700;
+  }
+  .gsum-claim .gsum-claim-note { font-weight: 600; opacity: .85; width: 100%; font-size: .78rem; }
   /* จบงานครบแล้ว (คืนของครบ + ไม่มีการ์ดค้าง) — ปุ่มกลายเป็นป้ายสถานะสีเทา ไม่ใช่ปุ่มให้กดอีก */
   #gachaSumDoneBtn:disabled {
     background: var(--border); border-color: var(--border); color: var(--muted);
@@ -7624,6 +7631,46 @@ function gachaPendingCards(b) {
     return p.drawn ? c.status !== 'sold' : true;
   });
 }
+// ก็อปตู้มาใช้ซ้ำ (📋) จะได้รางวัลตามมาทั้งชุด แต่การ์ดในคลังยังผูกกับตู้เดิม
+// ปิดคืนของตู้ใหม่จึงไม่มีอะไรให้จัด ส่วนของจริงค้างเป็น "รอขาย" ใต้ตู้เก่าที่ไม่มีใครปิด
+// จับคู่ด้วย cert เป็นหลัก ไม่ใช่เบอร์ในตู้ — เบอร์เริ่มที่ 1 ใหม่ทุกตู้ ถ้าจับด้วยเบอร์
+// การ์ดจากตู้โปเกมอนคนละงานจะชนกันเป็นร้อยใบ (เจอจริงตอนทดสอบกับข้อมูลจริง: ชน 132 ใบ)
+//   รอบ 1  cert ตรงกับรางวัลในตู้นี้ = การ์ดใบเดียวกันแน่นอน ไม่ต้องสนเบอร์
+//   รอบ 2  เฉพาะตู้ต้นทางที่รอบ 1 ยืนยันแล้วว่าเกี่ยวกัน จึงเทียบใบที่ไม่มี cert ด้วยเบอร์+ชื่อ
+// ตู้ที่ไม่มี cert ตรงกันเลย = คนละงาน ไม่แตะทั้งตู้ (ทั้งฝั่ง ok และฝั่งเตือน)
+function samePrizeName(a, b) {
+  return String(a ?? '').trim().toLowerCase() === String(b ?? '').trim().toLowerCase();
+}
+function gachaClaimScan(b) {
+  const ok = [], clash = [];
+  if (!b || !Array.isArray(cards)) return { ok, clash };
+  const prizes = (b.prizes || []).filter(p => p && !p.header);
+  const byCert = new Map(), byNo = new Map();
+  for (const p of prizes) {
+    const pc = String(p.cert || '').trim();
+    if (pc && !byCert.has(pc)) byCert.set(pc, p);
+    if (!byNo.has(String(p.no))) byNo.set(String(p.no), p);
+  }
+  const taken = new Set();                       // รางวัล 1 ใบรับการ์ดได้ใบเดียว
+  const outside = cards.filter(c => c && c.gachaBoxId && c.gachaBoxId !== b.id);
+  const kin = new Set();                         // ตู้ต้นทางที่ยืนยันแล้วว่าเกี่ยวกับตู้นี้
+  for (const c of outside) {                     // รอบ 1 — cert ตรง
+    const p = byCert.get(String(c.cert || '').trim());
+    if (!p || taken.has(p)) continue;
+    taken.add(p); kin.add(c.gachaBoxId);
+    ok.push({ card: c, prize: p });
+  }
+  const claimed = new Set(ok.map(x => x.card));
+  for (const c of outside) {                     // รอบ 2 — เฉพาะตู้ที่เกี่ยวกัน เทียบเบอร์+ชื่อ
+    if (claimed.has(c) || !kin.has(c.gachaBoxId)) continue;
+    const p = byNo.get(String(c.gachaNo));
+    if (!p || taken.has(p)) continue;
+    if (String(c.cert || '').trim() && String(p.cert || '').trim()) { clash.push({ card: c, prize: p }); continue; }
+    if (samePrizeName(c.name, p.name)) { taken.add(p); ok.push({ card: c, prize: p }); }
+    else clash.push({ card: c, prize: p });
+  }
+  return { ok, clash };
+}
 // รายการย่อยของกอง — ไม่มีรูป/cert/มูลค่า ก็โชว์แค่ชื่อ ไม่ต้องมีช่องว่างเปล่า ๆ
 function sumItemHTML(p, i, canTick, locked) {
   const k = prizeKey(p, i);
@@ -7710,7 +7757,21 @@ function renderGachaSummary() {
     ? `<div class="gsum-stuck">⚠️ ยังมีการ์ดในคลัง <b>${waiting.length} ใบ</b> ผูกกับตู้นี้อยู่${
         canEditGacha() ? ' — กดปุ่ม “จบงาน” ด้านล่างเพื่อจัดให้เรียบร้อย' : ''}</div>`
     : '';
-  document.getElementById('gachaSumBody').innerHTML = stuckBar
+  // การ์ดที่ตรงกับรางวัลในตู้นี้ แต่ยังผูกอยู่กับตู้อื่น — เสนอย้ายมา ไม่ย้ายให้เองเพราะเป็นของจริงในสต็อก
+  const claim = canEditGacha() ? gachaClaimScan(b) : { ok: [], clash: [] };
+  const fromNames = [...new Set(claim.ok.map(x => {
+    const src = (gachaBoxes || []).find(g => g && g.id === x.card.gachaBoxId);
+    return (src && src.name) || 'ตู้อื่น';
+  }))];
+  const claimBar = claim.ok.length
+    ? `<div class="gsum-claim">🔗 มีการ์ดในคลัง <b>${claim.ok.length} ใบ</b> ตรงกับรางวัลในตู้นี้ แต่ยังผูกอยู่กับ ${
+        esc(fromNames.map(n => '“' + n.trim() + '”').join(' · '))}
+        <button class="btn btn-ghost btn-sm" onclick="claimGachaCards()">ย้ายมาตู้นี้</button>${
+        claim.clash.length
+          ? `<div class="gsum-claim-note">⚠️ อีก ${claim.clash.length} ใบเบอร์ตรงแต่ของไม่ตรงกัน (cert/ชื่อคนละใบ) — ไม่ย้ายให้ ต้องแก้เอง</div>`
+          : ''}</div>`
+    : '';
+  document.getElementById('gachaSumBody').innerHTML = claimBar + stuckBar
     + gachaSummarySideHTML('ของคงเหลือ', '🎁', left, 'left', { canTick: true, locked, idxOf })
     + gachaSummarySideHTML('ของที่ออกไป', '📤', right, 'right', { idxOf });
   const btn = document.getElementById('gachaSumDoneBtn');
@@ -7727,6 +7788,37 @@ function renderGachaSummary() {
       ? (pend ? `✅ คืนของสำเร็จ (${pend} ใบ)` : '✅ คืนของสำเร็จ')
       : (waiting.length ? `🏁 จบงาน (${waiting.length} ใบรอจัด)` : '🏁 จบงานแล้ว');
   }
+}
+// ย้ายการ์ดที่ผูกค้างกับตู้อื่นมาผูกตู้นี้ — ย้ายอย่างเดียว ยังไม่จัดสถานะ
+// ให้ผู้ใช้เห็นจำนวนที่ย้ายมาแล้วค่อยกด "จบงาน" เอง จะได้ทวนก่อนของจริงในสต็อกเปลี่ยนสถานะ
+async function claimGachaCards() {
+  const b = refind(gachaBoxes, gachaSumId);
+  if (!b || !canEditGacha()) return;
+  const { ok, clash } = gachaClaimScan(b);
+  if (!ok.length) return;
+  const sample = ok.slice(0, 6).map(x => `#${x.prize.no} ${x.card.name || '(ไม่มีชื่อ)'}`);
+  if (ok.length > sample.length) sample.push(`…และอีก ${ok.length - sample.length} ใบ`);
+  const okd = await appConfirm({
+    icon: '🔗', tone: 'warn', title: 'ย้ายการ์ดมาผูกตู้นี้?',
+    sub: [b.name || '(ไม่มีชื่อ)',
+      'จับคู่ด้วยเบอร์ในตู้ และของต้องตรงกัน (cert/ชื่อ)',
+      ...sample,
+      clash.length ? `⚠️ อีก ${clash.length} ใบเบอร์ตรงแต่ของไม่ตรง — ไม่ย้ายให้` : '',
+      'ย้ายแล้วยังไม่เปลี่ยนสถานะ — กด "จบงาน" อีกทีเพื่อจัดเข้าคลัง'].filter(Boolean).join('\n'),
+    countLabel: 'ย้ายมา', count: `${ok.length} ใบ`, okText: 'ย้ายมาตู้นี้',
+  });
+  if (!okd) return;
+  const cur = refind(gachaBoxes, gachaSumId);
+  if (!cur) return;
+  const again = gachaClaimScan(cur);            // ลิสต์อาจถูกซิงก์ทับระหว่าง popup เปิดค้าง
+  if (!again.ok.length) return;
+  // ตั้งเบอร์ตามรางวัลที่จับคู่ได้ด้วย — คู่ที่เจอด้วย cert อาจอยู่คนละเบอร์กับตู้เดิม
+  // ถ้าไม่ตั้งใหม่ ตอนกดจบงานจะหารางวัลไม่เจอแล้วถูกโยนกลับเข้าคลังทั้งที่จุ่มออกไปแล้ว
+  again.ok.forEach(x => { x.card.gachaBoxId = cur.id; x.card.gachaNo = x.prize.no; });
+  save();                                       // save() ลงรายงานการใช้งานให้ในตัว
+  renderGachaSummary();
+  render();
+  setSync(`🔗 ย้ายมาตู้นี้ ${again.ok.length} ใบ — กด "จบงาน" เพื่อจัดเข้าคลัง`, 'ok');
 }
 // ปุ่มหลักของหน้าสรุป — เลือกงานตามสถานะตู้ ผู้ใช้เห็นปุ่มเดียวตลอดทาง
 function gachaSumAction() {
