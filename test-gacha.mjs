@@ -30,6 +30,7 @@ let canEdit = true;
 const saves = [];
 function saveGacha(){ saves.push(1); }
 function renderGacha(){}
+function render(){}
 function setSync(){}
 function openImgUrl(){}
 let cards = [];
@@ -48,7 +49,7 @@ const document = { getElementById: el };
 
 const mod = await import('data:text/javascript;base64,' + Buffer.from(
   refindSrc + stubs + html.slice(start, end)
-  + '\nexport { groupPrizes, gachaSummarySideHTML, openGachaSummary, toggleSumGroup, toggleSumPrize, toggleSumGroupAll, finishGachaReturn, prizeKey, asked, saves };'
+  + '\nexport { groupPrizes, gachaSummarySideHTML, openGachaSummary, toggleSumGroup, toggleSumPrize, toggleSumGroupAll, finishGachaReturn, prizeKey, asked, saves, fixGachaCards, syncGachaCardsBack };'
   + '\nexport const setCanEdit = v => { canEdit = v; };'
   + '\nexport const setAnswer = v => { answer = v; };'
   + '\nexport const setBoxes = v => { gachaBoxes = v; };'
@@ -293,13 +294,39 @@ await (async () => {
     assert.equal(soldCard.sellDate, '2026-08-16', 'ใช้วันของตู้');
     assert.equal(soldCard.gachaBoxId, 'b1', 'คงการผูกไว้เป็นประวัติว่าออกจากตู้ไหน');
   });
-  t('การ์ดที่จับคู่ไม่ได้ → ไม่แตะ และแจ้งเตือนให้ไปดูเอง', () => {
-    assert.equal(orphan.status, 'wait');
+  // เคสจริงจากตู้ 19999/109: การ์ดผูกเบอร์ 111 แต่ตู้มีแค่ 110 ช่อง (รางวัลถูกลบหลังผูก)
+  // เดิมระบบไม่แตะให้ ของค้างผูกตู้ตลอด — ตอนนี้ถือว่าของยังอยู่กับเรา คืนเข้าคลังให้
+  t('การ์ดที่หารางวัลตามเบอร์ไม่เจอ → คืนเข้าคลังเป็นสะสม + แจ้งว่าทำอะไรไป', () => {
+    assert.equal(orphan.status, 'show', 'ต้องไม่ค้างเป็นรอขายผูกตู้');
+    assert.equal(orphan.gachaBoxId, undefined, 'ต้องหลุดจากตู้');
     const o = mod.asked[mod.asked.length - 1];
-    assert.ok(o.title.includes('จับคู่ไม่ได้'), 'ได้: ' + o.title);
+    assert.ok(o.title.includes('คืนเข้าคลังให้แล้ว'), 'ได้: ' + o.title);
   });
   t('การ์ดที่ไม่เกี่ยวกับตู้นี้ ไม่ถูกแตะ', () => {
     assert.equal(other.status, 'wait');
+  });
+})();
+
+// ตู้ปิดคืนของครบไปแล้ว แต่มีการ์ดมาผูกทีหลัง → ต้องกดสั่งจัดใหม่ได้ ไม่ต้องเปิดงานใหม่ทั้งตู้
+await (async () => {
+  const b = box();
+  b.prizes.filter(p => !p.header && !p.drawn).forEach(p => { p.retOk = true; });
+  b.retDone = true;
+  mod.setBoxes([b]);
+  const late = { id: 'k9', name: 'มาผูกทีหลัง', status: 'wait', gachaBoxId: 'b1', gachaNo: 100 };
+  mod.setCards([late]);
+  mod.openGachaSummary('b1');
+  t('ตู้ที่ปิดแล้วแต่ยังมีการ์ดค้างผูก → ขึ้นแถบเตือน + ปุ่มจัดให้', () => {
+    const h = mod.rendered().gachaSumBody;
+    assert.ok(h.includes('gsum-stuck') && h.includes('1 ใบ'), 'ต้องเตือนว่ามีการ์ดค้าง');
+    assert.ok(h.includes('fixGachaCards()'), 'ต้องมีปุ่มให้กดจัด');
+  });
+  mod.setAnswer(true);
+  await mod.fixGachaCards();
+  t('กดจัดให้แล้ว การ์ดกลับเข้าคลัง และแถบเตือนหายไป', () => {
+    assert.equal(late.status, 'show');
+    assert.equal(late.gachaBoxId, undefined);
+    assert.ok(!mod.rendered().gachaSumBody.includes('gsum-stuck'));
   });
 })();
 

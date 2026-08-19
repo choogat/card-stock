@@ -696,6 +696,12 @@
   .gsum-tick.part { border-color: var(--t-wait-fg); color: var(--t-wait-fg); }
   .gsum-tick.locked { cursor: not-allowed; opacity: .55; }
   .gsum-locked { margin-top: 6px; color: var(--t-ok-fg); font-weight: 700; font-size: .82rem; }
+  /* แถบเตือน: ตู้ปิดแล้วแต่การ์ดในคลังยังค้างผูกอยู่ — กินเต็มความกว้างทั้ง 2 ฝั่ง */
+  .gsum-stuck {
+    grid-column: 1 / -1; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    background: var(--t-warn-bg); border: 1px solid var(--t-warn-fg); color: var(--t-warn-fg);
+    border-radius: 13px; padding: 10px 14px; font-size: .84rem; font-weight: 700;
+  }
   /* ปุ่มกรอง (เช่น ปุ่มราคา) หน้าตาเหมือน select.filter */
   .fbtn { padding: 0 14px; cursor: pointer; white-space: nowrap; }
   .fbtn:hover { border-color: var(--accent); }
@@ -7681,8 +7687,14 @@ function renderGachaSummary() {
       const who = b.retDoneBy ? ` โดย ${esc(b.retDoneBy)}` : '';
       return `<div class="gsum-locked">✅ คืนของสำเร็จแล้ว ${d}/${l.length} ใบ${when}${who}</div>`;
     })();
-  document.getElementById('gachaSumBody').innerHTML =
-    gachaSummarySideHTML('ของคงเหลือ', '🎁', left, 'left', { canTick: true, locked, idxOf })
+  // ปิดคืนของครบแล้วแต่ยังมีการ์ดค้างผูกกับตู้ → เสนอปุ่มจัดให้ ไม่ต้องเปิดงานใหม่ทั้งตู้
+  const stuck = locked ? (cards || []).filter(c => c && c.gachaBoxId === b.id).length : 0;
+  const stuckBar = stuck && canEditGacha()
+    ? `<div class="gsum-stuck">⚠️ ยังมีการ์ดในคลัง <b>${stuck} ใบ</b> ผูกกับตู้นี้อยู่
+        <button class="btn btn-ghost btn-sm" onclick="fixGachaCards()">จัดให้เลย</button></div>`
+    : '';
+  document.getElementById('gachaSumBody').innerHTML = stuckBar
+    + gachaSummarySideHTML('ของคงเหลือ', '🎁', left, 'left', { canTick: true, locked, idxOf })
     + gachaSummarySideHTML('ของที่ออกไป', '📤', right, 'right', { idxOf });
   const btn = document.getElementById('gachaSumDoneBtn');
   if (btn) {
@@ -7729,13 +7741,20 @@ function toggleSumGroupAll(key, on) {
 // เรียกตอนตู้ถูกคืนครบทั้งตู้: ใบที่ยังอยู่ในตู้ = คืนเข้าคลังเป็นสะสม · ใบที่จุ่มออกไปแล้ว = ขายแล้ว
 // ยอดขายลง 0 เพราะเงินถูกนับที่หน้ายอดจุ่มแล้ว (จำนวนจุ่ม × ราคาต่อครั้ง) ลงซ้ำจะทำให้ยอดรวมเกินจริง
 function syncGachaCardsBack(b) {
-  const out = { back: 0, sold: 0, skipped: 0 };
+  const out = { back: 0, sold: 0, orphan: 0 };
   if (!b || !Array.isArray(cards)) return out;
   const day = b.date || todayISO();
   for (const c of cards) {
     if (!c || c.gachaBoxId !== b.id) continue;
     const p = (b.prizes || []).find(x => x && !x.header && String(x.no) === String(c.gachaNo));
-    if (!p) { out.skipped++; continue; }           // จับคู่ไม่ได้ → ไม่แตะ ให้คนไปดูเอง
+    if (!p) {
+      // ไม่มีรางวัลตรงเบอร์นี้ในตู้ (รางวัลถูกลบไปหลังผูกการ์ด) — ไม่มีหลักฐานว่าจุ่มออกไป
+      // ถือว่าของยังอยู่กับเรา คืนเข้าคลังเป็นสะสม ไม่ปล่อยให้ค้างผูกตู้ไปตลอด
+      c.status = 'show';
+      delete c.gachaBoxId; delete c.gachaNo;
+      out.back++; out.orphan++;
+      continue;
+    }
     if (p.drawn) {
       if (c.status !== 'sold') {
         c.status = 'sold';
@@ -7798,15 +7817,37 @@ async function finishGachaReturn() {
   renderGachaSummary();
   renderGacha();
   setSync(res
-    ? `✅ คืนของครบทั้งตู้ · คืนเข้าคลัง ${res.back} ใบ · ลงขายแล้ว ${res.sold} ใบ${res.skipped ? ` · จับคู่ไม่ได้ ${res.skipped} ใบ` : ''}`
+    ? `✅ คืนของครบทั้งตู้ · คืนเข้าคลัง ${res.back} ใบ · ลงขายแล้ว ${res.sold} ใบ`
     : `✅ ปิดคืนของ ${n} ใบแล้ว`, 'ok');
-  if (res && res.skipped) {
+  if (res && res.orphan) {
     await appConfirm({
-      icon: '⚠️', tone: 'warn', title: `มี ${res.skipped} ใบจับคู่ไม่ได้`,
-      sub: 'การ์ดพวกนี้ผูกกับตู้นี้ไว้ แต่หารางวัลตามเบอร์ในตู้ไม่เจอ\nระบบไม่แตะให้ ต้องเข้าไปแก้สถานะเอง',
+      icon: 'ℹ️', title: `คืนเข้าคลังให้แล้ว ${res.orphan} ใบ`,
+      sub: `การ์ด ${res.orphan} ใบผูกกับตู้นี้ไว้ แต่ไม่มีรางวัลตรงเบอร์ในตู้ (รางวัลถูกลบไปหลังผูก)\nถือว่าของยังอยู่กับเรา จึงคืนเข้าคลังเป็น "สะสม" ให้ — ดูรายการได้ในรายงานการใช้งาน`,
       okText: 'เข้าใจแล้ว', cancelText: 'ปิด',
     });
   }
+}
+// ตู้ที่ปิดคืนของครบแล้ว แต่ยังมีการ์ดค้างผูกอยู่ (เช่นเพิ่งมาผูกทีหลัง หรือตอนนั้นระบบยังไม่จัดให้)
+// ให้กดสั่งจัดใหม่ได้ ไม่ต้องเปิดงานใหม่ทั้งตู้
+async function fixGachaCards() {
+  const b = refind(gachaBoxes, gachaSumId);
+  if (!b || !canEditGacha()) return;
+  const n = (cards || []).filter(c => c && c.gachaBoxId === b.id).length;
+  if (!n) return;
+  const okd = await appConfirm({
+    icon: '🧹', tone: 'warn', title: 'จัดการ์ดในคลังของตู้นี้?',
+    sub: [`${b.name || '(ไม่มีชื่อ)'}`,
+      'รางวัลที่ยังอยู่ในตู้ → การ์ดกลับเป็น "สะสม"',
+      'รางวัลที่จุ่มออกไปแล้ว → การ์ดลง "ขายแล้ว" ยอด 0 (เงินนับที่ยอดจุ่มแล้ว)'].join('\n'),
+    countLabel: 'การ์ดที่ผูกกับตู้นี้', count: `${n} ใบ`, okText: 'จัดให้เลย',
+  });
+  if (!okd) return;
+  const cur = refind(gachaBoxes, gachaSumId);
+  if (!cur) return;
+  const res = syncGachaCardsBack(cur);
+  renderGachaSummary();
+  render();
+  setSync(`✅ จัดแล้ว · คืนเข้าคลัง ${res.back} ใบ · ลงขายแล้ว ${res.sold} ใบ`, 'ok');
 }
 
 // กล่องสรุป 4 ช่อง (จำนวนจุ่ม · ยอดขาย · ทุน · กำไร)
