@@ -49,7 +49,7 @@ const document = { getElementById: el };
 
 const mod = await import('data:text/javascript;base64,' + Buffer.from(
   refindSrc + stubs + html.slice(start, end)
-  + '\nexport { groupPrizes, gachaSummarySideHTML, openGachaSummary, toggleSumGroup, toggleSumPrize, toggleSumGroupAll, finishGachaReturn, prizeKey, asked, saves, fixGachaCards, syncGachaCardsBack };'
+  + '\nexport { groupPrizes, gachaSummarySideHTML, openGachaSummary, toggleSumGroup, toggleSumPrize, toggleSumGroupAll, finishGachaReturn, prizeKey, asked, saves, fixGachaCards, syncGachaCardsBack, gachaPendingCards, gachaSumAction };'
   + '\nexport const setCanEdit = v => { canEdit = v; };'
   + '\nexport const setAnswer = v => { answer = v; };'
   + '\nexport const setBoxes = v => { gachaBoxes = v; };'
@@ -307,7 +307,7 @@ await (async () => {
   });
 })();
 
-// ตู้ปิดคืนของครบไปแล้ว แต่มีการ์ดมาผูกทีหลัง → ต้องกดสั่งจัดใหม่ได้ ไม่ต้องเปิดงานใหม่ทั้งตู้
+// ตู้ปิดคืนของครบไปแล้ว แต่มีการ์ดมาผูกทีหลัง → ปุ่มหลักต้องกดได้ ไม่ใช่ปุ่มตาย
 await (async () => {
   const b = box();
   b.prizes.filter(p => !p.header && !p.drawn).forEach(p => { p.retOk = true; });
@@ -316,17 +316,71 @@ await (async () => {
   const late = { id: 'k9', name: 'มาผูกทีหลัง', status: 'wait', gachaBoxId: 'b1', gachaNo: 100 };
   mod.setCards([late]);
   mod.openGachaSummary('b1');
-  t('ตู้ที่ปิดแล้วแต่ยังมีการ์ดค้างผูก → ขึ้นแถบเตือน + ปุ่มจัดให้', () => {
+  t('ตู้ที่ปิดแล้วแต่ยังมีการ์ดค้างผูก → ขึ้นแถบเตือนบอกจำนวน', () => {
     const h = mod.rendered().gachaSumBody;
     assert.ok(h.includes('gsum-stuck') && h.includes('1 ใบ'), 'ต้องเตือนว่ามีการ์ดค้าง');
-    assert.ok(h.includes('fixGachaCards()'), 'ต้องมีปุ่มให้กดจัด');
+  });
+  t('แถบเตือนไม่มีปุ่มซ้อน — งานจัดของอยู่ที่ปุ่มหลักปุ่มเดียว', () => {
+    assert.ok(!mod.rendered().gachaSumBody.includes('<button'), 'แถบเตือนต้องเป็นข้อความอย่างเดียว');
+  });
+  t('ปุ่มหลักกดได้ และบอกว่ามีกี่ใบรอจัด', () => {
+    const r = mod.rendered();
+    assert.equal(r['gachaSumDoneBtn:disabled'], false, 'ต้องกดได้');
+    assert.ok(r.gachaSumDoneBtn.includes('จบงาน') && r.gachaSumDoneBtn.includes('1 ใบรอจัด'),
+      'ได้: ' + r.gachaSumDoneBtn);
   });
   mod.setAnswer(true);
-  await mod.fixGachaCards();
-  t('กดจัดให้แล้ว การ์ดกลับเข้าคลัง และแถบเตือนหายไป', () => {
+  await mod.gachaSumAction();                 // กดปุ่มหลักตัวจริง
+  t('กดปุ่มหลักแล้วถามยืนยันก่อน แล้วค่อยจัดให้', () => {
+    const o = mod.asked[mod.asked.length - 1];
+    assert.ok(o.title.includes('จบงาน'), 'ต้องมี popup ยืนยัน · ได้: ' + o.title);
+    assert.equal(o.okText, 'จบงาน');
+  });
+  t('จัดแล้ว การ์ดกลับเข้าคลัง และแถบเตือนหายไป', () => {
     assert.equal(late.status, 'show');
     assert.equal(late.gachaBoxId, undefined);
     assert.ok(!mod.rendered().gachaSumBody.includes('gsum-stuck'));
+  });
+  t('จบงานครบแล้ว → ปุ่มเป็น "จบงานแล้ว" สีเทา กดไม่ได้', () => {
+    const r = mod.rendered();
+    assert.equal(r['gachaSumDoneBtn:disabled'], true, 'ต้องกดไม่ได้แล้ว');
+    assert.ok(r.gachaSumDoneBtn.includes('จบงานแล้ว'), 'ได้: ' + r.gachaSumDoneBtn);
+  });
+})();
+
+// ใบที่จุ่มออกไปแล้วและลงขายแล้ว ยังผูก gachaBoxId ไว้เป็นประวัติ — ต้องไม่ถูกนับว่าค้าง
+// ไม่งั้นตู้ที่มีของออกไปจะขึ้น "รอจัด" ค้างตลอด กดจบงานเท่าไหร่ก็ไม่หาย
+await (async () => {
+  const b = box();
+  b.prizes.filter(p => !p.header && !p.drawn).forEach(p => { p.retOk = true; });
+  b.retDone = true;
+  mod.setBoxes([b]);
+  const drawnNo = b.prizes.find(p => p && !p.header && p.drawn).no;
+  const history = { id: 'h1', name: 'ออกไปแล้ว', status: 'sold', gachaBoxId: 'b1', gachaNo: drawnNo };
+  mod.setCards([history]);
+  mod.openGachaSummary('b1');
+  t('การ์ดที่ขายแล้วผ่านตู้ ไม่นับเป็นของค้าง', () => {
+    assert.equal(mod.gachaPendingCards(b).length, 0);
+    assert.ok(!mod.rendered().gachaSumBody.includes('gsum-stuck'), 'ต้องไม่ขึ้นแถบเตือน');
+  });
+  t('ตู้ที่จบครบแล้ว ปุ่มขึ้น "จบงานแล้ว" กดไม่ได้', () => {
+    const r = mod.rendered();
+    assert.equal(r['gachaSumDoneBtn:disabled'], true);
+    assert.ok(r.gachaSumDoneBtn.includes('จบงานแล้ว'), 'ได้: ' + r.gachaSumDoneBtn);
+  });
+})();
+
+// ยังคืนของไม่ครบ → ปุ่มต้องยังเป็น "คืนของสำเร็จ" ตามเดิม ไม่กระโดดไปจบงาน
+await (async () => {
+  const b = box();
+  mod.setBoxes([b]);
+  mod.setCards([{ id: 'k1', name: 'ค้าง', status: 'wait', gachaBoxId: 'b1', gachaNo: 100 }]);
+  mod.openGachaSummary('b1');
+  t('ตู้ที่ยังคืนของไม่ครบ → ปุ่มคือ "คืนของสำเร็จ" และกดได้', () => {
+    const r = mod.rendered();
+    assert.equal(r['gachaSumDoneBtn:disabled'], false);
+    assert.ok(r.gachaSumDoneBtn.includes('คืนของสำเร็จ'), 'ได้: ' + r.gachaSumDoneBtn);
+    assert.ok(!r.gachaSumBody.includes('gsum-stuck'), 'ยังไม่ปิดคืนของ ไม่ต้องเตือนเรื่องการ์ดค้าง');
   });
 })();
 

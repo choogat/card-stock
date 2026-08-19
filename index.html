@@ -702,6 +702,11 @@
     background: var(--t-warn-bg); border: 1px solid var(--t-warn-fg); color: var(--t-warn-fg);
     border-radius: 13px; padding: 10px 14px; font-size: .84rem; font-weight: 700;
   }
+  /* จบงานครบแล้ว (คืนของครบ + ไม่มีการ์ดค้าง) — ปุ่มกลายเป็นป้ายสถานะสีเทา ไม่ใช่ปุ่มให้กดอีก */
+  #gachaSumDoneBtn:disabled {
+    background: var(--border); border-color: var(--border); color: var(--muted);
+    cursor: default; opacity: 1; box-shadow: none;
+  }
   /* ปุ่มกรอง (เช่น ปุ่มราคา) หน้าตาเหมือน select.filter */
   .fbtn { padding: 0 14px; cursor: pointer; white-space: nowrap; }
   .fbtn:hover { border-color: var(--accent); }
@@ -1896,7 +1901,7 @@
     <div class="modal-actions">
       <button class="btn btn-ghost" onclick="closeGachaSummary()">ปิด</button>
       <!-- ไม่ครอบด้วย runBusy — งานจริงหลังกดยืนยันเสร็จทันที ถ้าครอบไว้ปุ่มจะหมุนค้างตอนรอตอบ popup -->
-      <button class="btn btn-primary" id="gachaSumDoneBtn" onclick="finishGachaReturn()">✅ คืนของสำเร็จ</button>
+      <button class="btn btn-primary" id="gachaSumDoneBtn" onclick="gachaSumAction()">✅ คืนของสำเร็จ</button>
     </div>
   </div>
 </div>
@@ -7608,6 +7613,17 @@ const gachaSumOpen = new Set();        // กองที่กางดูร�
 function prizeLocked(p) { return !!(p && p.retOk); }
 function sumLeft(b) { return ((b && b.prizes) || []).filter(p => p && !p.header && !p.drawn); }
 function sumLocked(b) { const l = sumLeft(b); return l.length > 0 && l.every(prizeLocked); } // ปิดครบทั้งตู้แล้ว
+// การ์ดในคลังที่ยัง "ต้องจัด" ให้ตู้นี้ = ชุดเดียวกับที่ syncGachaCardsBack() จะแก้
+// ใบที่จุ่มออกไปแล้วและลงขายแล้ว ยังผูก gachaBoxId ไว้เป็นประวัติว่าออกจากตู้ไหน — ไม่ใช่ของค้าง
+function gachaPendingCards(b) {
+  if (!b || !Array.isArray(cards)) return [];
+  return cards.filter(c => {
+    if (!c || c.gachaBoxId !== b.id) return false;
+    const p = (b.prizes || []).find(x => x && !x.header && String(x.no) === String(c.gachaNo));
+    if (!p) return true;                    // ไม่มีรางวัลตรงเบอร์ → ต้องคืนเข้าคลัง
+    return p.drawn ? c.status !== 'sold' : true;
+  });
+}
 // รายการย่อยของกอง — ไม่มีรูป/cert/มูลค่า ก็โชว์แค่ชื่อ ไม่ต้องมีช่องว่างเปล่า ๆ
 function sumItemHTML(p, i, canTick, locked) {
   const k = prizeKey(p, i);
@@ -7687,11 +7703,12 @@ function renderGachaSummary() {
       const who = b.retDoneBy ? ` โดย ${esc(b.retDoneBy)}` : '';
       return `<div class="gsum-locked">✅ คืนของสำเร็จแล้ว ${d}/${l.length} ใบ${when}${who}</div>`;
     })();
-  // ปิดคืนของครบแล้วแต่ยังมีการ์ดค้างผูกกับตู้ → เสนอปุ่มจัดให้ ไม่ต้องเปิดงานใหม่ทั้งตู้
-  const stuck = locked ? (cards || []).filter(c => c && c.gachaBoxId === b.id).length : 0;
-  const stuckBar = stuck && canEditGacha()
-    ? `<div class="gsum-stuck">⚠️ ยังมีการ์ดในคลัง <b>${stuck} ใบ</b> ผูกกับตู้นี้อยู่
-        <button class="btn btn-ghost btn-sm" onclick="fixGachaCards()">จัดให้เลย</button></div>`
+  // คืนของครบแล้วแต่ยังมีการ์ดค้างผูกกับตู้ — บอกให้รู้ว่าเหลืออะไร ส่วนปุ่มจัดอยู่ที่ปุ่มหลักด้านล่าง
+  // (เมื่อก่อนมีปุ่ม "จัดให้เลย" ซ้อนอยู่ตรงนี้ ขณะที่ปุ่มหลักเป็นปุ่มตายกดไม่ได้ — สับสนว่าต้องกดอันไหน)
+  const waiting = locked ? gachaPendingCards(b) : [];
+  const stuckBar = waiting.length
+    ? `<div class="gsum-stuck">⚠️ ยังมีการ์ดในคลัง <b>${waiting.length} ใบ</b> ผูกกับตู้นี้อยู่${
+        canEditGacha() ? ' — กดปุ่ม “จบงาน” ด้านล่างเพื่อจัดให้เรียบร้อย' : ''}</div>`
     : '';
   document.getElementById('gachaSumBody').innerHTML = stuckBar
     + gachaSummarySideHTML('ของคงเหลือ', '🎁', left, 'left', { canTick: true, locked, idxOf })
@@ -7700,9 +7717,22 @@ function renderGachaSummary() {
   if (btn) {
     btn.style.display = canEditGacha() ? '' : 'none';
     const pend = left.filter(p => p.checked && !prizeLocked(p)).length;
-    btn.disabled = locked;
-    btn.textContent = locked ? '✅ คืนของสำเร็จแล้ว' : (pend ? `✅ คืนของสำเร็จ (${pend} ใบ)` : '✅ คืนของสำเร็จ');
+    // ปุ่มเดียวพาไปจนจบงาน 3 ขั้น — ไม่มีสถานะไหนที่กดไม่ได้ทั้งที่ยังมีงานเหลือ
+    //   ยังคืนของไม่ครบ      → ✅ คืนของสำเร็จ (กดได้)
+    //   คืนครบ แต่การ์ดค้าง  → 🏁 จบงาน (กดได้ → ยืนยัน → จัดการ์ดเข้าคลัง)
+    //   คืนครบ + ไม่มีค้าง   → 🏁 จบงานแล้ว (เทา กดไม่ได้)
+    const finished = locked && !waiting.length;
+    btn.disabled = finished;
+    btn.textContent = !locked
+      ? (pend ? `✅ คืนของสำเร็จ (${pend} ใบ)` : '✅ คืนของสำเร็จ')
+      : (waiting.length ? `🏁 จบงาน (${waiting.length} ใบรอจัด)` : '🏁 จบงานแล้ว');
   }
+}
+// ปุ่มหลักของหน้าสรุป — เลือกงานตามสถานะตู้ ผู้ใช้เห็นปุ่มเดียวตลอดทาง
+function gachaSumAction() {
+  const b = refind(gachaBoxes, gachaSumId);
+  if (!b) return;
+  return (sumLocked(b) && gachaPendingCards(b).length) ? fixGachaCards() : finishGachaReturn();
 }
 function openGachaSummary(id) {
   if (!refind(gachaBoxes, id)) return;
@@ -7832,14 +7862,14 @@ async function finishGachaReturn() {
 async function fixGachaCards() {
   const b = refind(gachaBoxes, gachaSumId);
   if (!b || !canEditGacha()) return;
-  const n = (cards || []).filter(c => c && c.gachaBoxId === b.id).length;
+  const n = gachaPendingCards(b).length;
   if (!n) return;
   const okd = await appConfirm({
-    icon: '🧹', tone: 'warn', title: 'จัดการ์ดในคลังของตู้นี้?',
+    icon: '🏁', tone: 'warn', title: 'จบงานตู้จุ่มนี้?',
     sub: [`${b.name || '(ไม่มีชื่อ)'}`,
       'รางวัลที่ยังอยู่ในตู้ → การ์ดกลับเป็น "สะสม"',
       'รางวัลที่จุ่มออกไปแล้ว → การ์ดลง "ขายแล้ว" ยอด 0 (เงินนับที่ยอดจุ่มแล้ว)'].join('\n'),
-    countLabel: 'การ์ดที่ผูกกับตู้นี้', count: `${n} ใบ`, okText: 'จัดให้เลย',
+    countLabel: 'การ์ดที่รอจัด', count: `${n} ใบ`, okText: 'จบงาน',
   });
   if (!okd) return;
   const cur = refind(gachaBoxes, gachaSumId);
@@ -7847,7 +7877,7 @@ async function fixGachaCards() {
   const res = syncGachaCardsBack(cur);
   renderGachaSummary();
   render();
-  setSync(`✅ จัดแล้ว · คืนเข้าคลัง ${res.back} ใบ · ลงขายแล้ว ${res.sold} ใบ`, 'ok');
+  setSync(`🏁 จบงานแล้ว · คืนเข้าคลัง ${res.back} ใบ · ลงขายแล้ว ${res.sold} ใบ`, 'ok');
 }
 
 // กล่องสรุป 4 ช่อง (จำนวนจุ่ม · ยอดขาย · ทุน · กำไร)
