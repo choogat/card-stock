@@ -702,6 +702,13 @@
     background: var(--t-warn-bg); border: 1px solid var(--t-warn-fg); color: var(--t-warn-fg);
     border-radius: 13px; padding: 10px 14px; font-size: .84rem; font-weight: 700;
   }
+  /* สวิตช์ "ราคาตามคลัง" ในหัวข้อมูลตู้ — ปิดอยู่ = เทากลืนกับบรรทัด, เปิด = เน้นสีให้เห็นว่าตู้นี้ราคาวิ่ง */
+  .gb-live {
+    font: inherit; cursor: pointer; padding: 2px 10px; border-radius: 999px;
+    background: transparent; border: 1px solid var(--border); color: var(--muted);
+  }
+  .gb-live:hover { border-color: var(--accent); color: var(--accent); }
+  .gb-live.on { background: var(--t-info-bg); border-color: var(--t-info-fg); color: var(--t-info-fg); font-weight: 700; }
   /* แถบชวนย้ายการ์ด: การ์ดตรงกับรางวัลในตู้นี้ แต่ยังผูกอยู่กับตู้อื่น (เกิดตอนก็อปตู้มาใช้ซ้ำ) */
   .gsum-claim {
     grid-column: 1 / -1; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
@@ -7588,14 +7595,14 @@ async function markGachaDone(btn, id, val) {
 // ===== สรุปรวมตู้ที่จบงานแล้ว: ของคงเหลือ (ซ้าย) / ของที่ออกไป (ขวา) =====
 // รางวัลชื่อเดียวกันรวมเป็นแถวเดียวแล้วบอกจำนวน — ตู้หนึ่งมีของซ้ำได้เป็นสิบ ไล่ดูทีละแถวไม่ไหว
 // ชื่อเทียบแบบตัดช่องว่างหัวท้าย + ไม่สนตัวพิมพ์ใหญ่เล็ก แต่โชว์ตามที่พิมพ์ครั้งแรก
-function groupPrizes(list) {
+function groupPrizes(list, box) {
   const m = new Map();
   for (const p of list) {
     const name = (p.name || '(ไม่มีชื่อ)').trim();
     const k = name.toLowerCase();
     const g = m.get(k) || { key: k, name, n: 0, value: 0, items: [] };
     g.n += 1;
-    g.value += prizeValueOf(p);
+    g.value += prizeValueOf(p, box);
     g.items.push(p);
     m.set(k, g);
   }
@@ -7672,13 +7679,13 @@ function gachaClaimScan(b) {
   return { ok, clash };
 }
 // รายการย่อยของกอง — ไม่มีรูป/cert/มูลค่า ก็โชว์แค่ชื่อ ไม่ต้องมีช่องว่างเปล่า ๆ
-function sumItemHTML(p, i, canTick, locked) {
+function sumItemHTML(p, i, canTick, locked, box) {
   const k = prizeKey(p, i);
   const thumb = p.image
     ? `<img class="gsum-thumb" loading="lazy" src="${esc(p.image)}" onclick="event.stopPropagation();openImgUrl(unKey('${jsKey(p.image)}'))" alt="">`
     : '<span class="gsum-thumb none">🃏</span>';
   const bits = [p.no ? `#${esc(String(p.no))}` : '', p.cert ? `cert ${esc(p.cert)}` : '',
-    prizeValueOf(p) ? money(prizeValueOf(p)) : ''].filter(Boolean).join(' · ');
+    prizeValueOf(p, box) ? money(prizeValueOf(p, box)) : ''].filter(Boolean).join(' · ');
   const lk = prizeLocked(p);   // ใบนี้ปิดรอบคืนของไปแล้ว → เทา แก้ไม่ได้อีก
   const tick = canTick
     ? `<span class="gsum-tick${p.checked || lk ? ' on' : ''}${lk ? ' locked' : ''}"
@@ -7690,8 +7697,8 @@ function sumItemHTML(p, i, canTick, locked) {
   </div>`;
 }
 function gachaSummarySideHTML(title, icon, list, cls, opt) {
-  const { canTick = false, locked = false, idxOf = null } = opt || {};
-  const rows = groupPrizes(list);
+  const { canTick = false, locked = false, idxOf = null, box = null } = opt || {};
+  const rows = groupPrizes(list, box);
   const value = rows.reduce((s, r) => s + r.value, 0);
   const done = canTick ? list.filter(prizeLocked).length : 0;             // ปิดรอบไปแล้ว
   const ticked = canTick ? list.filter(p => p.checked && !prizeLocked(p)).length : 0; // ติ๊กรอปิดรอบนี้
@@ -7710,7 +7717,7 @@ function gachaSummarySideHTML(title, icon, list, cls, opt) {
             title="${gLock ? 'คืนของสำเร็จแล้ว แก้ไม่ได้' : 'ติ๊กทั้งกอง'}">${gAll === r.n ? '✔' : gAll ? '–' : ''}</span>`
         : '';
       const kids = open
-        ? `<div class="gsum-items">${r.items.map(p => sumItemHTML(p, idxOf ? idxOf(p) : 0, canTick, locked)).join('')}</div>`
+        ? `<div class="gsum-items">${r.items.map(p => sumItemHTML(p, idxOf ? idxOf(p) : 0, canTick, locked, box)).join('')}</div>`
         : '';
       return `<div class="gsum-grow${open ? ' open' : ''}">
         <div class="gsum-ghead" onclick="toggleSumGroup('${cls}','${ek}')">
@@ -7731,6 +7738,7 @@ function gachaSummarySideHTML(title, icon, list, cls, opt) {
   </div>`;
 }
 function renderGachaSummary() {
+  invalidateCertIndex();
   const b = refind(gachaBoxes, gachaSumId);
   if (!b) { closeGachaSummary(); return; }
   const st = gachaBoxStats(b);
@@ -7772,8 +7780,8 @@ function renderGachaSummary() {
           : ''}</div>`
     : '';
   document.getElementById('gachaSumBody').innerHTML = claimBar + stuckBar
-    + gachaSummarySideHTML('ของคงเหลือ', '🎁', left, 'left', { canTick: true, locked, idxOf })
-    + gachaSummarySideHTML('ของที่ออกไป', '📤', right, 'right', { idxOf });
+    + gachaSummarySideHTML('ของคงเหลือ', '🎁', left, 'left', { canTick: true, locked, idxOf, box: b })
+    + gachaSummarySideHTML('ของที่ออกไป', '📤', right, 'right', { idxOf, box: b });
   const btn = document.getElementById('gachaSumDoneBtn');
   if (btn) {
     btn.style.display = canEditGacha() ? '' : 'none';
@@ -8018,10 +8026,31 @@ function sortPrizesByNo(list) {
 }
 // มูลค่ารางวัล 1 ใบ — ถ้าผูกกับการ์ด (cardId) ให้ดึง "ราคาขายปัจจุบัน" ของการ์ดมาสด ๆ (แก้ราคาขายแล้วตู้จุ่มอัปเดตตาม)
 // ถ้าไม่มีการ์ดผูก/ราคาขายว่าง → ใช้ค่าที่บันทึกไว้เดิม (p.value)
-function prizeValueOf(p) {
+// รางวัลที่พิมพ์/นำเข้า/ก็อปมา ไม่มี cardId จึงผูกกับการ์ดไม่ได้ (ของจริง 3,431 จาก 3,432 ใบ)
+// ตู้ที่เปิด "ราคาตามคลัง" จะจับคู่ด้วย cert แทน — ทำเป็นรายตู้เพราะการเปิดทำให้ยอด/กำไร
+// ของตู้ที่ปิดงานไปแล้วขยับ ต้องให้เจ้าของเลือกเองว่าตู้ไหนควรขยับ
+let _certIndex = null;
+function invalidateCertIndex() { _certIndex = null; }
+function cardByCert(cert) {
+  const k = String(cert || '').trim();
+  if (!k || typeof cards === 'undefined' || !Array.isArray(cards)) return null;
+  if (!_certIndex) {
+    _certIndex = new Map();
+    for (const c of cards) {
+      const kk = String((c && c.cert) || '').trim();
+      if (kk && !_certIndex.has(kk)) _certIndex.set(kk, c);
+    }
+  }
+  return _certIndex.get(k) || null;
+}
+function prizeValueOf(p, box) {
   if (!p) return 0;
   if (p.cardId && typeof cards !== 'undefined' && Array.isArray(cards)) {
     const c = cards.find(x => x && x.id === p.cardId);
+    if (c && Number(c.sell)) return Number(c.sell);
+  }
+  if (box && box.livePrice) {
+    const c = cardByCert(p.cert);
     if (c && Number(c.sell)) return Number(c.sell);
   }
   return Number(p.value != null ? p.value : p.qty) || 0;
@@ -8029,7 +8058,7 @@ function prizeValueOf(p) {
 // คำนวณสรุปของตู้หนึ่งใบ
 function gachaBoxStats(b) {
   const realPrizes = sortPrizesByNo((b.prizes || []).filter(p => p && !p.header));
-  const prizeValue = realPrizes.reduce((s, p) => s + prizeValueOf(p), 0);
+  const prizeValue = realPrizes.reduce((s, p) => s + prizeValueOf(p, b), 0);
   const slots = Number(b.slots) || 0;
   const price = Number(b.price) || 0;
   const total = price * slots;
@@ -8038,8 +8067,39 @@ function gachaBoxStats(b) {
   if (slots) drawn = Math.min(drawn, slots);
   const sales = drawn * price;          // ยอดขาย = จำนวนจุ่ม × ราคาต่อครั้ง
   // ทุน = ผลรวมมูลค่าของรางวัลที่ "ออกแล้ว" (นับใบละครั้งตามที่คลิก)
-  const cost = realPrizes.filter(p => p.drawn).reduce((s, p) => s + prizeValueOf(p), 0);
+  const cost = realPrizes.filter(p => p.drawn).reduce((s, p) => s + prizeValueOf(p, b), 0);
   return { realPrizes, prizeValue, slots, price, total, drawn, sales, cost, profit: sales - cost };
+}
+// เปิด/ปิด "ราคาตามคลัง" รายตู้ — บอกยอดก่อน-หลังให้ทวนก่อน เพราะยอด/กำไรของตู้จะขยับทันที
+async function toggleGachaLivePrice(id) {
+  const b0 = refind(gachaBoxes, id);
+  if (!b0 || !canEditGacha()) return;
+  const on = !b0.livePrice;
+  const sum = box => (box.prizes || []).filter(p => p && !p.header)
+    .reduce((s, p) => s + prizeValueOf(p, box), 0);
+  const before = sum(b0);
+  const after = sum({ ...b0, livePrice: on });
+  const moved = (b0.prizes || []).filter(p => p && !p.header)
+    .filter(p => prizeValueOf(p, b0) !== prizeValueOf(p, { ...b0, livePrice: on })).length;
+  const okd = await appConfirm({
+    icon: '🔗', tone: 'warn',
+    title: on ? 'ให้ราคารางวัลตามราคาในคลัง?' : 'กลับไปใช้ราคาที่บันทึกไว้?',
+    sub: [b0.name || '(ไม่มีชื่อ)',
+      on ? 'จับคู่การ์ดด้วย cert แล้วดึง "ราคาขาย" มาแสดงสด ๆ — แก้ราคาที่คลังสินค้าแล้วตู้นี้ขยับตามทันที'
+        : 'ตู้นี้จะกลับไปใช้ราคาที่บันทึกไว้ตอนสร้างรางวัล',
+      moved ? `⚠️ ราคาจะเปลี่ยน ${moved} ใบ · มูลค่ารวม ${money(before)} → ${money(after)}`
+        : 'ตอนนี้ราคาตรงกันอยู่แล้ว ยอดจะยังไม่ขยับ',
+      'กำไรของตู้นี้คิดจากมูลค่ารางวัลที่จุ่มออกไป จึงขยับตามด้วย'].join('\n'),
+    countLabel: 'ราคาที่เปลี่ยน', count: `${moved} ใบ`,
+    okText: on ? 'ใช้ราคาตามคลัง' : 'ใช้ราคาที่บันทึกไว้',
+  });
+  if (!okd) return;
+  const cur = refind(gachaBoxes, id);      // ลิสต์อาจถูกซิงก์ทับระหว่าง popup เปิดค้าง
+  if (!cur) return;
+  if (on) cur.livePrice = true; else delete cur.livePrice;
+  saveGacha();
+  renderGacha();
+  setSync(on ? '🔗 ตู้นี้ใช้ราคาตามคลังสินค้าแล้ว' : '🔗 ตู้นี้กลับไปใช้ราคาที่บันทึกไว้', 'ok');
 }
 // HTML ของตู้หนึ่งใบ (i = index จริงใน gachaBoxes)
 function gachaBoxHTML(b, i) {
@@ -8061,7 +8121,7 @@ function gachaBoxHTML(b, i) {
         const thumb = img
           ? `<img class="gb-pimg" src="${esc(img)}" onclick="event.stopPropagation();openImgUrl(unKey('${jsKey(img)}'))" alt="">`
           : '<span class="gb-pimg gb-noimg">—</span>';
-        const v = prizeValueOf(p);
+        const v = prizeValueOf(p, b);
         const noShow = (p.no != null && p.no !== '') ? p.no : (k + 1);
         // ยังไม่ออก: แตะเลือกได้หลายอัน แล้วกดยืนยันทีเดียว · ออกแล้ว: แอดมินยกเลิกได้ / คนอื่นล็อก
         let checkCell;
@@ -8096,7 +8156,10 @@ function gachaBoxHTML(b, i) {
     </div>
     <div class="gb-body" style="display:none">
       ${statsHTML}
-      <div class="gb-meta">จำนวนใบ <b>${slots}</b> · ราคาต่อครั้ง <b>${money(price)}</b> · ยอดเต็มตู้ <b>${money(total)}</b></div>
+      <div class="gb-meta">จำนวนใบ <b>${slots}</b> · ราคาต่อครั้ง <b>${money(price)}</b> · ยอดเต็มตู้ <b>${money(total)}</b>${
+        ro ? '' : ` · <button class="gb-live${b.livePrice ? ' on' : ''}" onclick="event.stopPropagation();toggleGachaLivePrice('${b.id}')"
+          title="${b.livePrice ? 'ราคารางวัลดึงจากราคาขายของการ์ดในคลัง — กดเพื่อกลับไปใช้ราคาที่บันทึกไว้' : 'ตอนนี้ใช้ราคาที่บันทึกไว้ตอนสร้างรางวัล — กดเพื่อให้ดึงราคาขายจากคลังสินค้ามาสด ๆ'}"
+          >🔗 ราคาตามคลัง: ${b.livePrice ? 'เปิด' : 'ปิด'}</button>`}</div>
       ${b.note ? `<div class="gb-note">${esc(b.note)}</div>` : ''}
       <div class="gb-prize-title">รางวัล (${realPrizes.length} รายการ · รวมยอด ${money(prizeValue)})</div>
       <table class="gb-prizes"><tbody>${prizeRows}</tbody></table>
@@ -8137,6 +8200,7 @@ function gachaGroupedByDayHTML(idxs, totalLabel, emptyMsg) {
   return html;
 }
 function renderGacha() {
+  invalidateCertIndex();            // ราคาการ์ดอาจเพิ่งถูกแก้ที่หน้าคลังสินค้า
   const area = document.getElementById('gachaList');
   if (!area) return;
   gachaPending.clear(); updateGachaConfirmBar(); // เริ่ม render ใหม่ = ล้างการเลือกค้าง

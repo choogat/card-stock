@@ -17,6 +17,7 @@ function money(n){ return '฿' + (Number(n)||0).toLocaleString('th-TH'); }
 function fmtDate(d){ return d ? d.split('-').reverse().join('/') : ''; }
 function shopById(id){ return id === 's1' ? { id:'s1', name:'25Cardshop' } : null; }
 function prizeValueOf(p){ return Number(p && p.value) || 0; }
+function invalidateCertIndex(){}
 function sortPrizesByNo(a){ return a.slice(); }
 function gachaBoxStats(b){
   const realPrizes = (b.prizes || []).filter(p => p && !p.header);
@@ -58,7 +59,17 @@ const mod = await import('data:text/javascript;base64,' + Buffer.from(
 ).toString('base64'));
 
 let pass = 0, fail = 0;
-const t = (name, fn) => { try { fn(); pass++; console.log('  ✓ ' + name); } catch (e) { fail++; console.log('  ✗ ' + name + '\n      ' + e.message); } };
+const ok = name => { pass++; console.log('  ✓ ' + name); };
+const bad = (name, e) => { fail++; console.log('  ✗ ' + name + '\n      ' + e.message); };
+// เทสต์ async ต้อง await ที่จุดเรียก ไม่งั้น assert จะไประเบิดทีหลังตอนเทสต์ถัดไปรีเซ็ตสถานะไปแล้ว
+// (เคยเป็นแบบนั้นจริง — process.exit ท้ายไฟล์กลบไว้ เทสต์เลยขึ้น ✓ ทั้งที่ไม่เคยถูกตรวจ)
+const t = (name, fn) => {
+  try {
+    const r = fn();
+    if (r && typeof r.then === 'function') return r.then(() => ok(name), e => bad(name, e));
+    ok(name);
+  } catch (e) { bad(name, e); }
+};
 
 // ตู้จำลอง: OP 16 จำนวน 30 ใบ (ออกไป 12) · Luffy 10 ใบ (ยังไม่ออก) · Zoro 5 ใบ (ออกหมด)
 const box = () => {
@@ -248,7 +259,7 @@ await (async () => {
     assert.ok(mod.rendered().gachaSumBody.includes('ติ๊กรอปิดอีก 1'), 'ใบที่ยังไม่ปิดต้องติ๊กได้');
   });
   // รอบที่ 2 — ปิดที่เหลือให้ครบ
-  t('ปิดครบทั้งตู้ → ปุ่มกดไม่ได้อีก', async () => {
+  await t('ปิดครบทั้งตู้ → ปุ่มกดไม่ได้อีก', async () => {
     mod.toggleSumGroupAll('luffy leader', true);
     await mod.finishGachaReturn();
     const r = mod.rendered();
@@ -549,5 +560,56 @@ await (async () => {
   });
 })();
 
-console.log(`\n${fail ? '✗' : '✓'} ผ่าน ${pass} / ${pass + fail}\n`);
-process.exit(fail ? 1 : 0);
+
+// ===== ราคารางวัลตามราคาการ์ดในคลัง (เปิด/ปิดรายตู้) =====
+// ดึงตัวจริงออกมาจาก index.html — บล็อกนี้อยู่คนละที่กับโค้ดสรุปตู้
+console.log('\nราคาตามคลัง (รายตู้)');
+{
+  const pvStart = html.indexOf('// รางวัลที่พิมพ์/นำเข้า/ก็อปมา ไม่มี cardId');
+  const pvEnd = html.indexOf('// คำนวณสรุปของตู้หนึ่งใบ');
+  assert.ok(pvStart > 0 && pvEnd > pvStart, 'หาบล็อก prizeValueOf ไม่เจอ');
+  const pv = await import('data:text/javascript;base64,' + Buffer.from(
+    'let cards = [];\n' + html.slice(pvStart, pvEnd)
+    + '\nexport { prizeValueOf, invalidateCertIndex };'
+    + '\nexport const setCards = v => { cards = v; invalidateCertIndex(); };',
+  ).toString('base64'));
+
+  const card = { id: 'c1', cert: '111', sell: 5000 };
+  pv.setCards([card, { id: 'c2', cert: '222', sell: 900 }]);
+  const prize = { no: '1', cert: '111', name: 'LUFFY', value: 3000 };
+  const off = { id: 'x', prizes: [prize] };
+  const on = { id: 'x', prizes: [prize], livePrice: true };
+
+  t('ปิดอยู่ (ค่าเริ่มต้น) → ใช้ราคาที่บันทึกไว้ ตู้เก่าไม่ขยับเอง', () => {
+    assert.equal(pv.prizeValueOf(prize, off), 3000);
+    assert.equal(pv.prizeValueOf(prize), 3000, 'ไม่ส่งตู้มาก็ต้องได้ค่าเดิม');
+  });
+  t('เปิดแล้ว → ดึงราคาขายของการ์ดที่ cert ตรงกัน', () => {
+    assert.equal(pv.prizeValueOf(prize, on), 5000);
+  });
+  t('แก้ราคาขายที่คลัง แล้วตู้ที่เปิดไว้ขยับตามทันที', () => {
+    card.sell = 7500;
+    pv.invalidateCertIndex();
+    assert.equal(pv.prizeValueOf(prize, on), 7500);
+    assert.equal(pv.prizeValueOf(prize, off), 3000, 'ตู้ที่ปิดไว้ต้องไม่ขยับ');
+  });
+  t('cert หาการ์ดไม่เจอ → ใช้ราคาที่บันทึกไว้ ไม่กลายเป็น 0', () => {
+    const orphan = { no: '9', cert: '999', value: 1200 };
+    assert.equal(pv.prizeValueOf(orphan, on), 1200);
+  });
+  t('รางวัลไม่มี cert → ใช้ราคาที่บันทึกไว้', () => {
+    assert.equal(pv.prizeValueOf({ no: '2', name: 'x', value: 800 }, on), 800);
+  });
+  t('การ์ดราคาขาย 0 → ไม่ทับราคาที่บันทึกไว้ด้วยเลข 0', () => {
+    pv.setCards([{ id: 'c3', cert: '111', sell: 0 }]);
+    assert.equal(pv.prizeValueOf(prize, on), 3000);
+  });
+  t('cardId ยังมาก่อนเสมอ — ของเดิมที่ส่งจากขายสินค้าไม่เปลี่ยนพฤติกรรม', () => {
+    pv.setCards([{ id: 'cc', cert: '111', sell: 4444 }]);
+    const linked = { no: '1', cert: '111', value: 3000, cardId: 'cc' };
+    assert.equal(pv.prizeValueOf(linked, off), 4444, 'ผูก cardId ไว้ ต้องวิ่งตามแม้ตู้จะปิดสวิตช์');
+  });
+}
+
+console.log(`\n${fail ? '✗' : '✓'} ผ่าน ${pass} / ${pass + fail}`);
+if (fail) process.exit(1);
