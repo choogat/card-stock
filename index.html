@@ -3693,9 +3693,12 @@ function allowedTabs() {
   // แดชบอร์ด = เฉพาะเจ้าของเครื่อง (ไม่ล็อกอิน) หรือแอดมิน — เป็นภาพรวมการเงินธุรกิจ
   if (!passcode) return ['dashboard'].concat(ALL_TABS);
   if (userRole === 'admin') return ['dashboard'].concat(ALL_TABS, 'users', 'settings');
-  // ผู้ช่วยที่ถูกจำกัดร้าน → เห็นเฉพาะเมนู "ร้านค้า" (ฟังก์ชันในร้านเท่านั้น)
-  if (userShops && userShops.length) return ['shop'];
-  return (userTabs || []).slice();
+  // ผูกร้าน = ได้เมนู "ร้านค้า" เพิ่มเข้ามา ไม่ใช่มาแทนที่แท็บที่ติ๊กไว้
+  // เดิม return ['shop'] ทิ้งแท็บที่ติ๊กทั้งหมด — ติ๊กคลังสินค้าให้แล้วก็ไม่ขึ้น และหน้าผู้ใช้งาน
+  // ก็ยังให้ติ๊กได้เหมือนมีผล คนตั้งสิทธิ์จึงไม่มีทางรู้ว่าที่ติ๊กไปถูกทิ้ง
+  const tabs = (userTabs || []).slice();
+  if (userShops && userShops.length && !tabs.includes('shop')) tabs.push('shop');
+  return tabs;
 }
 
 // ซ่อน/แสดงเมนูตามสิทธิ์ + ย้ายไปแถบที่เข้าได้
@@ -3795,8 +3798,9 @@ function applyPermissions() {
   updateStats(); // รีเฟรชการซ่อน/โชว์การ์ดสรุปยอดรวมตามสิทธิ์ (เผื่อสิทธิ์เปลี่ยนสด)
   // หน้าล่าสุดเป็นหน้าร้าน → คืนร้าน+ฟังก์ชันเดิมทันที (กันแวบไปหน้าจัดการร้าน)
   if ((localStorage.getItem('app_view') === 'shop' || BOOT_VIEW === 'shop') && restoreShopView()) return;
-  // ผู้ใช้ที่ถูกจำกัดร้าน → เปิดร้านแรกที่เข้าได้ให้เลย (เห็นฟังก์ชันในร้านทันที)
-  if (passcode && userRole !== 'admin' && userShops && userShops.length) {
+  // บัญชีร้านล้วน → เปิดร้านแรกที่เข้าได้ให้เลย (เห็นฟังก์ชันในร้านทันที)
+  // คนที่ติ๊กแท็บอื่นไว้ด้วย ไม่ต้องลากเข้าร้าน — ปล่อยให้ไปหน้าที่เปิดค้างไว้/หน้าเริ่มต้นตามปกติ
+  if (isShopAccount()) {
     const vs = visibleShops();
     if (vs.length) { switchShopView(vs[0].id, 'sales'); return; }
   }
@@ -6411,7 +6415,12 @@ const SHOP_MENU = [
     { ic: '⚙️', label: 'ตั้งค่า & ผู้ใช้', ph: 'settingsusers' },
   ] },
 ];
-function isShopAccount() { return !!passcode && userRole !== 'admin' && userShops && userShops.length > 0; }
+// "บัญชีร้านล้วน" = ผูกร้าน และไม่ได้ติ๊กแท็บอื่นเลย → ใช้เปลือกแบบร้าน (แถบบน + ธีมมืด ไม่มีเมนูข้าง)
+// ถ้าติ๊กแท็บอื่นไว้ด้วย ต้องใช้เมนูข้างปกติ ไม่งั้นแท็บที่ติ๊กจะไม่มีทางกดถึง
+function isShopAccount() {
+  return !!passcode && userRole !== 'admin' && userShops && userShops.length > 0
+    && !(userTabs && userTabs.length);
+}
 // แถบเมนูบัญชีร้าน — จัดกลุ่ม + ไอคอน + แบรนด์ร้าน + ผู้ใช้ท้าย (ตามแบบ)
 function renderShopSidebar() {
   const shopNavEl = document.getElementById('shopAccountNav');
